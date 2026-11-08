@@ -31,16 +31,15 @@
         <p><b data-i18n="home.connect_title">Para empezar, conectá tus servicios.</b> <span class="muted" id="home-connect-text"></span></p>
         <button class="btn primary" data-go="ajustes" data-i18n="home.connect_btn">Conectar</button>
       </div>
-      <h1 id="t-inicio" class="sentence">
-        <span data-i18n="home.from">Pasar de</span>
-        <select data-i18n-aria="home.from_aria" aria-label="Servicio de origen" id="from"></select><br>
-        <span data-i18n="home.to">a</span>
-        <select data-i18n-aria="home.to_aria" aria-label="Servicio de destino" class="to" id="to"></select>
-        <button class="btn ghost swap" id="swap" data-i18n-aria="home.swap_aria" aria-label="Dar vuelta">⇅</button>
-      </h1>
-      <p class="lede" data-i18n="home.lede">Tocá los nombres para elegir de dónde y a dónde, o ⇅ para dar vuelta. Los temas que ya están en el destino, aunque sea en otra versión, no se repiten.</p>
+      <h1 id="t-inicio" data-i18n="home.title">Tus playlists, en el servicio que quieras.</h1>
+      <p class="lede" id="home-lede"></p>
+      <ul class="features">
+        <li><b data-i18n="home.f_transfer_title">Transferir.</b> <span data-i18n="home.f_transfer">Elegís una playlist y la app busca cada tema en el otro servicio.</span></li>
+        <li><b data-i18n="home.f_dedupe_title">Quitar repetidos.</b> <span data-i18n="home.f_dedupe">Encuentra la misma canción dos veces.</span></li>
+        <li><b data-i18n="home.f_history_title">Historial.</b> <span data-i18n="home.f_history">Cada transferencia queda guardada.</span></li>
+      </ul>
       <div class="actions">
-        <button class="btn primary" data-go="transferir" data-i18n="home.pick">Elegir playlists</button>
+        <button class="btn primary" data-go="transferir" data-i18n="home.transfer">Transferir música</button>
         <button class="btn ghost" data-go="repetidos" data-i18n="home.dedupe">Quitar repetidos</button>
       </div>
 
@@ -60,6 +59,13 @@
       </ol>
 
       <div id="pick">
+        <p class="route-pick">
+          <span data-i18n="transfer.from">De</span>
+          <select data-i18n-aria="transfer.from_aria" aria-label="Servicio de origen" id="from"></select>
+          <span data-i18n="transfer.to">a</span>
+          <select data-i18n-aria="transfer.to_aria" aria-label="Servicio de destino" class="to" id="to"></select>
+          <button class="btn ghost swap" id="swap" data-i18n-aria="transfer.swap_aria" aria-label="Dar vuelta">⇅</button>
+        </p>
         <div class="notice" id="pick-connect" hidden>
           <p id="pick-connect-text"></p>
           <button class="btn primary" data-go="ajustes" data-i18n="transfer.go_connect">Ir a conectar</button>

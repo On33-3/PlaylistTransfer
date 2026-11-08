@@ -1,8 +1,7 @@
 """Sistema de diseño: todos los botones y campos usan los tamaños definidos (mejoras 3).
 
 Botones: 42 (principal), 36 (secundario) y 28 (dentro de un tema). Los segmentos de un selector
-miden 34 y el selector entero, 42. Campos: 36, o 42 si están en una fila de acciones. Los
-selectores de la frase de Inicio ("Pasar de Tidal a…") son grandes a propósito.
+miden 34 y el selector entero, 42. Campos: 36, o 42 si están en una fila de acciones.
 """
 from __future__ import annotations
 
@@ -16,7 +15,7 @@ MEASURE = """(screen) => {
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const root = document.querySelector('#' + screen), out = [];
   root.querySelectorAll('button, input[type=text], input[type=search], input[type=number], select').forEach(el => {
-    if (!vis(el) || el.matches('.hist button.row, .sentence select')) return;   // filas del historial y la frase de Inicio
+    if (!vis(el) || el.matches('.hist button.row')) return;   // filas del historial
     out.push({what: (el.id || el.className || el.tagName) + ' «' + (el.textContent || '').trim().slice(0, 20) + '»',
               h: Math.round(el.getBoundingClientRect().height), tag: el.tagName, seg: !!el.closest('.seg'),
               field: el.matches('input, select')});

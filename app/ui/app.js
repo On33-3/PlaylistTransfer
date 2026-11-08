@@ -125,7 +125,7 @@ async function refreshStatus() {
   $("#home-connect-text").textContent = missing.length ? t("home.connect_missing", { services: listAnd(missing) }) : "";
 }
 
-/* ---------------------------------------------------------------- inicio */
+/* ---------------------------------------------------------------- transferir: de dónde y a dónde */
 
 function fitSelect(sel) {
   const probe = document.createElement("span");
@@ -167,7 +167,7 @@ function setupRoute() {
 }
 
 function updateSwapTitle() {
-  $("#swap").title = t("home.swap_title", { src: NAMES[state.to], dst: NAMES[state.from] });
+  $("#swap").title = t("transfer.swap_title", { src: NAMES[state.to], dst: NAMES[state.from] });
 }
 
 function opTitle(op) {
@@ -249,7 +249,7 @@ async function getPlaylists(key, force = false) {
 
 async function loadPickers() {
   const { from, to } = state;
-  $("#route-lede").textContent = t("transfer.lede", { src: NAMES[from], dst: NAMES[to] });
+  $("#route-lede").textContent = t("transfer.lede");
   $("#src-title").textContent = t("transfer.src_title", { service: NAMES[from] });
   $("#dst-title").textContent = t("transfer.dst_title", { service: NAMES[to] });
   const missing = [from, to].filter(k => !connected(k));
@@ -819,6 +819,7 @@ async function start() {
   [state.from, state.to] = USABLE;
   ["#go", "#dry", "#remove", "#dup-scan"].forEach(s => { $(s).dataset.needsIdle = ""; });
   setupRoute();
+  $("#home-lede").textContent = t("home.lede", { services: listAnd(Object.values(NAMES)) });
   const info = await call("info");
   if (info) {
     $("#version").textContent = t("nav.version", { v: info.version });

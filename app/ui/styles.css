@@ -111,20 +111,12 @@
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
 
-  /* ---------- inicio: frase ---------- */
-  .sentence {
-    font-size: 44px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em;
-    margin: 18px 0 14px;
-  }
-  .sentence select {
-    appearance: none; border: 0; cursor: pointer;
-    font-size: inherit; font-weight: 700; letter-spacing: inherit;
-    padding: 0 .35em; margin: 0 .05em; border-radius: 14px;
-    background: var(--surface);
-    box-shadow: inset 0 -4px 0 var(--lav);
-  }
-  .sentence select.to { box-shadow: inset 0 -4px 0 var(--sky); }
-  .sentence select:hover { background: #FBFAFE; }
+  /* ---------- inicio: qué hace la app ---------- */
+  .features { list-style: none; margin: -8px 0 0; padding: 0; display: grid; gap: 10px; max-width: 64ch; }
+  .features li { padding-left: 16px; border-left: 3px solid var(--lav); color: var(--ink-soft); }
+  .features li:nth-child(2) { border-left-color: var(--sky); }
+  .features li:nth-child(3) { border-left-color: var(--mint); }
+  .features b { color: var(--ink); }
 
   .history-mini { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
   .history-mini li {
@@ -253,7 +245,6 @@
     nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
     nav .spacer, nav .version { display: none; }
     main { padding: 24px 18px; }
-    .sentence { font-size: 32px; }
     .pickers, .settings section, .dups li { grid-template-columns: 1fr; }
     .hist button.row { grid-template-columns: 1fr; }
     .hist .detail { padding-left: 4px; }
@@ -411,12 +402,15 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 .offscreen { position: fixed; left: -9999px; top: 0; }
 dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
 
-/* Inicio: los nombres de la frase se ven como lo que son, algo para elegir (flecha ▾), y ⇅ da
-   vuelta la dirección. La flecha es un SVG en línea (sin recursos externos) */
-.sentence select {
-  padding-right: .95em;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237E6BC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right .32em center; background-size: .36em auto;
+/* Transferir, paso 1: de dónde y a dónde. Los nombres se ven como lo que son, algo para elegir
+   (flecha ▾, un SVG en línea: sin recursos externos), y ⇅ da vuelta la dirección */
+.route-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 18px; font-weight: 600; }
+.route-pick select {
+  appearance: none; border: 0; cursor: pointer; height: var(--h-md); border-radius: var(--r-field);
+  font: inherit; font-weight: 700; color: var(--ink); padding: 0 1.5em 0 .6em;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237E6BC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right .55em center / .6em auto;
+  box-shadow: inset 0 -3px 0 var(--lav);
 }
-.sentence .swap { width: var(--h-md); height: var(--h-md); padding: 0; border-radius: 50%; font-size: 18px; vertical-align: middle;
-  margin-left: .25em; position: relative; top: -.12em; }
+.route-pick select.to { box-shadow: inset 0 -3px 0 var(--sky); }
+.route-pick select:hover { background-color: #FBFAFE; }
+.route-pick .swap { width: var(--h-md); height: var(--h-md); padding: 0; border-radius: 50%; font-size: 17px; }
