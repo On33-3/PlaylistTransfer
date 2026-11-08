@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from playwright.sync_api import sync_playwright  # noqa: E402
 
+from tests.fakes import FakeService  # noqa: E402
 from tests.ui_helpers import make_api, open_page  # noqa: E402
 
 OUT = ROOT / "docs" / "img"
@@ -21,6 +22,8 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp, sync_playwright() as pw:
         browser = pw.chromium.launch(channel="msedge", headless=True)
         api, tidal, yt = make_api(Path(tmp))
+        # Spotify sin conectar: en el README se ve como en una instalación nueva, no "próximamente"
+        api._connectors["spotify"] = FakeService("spotify", "Spotify", connected=False)
         page, errors = open_page(browser, api)
         page.add_style_tag(content="#toast { display: none !important; }")   # los avisos no van en las capturas
 
