@@ -108,7 +108,7 @@ Quien descarga el repo o el `.exe` arranca de cero: **ni el repo ni la app traen
 | Escenario | Qué pasa | Test |
 |---|---|---|
 | Primera vez que se abre | Inicio: los tres servicios "sin conectar". Historial: estado vacío ("Todavía no hiciste transferencias. Cuando hagas la primera, aparece acá") con un botón a Transferir. Abrir no crea historial, sesiones ni preferencias (solo `app.log` y la caché de la ventana, `webview/`) | `test_first_run.py` |
-| Primer login | Se pregunta el navegador (se propone el predeterminado, nunca Chrome solo) y se guarda en preferencias | `test_auth.py`, `test_first_run.py` |
+| Primer login | Se pregunta el navegador (se propone el predeterminado de Windows, sea cual sea; si el elegido se desinstaló, se vuelve a proponer) y se guarda en preferencias | `test_auth.py`, `test_first_run.py` |
 | Primera transferencia real | Se crea `historial.sqlite` y se guarda la operación con cada tema y su artista. Un dry-run no crea nada | `test_first_run.py` |
 | Preferencias dañadas | Se usan los valores por defecto; el archivo no se pisa | `test_first_run.py` |
 | Historial dañado | Se aparta como `historial.dañado-<fecha>.sqlite` (nunca se borra) y se empieza uno nuevo; la UI avisa | `test_first_run.py` |

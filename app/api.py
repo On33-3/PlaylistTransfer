@@ -103,11 +103,13 @@ class Api:
         p["language"] = p.get("language") or i18n.get_language()
         prefs.save(self._prefs_path, p)
 
-    def _browser(self) -> Browser | None:
+    def _browser(self, installed: list[Browser] | None = None) -> Browser | None:
+        """El navegador elegido, si sigue instalado. Si lo desinstalaron, None: se vuelve a proponer uno."""
         b = self._prefs().get("browser")
-        if b and b.get("exe"):
-            return Browser(b.get("name", ""), b.get("kind", ""), Path(b["exe"]))
-        return None
+        if not (b and b.get("exe")):
+            return None
+        installed = self._list_browsers() if installed is None else installed
+        return next((x for x in installed if str(x.exe).lower() == str(b["exe"]).lower()), None)
 
     @staticmethod
     def _safe(fn, *args, **kwargs):
@@ -221,7 +223,7 @@ class Api:
 
     def browsers(self) -> dict:
         found = self._list_browsers()
-        chosen = self._browser()
+        chosen = self._browser(found)
         suggested = browsers_mod.suggested_browser(found)
         return {"browsers": [{"name": b.name, "kind": b.kind, "exe": str(b.exe), "default": b.default} for b in found],
                 "chosen": str(chosen.exe) if chosen else None,
@@ -239,9 +241,10 @@ class Api:
     def connect(self, key: str) -> dict:
         def work(emit, cancel):
             c = self._connector(key)
-            browser = self._browser()
+            installed = self._list_browsers()
+            browser = self._browser(installed)
             if browser is None:
-                suggested = browsers_mod.suggested_browser(self._list_browsers())
+                suggested = browsers_mod.suggested_browser(installed)
                 if suggested is None:
                     raise ConnectorError(tr("err.choose_browser_first"))
                 self.choose_browser(str(suggested.exe))

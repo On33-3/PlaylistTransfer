@@ -10,9 +10,6 @@ from pathlib import Path, PureWindowsPath
 CHROMIUM = {"chrome": "Chrome", "msedge": "Edge", "brave": "Brave", "vivaldi": "Vivaldi",
             "opera": "Opera", "launcher": "Opera", "chromium": "Chromium", "arc": "Arc", "thorium": "Thorium"}
 
-# Chrome es el navegador del trabajo del usuario: nunca se elige solo (ver CLAUDE.md)
-NOT_BY_DEFAULT = {"chrome"}
-
 
 @dataclass
 class Browser:
@@ -111,11 +108,9 @@ def sort_browsers(browsers: list[Browser], default_exe: Path | None) -> list[Bro
 
 
 def suggested_browser(browsers: list[Browser]) -> Browser | None:
-    """El que se propone si el usuario todavía no eligió: el predeterminado, salvo Chrome."""
-    for b in browsers:
-        if b.kind not in NOT_BY_DEFAULT:
-            return b
-    return None
+    """El que se propone si el usuario todavía no eligió: el predeterminado de Windows (va primero en la
+    lista) o, si no se reconoce, el primero instalado. Ningún navegador queda afuera: cada uno usa el suyo."""
+    return browsers[0] if browsers else None
 
 
 def open_url(url: str, browser: Browser | None = None) -> None:
