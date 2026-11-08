@@ -203,7 +203,7 @@ async function renderHomeHistory() {
   const ops = await call("history", 3) || [];
   showLegend("#home-legend", ops.length > 0);
   $("#home-history").innerHTML = ops.length ? ops.map(op => `
-    <li><div><div class="what">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
+    <li><div><div class="what" title="${esc(opTitle(op))}">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
     ${mosaicHTML(op)}</li>`).join("") : emptyHistory();
 }
 
@@ -231,12 +231,39 @@ async function loadPickers() {
   $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">${esc(t("transfer.loading"))}</li>`;
   const [src, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
   const count = c => (c == null ? "" : songs(c));
+  // El nombre va en su propio span: si es muy largo se corta con "…" y se ve completo al pasar el mouse
+  const item = (p, type) => `<li data-filter="${esc(p.name.toLowerCase())}"><label title="${esc(p.name)}"><input type="${type}" name="${type === "radio" ? "src" : "dst"}" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> <span class="name">${esc(p.name)}</span> <span class="count num">${count(p.count)}</span></label></li>`;
   $("#src-list").innerHTML = !src ? `<li class="loading error">${esc(t("transfer.read_error"))}</li>`
-    : src.length ? src.map(p => `<li><label><input type="radio" name="src" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> ${esc(p.name)} <span class="count num">${count(p.count)}</span></label></li>`).join("")
+    : src.length ? src.map(p => item(p, "radio")).join("")
     : `<li class="loading">${esc(t("transfer.no_playlists", { service: NAMES[from] }))}</li>`;
-  $("#dst-list").innerHTML = (dst || []).map(p => `<li><label><input type="checkbox" name="dst" value="${esc(p.id)}" data-name="${esc(p.name)}"> ${esc(p.name)} <span class="count num">${count(p.count)}</span></label></li>`).join("")
-    + `<li class="new"><label><input type="checkbox" id="dst-new"> ${esc(t("transfer.new"))}</label><input type="text" id="dst-new-name" aria-label="${esc(t("transfer.new_aria"))}" placeholder="${esc(t("transfer.new_placeholder"))}" hidden></li>`;
+  // "Crear una playlist nueva" va primero (y queda fija arriba): con cientos de playlists no se pierde al final
+  $("#dst-list").innerHTML = `<li class="new"><label><input type="checkbox" id="dst-new"> ${esc(t("transfer.new"))}</label><input type="text" id="dst-new-name" aria-label="${esc(t("transfer.new_aria"))}" placeholder="${esc(t("transfer.new_placeholder"))}" hidden></li>`
+    + (dst || []).map(p => item(p, "checkbox")).join("");
+  // Si alguna de las dos listas es larga, las dos llevan buscador: así las cajas quedan alineadas
+  const withFilter = Math.max((src || []).length, (dst || []).length) > FILTER_FROM;
+  addFilter("#src-list", withFilter, t("transfer.src_title", { service: NAMES[from] }));
+  addFilter("#dst-list", withFilter, t("transfer.dst_title", { service: NAMES[to] }));
   updateGo();
+}
+
+const FILTER_FROM = 8;   // con más playlists que esto, aparece el buscador
+
+/** Buscador arriba de una lista de playlists. Oculta las que no coinciden (no las destilda). */
+function addFilter(listSel, show, listName) {
+  const list = $(listSel), picker = list.closest(".picker");
+  $(".filter", picker)?.remove();
+  if (!show) return;
+  const input = document.createElement("input");
+  input.type = "search"; input.className = "filter";
+  input.placeholder = t("transfer.filter"); input.setAttribute("aria-label", t("transfer.filter_aria", { list: listName }));
+  list.before(input);
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0;
+    $$("li[data-filter]", list).forEach(li => { li.hidden = !!q && !li.dataset.filter.includes(q); shown += li.hidden ? 0 : 1; });
+    $(".no-match", list)?.remove();
+    if (!shown) list.insertAdjacentHTML("beforeend", `<li class="no-match">${esc(t("transfer.no_match"))}</li>`);
+  });
 }
 
 function selection() {
@@ -317,6 +344,9 @@ function onTransferEvent(tr, e) {
   if (e.type === "source") {
     tr.total = e.total; $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
     $("#mosaic").innerHTML = Array.from({ length: e.total }, (_, i) => `<i data-n="${i + 1}"></i>`).join("");
+    // Con muchos temas, cuadrados más chicos: el mosaico no tapa la pantalla
+    $("#mosaic").classList.toggle("dense", e.total > 90 && e.total <= 300);
+    $("#mosaic").classList.toggle("denser", e.total > 300);
   } else if (e.type === "searching") {
     const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = "now";
     const li = document.createElement("li");
@@ -492,7 +522,7 @@ async function renderHistory() {
   $("#hist").innerHTML = ops.length ? ops.map(op => `
     <li data-op="${op.id}"><button class="row" aria-expanded="false">
       <span class="date">${esc(opDate(op))}</span>
-      <span><div class="what">${esc(opTitle(op))}</div><div class="sub">${esc(opRoute(op))}. ${esc(opSub(op))}</div></span>
+      <span><div class="what" title="${esc(opTitle(op))}">${esc(opTitle(op))}</div><div class="sub">${esc(opRoute(op))}. ${esc(opSub(op))}</div></span>
       ${mosaicHTML(op)}</button>
       <div class="detail"><ul><li class="muted">${esc(t("common.loading"))}</li></ul></div></li>`).join("")
     : (kind ? `<li class="empty">${esc(t(kind === "dedupe" ? "history.empty_dedupe" : "history.empty_transfer"))}</li>` : emptyHistory());

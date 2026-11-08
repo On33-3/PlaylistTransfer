@@ -326,3 +326,47 @@ def test_limit_live_word_in_both_titles():
     queda OK en vez de dudosa. Raro y de bajo riesgo (es la misma canción del mismo artista)."""
     assert classify(score(S("Live and Let Die", "Wings", dur=192),
                           S("Live and Let Die (Live)", "Wings", dur=200))) == OK
+
+
+# ================================================================ H. Música clásica y temas numerados
+# (encontrado con la prueba de estrés: "Gymnopédie No. 1" y "No. 3" se tomaban como repetidos)
+
+CLASSICAL = [
+    Case("otra obra con el mismo nombre y otro número", S("Gymnopédie No. 1", "Erik Satie", dur=200),
+         S("Gymnopédie No. 3", "Erik Satie", dur=198), NOT_FOUND, False),
+    Case("sonata con otro número", S("Piano Sonata No. 14 in C-Sharp Minor", "Ludwig van Beethoven", dur=900),
+         S("Piano Sonata No. 8 in C Minor", "Ludwig van Beethoven", dur=905), NOT_FOUND, False),
+    Case("mismo opus, otro número", S("Nocturne in E-Flat Major, Op. 9 No. 2", "Frédéric Chopin", dur=270),
+         S("Nocturne in B-Flat Minor, Op. 9 No. 1", "Frédéric Chopin", dur=272), NOT_FOUND, False),
+    Case("otro movimiento de la misma obra",
+         S("The Four Seasons, Violin Concerto No. 1 in E Major, RV 269 Spring: I. Allegro", "Antonio Vivaldi", dur=200),
+         S("The Four Seasons, Violin Concerto No. 1 in E Major, RV 269 Spring: II. Largo", "Antonio Vivaldi", dur=202),
+         NOT_FOUND, False),
+    Case("temas numerados", S("Track 1", "Alguien", dur=180), S("Track 2", "Alguien", dur=181), NOT_FOUND, False),
+    Case("la misma obra remasterizada", S("Gymnopédie No. 1", "Erik Satie", dur=200),
+         S("Gymnopédie No. 1 (Remastered 2015)", "Erik Satie", dur=201), OK, True),
+    Case("la misma obra en vivo", S("Symphony No. 9 in D Minor, Op. 125", "Ludwig van Beethoven", dur=4000),
+         S("Symphony No. 9 in D Minor, Op. 125 (Live 1985)", "Ludwig van Beethoven", dur=4010), DOUBTFUL, True),
+    Case("un año en el título no cuenta como número", S("December, 1963 (Oh What a Night!)", "The Four Seasons", dur=212),
+         S("December, 1963 (Oh, What a Night)", "The Four Seasons", dur=213), OK, True),
+]
+
+
+@pytest.mark.parametrize("case", CLASSICAL, ids=ids(CLASSICAL))
+def test_classical_and_numbered(case):
+    run(case)
+
+
+def test_classical_playlist_keeps_every_piece():
+    songs = [S(f"Gymnopédie No. {i}", "Erik Satie", dur=200) for i in (1, 2, 3)] + [
+        S("Spring: I. Allegro", "Antonio Vivaldi", dur=200), S("Spring: II. Largo", "Antonio Vivaldi", dur=160),
+        S("Spring: III. Allegro pastorale", "Antonio Vivaldi", dur=250)]
+    assert find_duplicates(songs) == []
+
+
+def test_limit_number_on_one_side_only():
+    """Límite conocido: "Song 2" vs "Song" (Blur) se toma como coincidencia al transferir, porque
+    solo uno tiene número; distinguirlo rompería "Live at Wembley '86" vs el original. Es raro."""
+    assert classify(score(S("Song 2", "Blur", dur=122), S("Song", "Blur", dur=122))) == OK
+    assert classify(score(S("Bohemian Rhapsody", "Queen", dur=354),
+                          S("Bohemian Rhapsody - Live at Wembley '86", "Queen", dur=360))) == DOUBTFUL

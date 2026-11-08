@@ -194,7 +194,10 @@
     "tile.tooltip": "{title} — {artist}: {status}",
     "tiles.more": "+{n} more",
     "tiles.more_title": "And {n} more songs: click the row to see them all",
-    "tile.jump": "Click to see this song in the list"
+    "tile.jump": "Click to see this song in the list",
+    "transfer.filter": "Search playlists…",
+    "transfer.filter_aria": "Search in {list}",
+    "transfer.no_match": "No playlist matches."
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",

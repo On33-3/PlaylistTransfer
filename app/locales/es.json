@@ -194,7 +194,10 @@
     "tile.tooltip": "{title} — {artist}: {status}",
     "tiles.more": "+{n} más",
     "tiles.more_title": "Y {n} temas más: tocá la fila para ver todo",
-    "tile.jump": "Tocá para ver este tema en la lista"
+    "tile.jump": "Tocá para ver este tema en la lista",
+    "transfer.filter": "Buscar playlist…",
+    "transfer.filter_aria": "Buscar en {list}",
+    "transfer.no_match": "Ninguna playlist coincide."
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",

@@ -241,6 +241,22 @@ def pieces(song: Song) -> frozenset[str]:
     return frozenset(out)
 
 
+_DIGITS = re.compile(r"\d+")
+_MOVEMENT = re.compile(r"[:\-–—]\s*([IVX]{1,4})\.\s")     # "Spring: I. Allegro", "- II. Largo"
+
+
+def numbers(song: Song) -> frozenset[int]:
+    """Los números del título que identifican la obra ("No. 1", "Op. 9", "Track 2"), sin años
+    (1900-2099) ni lo que va entre paréntesis o después de "- Remastered" (eso es otra versión)."""
+    base = plain(clean(_ANY_BRACKETS.sub(" ", song.title or "")))
+    return frozenset(n for n in map(int, _DIGITS.findall(base)) if not 1900 <= n <= 2099)
+
+
+def movements(song: Song) -> frozenset[str]:
+    """Movimientos de una obra clásica: "I.", "II."... después de ":" o "-"."""
+    return frozenset(_MOVEMENT.findall(song.title or ""))
+
+
 def is_generic(song: Song) -> bool:
     return bool(title_keys(song) & _GENERIC)
 
@@ -258,6 +274,14 @@ def _different_song(a: Song, b: Song) -> bool:
     if is_cover(a, b) != is_cover(b, a):
         return True
     if pieces(a) != pieces(b):
+        return True
+    # Música clásica y temas numerados: "Gymnopédie No. 1" ≠ "No. 3", "I. Allegro" ≠ "II. Largo".
+    # Solo si los dos tienen números (o movimientos): "Live at Wembley '86" sigue siendo el mismo tema.
+    na, nb = numbers(a), numbers(b)
+    if na and nb and na != nb:
+        return True
+    ma, mb = movements(a), movements(b)
+    if ma and mb and ma != mb:
         return True
     if (is_generic(a) or is_generic(b)) and not _same_context(a, b):
         return True
