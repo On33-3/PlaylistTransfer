@@ -206,7 +206,31 @@
     "transfer.notes_doubtful_dry_other": "{n} songs would be added but may be other versions (?).",
     "op.doubtful_one": "1 may be another version",
     "op.doubtful_other": "{n} may be other versions",
-    "op.added_with_doubts": "{added} ({doubtful})"
+    "op.added_with_doubts": "{added} ({doubtful})",
+    "transfer.add_doubtful": "Also add songs that may be another version (?)",
+    "transfer.add_doubtful_hint": "(untick it to decide one by one at the end)",
+    "legend.skipped": "Not added, may be another version",
+    "legend.skipped_dry": "Wouldn't be added, may be another version",
+    "legend.doubt_any": "May be another version",
+    "transfer.legend_skipped": "? Not added, may be another version",
+    "transfer.legend_skipped_dry": "? Wouldn't be added, may be another version",
+    "transfer.note_skipped": "Didn't add “{title}” by {artist}: may be another version",
+    "transfer.note_skipped_dry": "Wouldn't add “{title}” by {artist}: may be another version",
+    "transfer.add_anyway": "+ Add anyway",
+    "transfer.add_anyway_title": "Add “{title}” by {artist} to the playlist",
+    "transfer.added_anyway": "✓ Added",
+    "transfer.add_anyway_already": "≈ Already there",
+    "transfer.add_all": "Add the {n} that may be other versions",
+    "transfer.add_all_one": "Add the one that may be another version",
+    "transfer.notes_skipped_one": "1 song wasn't added because it may be another version: if it's the one you wanted, click “+ Add anyway”.",
+    "transfer.notes_skipped_other": "{n} songs weren't added because they may be other versions: add the ones you want with “+ Add anyway”.",
+    "transfer.notes_skipped_dry_one": "1 song wouldn't be added because it may be another version.",
+    "transfer.notes_skipped_dry_other": "{n} songs wouldn't be added because they may be other versions.",
+    "transfer.add_doubtful_toast_one": "Added 1 song.",
+    "transfer.add_doubtful_toast_other": "Added {n} songs.",
+    "transfer.add_doubtful_already": "It was already in the playlist: not added again.",
+    "op.skipped_one": "1 not added (may be another version)",
+    "op.skipped_other": "{n} not added (may be other versions)"
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",
@@ -290,6 +314,9 @@
     "err.browser_refused": "the browser refused the connection: {status}",
     "file.csv_type": "CSV file for Excel (*.csv)",
     "csv.status_dry.ok": "Would be added",
-    "csv.status_dry.dudoso": "Would be added, may be another version"
+    "csv.status_dry.dudoso": "Would be added, may be another version",
+    "job.add_doubtful": "adding songs that may be other versions",
+    "csv.status.dudoso_omitido": "Not added, may be another version",
+    "csv.status_dry.dudoso_omitido": "Wouldn't be added, may be another version"
   }
 }

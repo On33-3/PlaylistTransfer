@@ -18,9 +18,10 @@ from app import __version__, i18n
 from app.auth import browsers as browsers_mod
 from app.auth.browsers import Browser
 from app.connectors.base import Connector, ConnectorError, Status
-from app.core.matching import find_duplicates
+from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
-from app.core.transfer import ALREADY, Target, TransferResult, run_transfer, song_dict, summary
+from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TransferResult, plan_target,
+                                run_transfer, song_dict, summary)
 from app.jobs import BusyError, Jobs
 from app.storage import paths, prefs
 from app.storage.export import ReportOperation, from_history, write_csv
@@ -160,7 +161,7 @@ class Api:
         p = self._prefs()
         return {"score_ok": p["score_ok"], "score_min": p["score_min"],
                 "defaults": {"score_ok": prefs.DEFAULTS["score_ok"], "score_min": prefs.DEFAULTS["score_min"]},
-                "limits": prefs.threshold_limits()}
+                "limits": prefs.threshold_limits(), "add_doubtful": p["add_doubtful"]}
 
     def save_thresholds(self, score_ok, score_min) -> dict:
         try:
@@ -258,18 +259,27 @@ class Api:
 
     # ---------------------------------------------------------------- transferir
 
-    def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False) -> dict:
+    def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False,
+                       include_doubtful: bool | None = None) -> dict:
+        """`include_doubtful`: agregar también los "?" (pueden ser otra versión). Si no se pasa, se usa
+        lo último que eligió el usuario; si se pasa, se recuerda para la próxima."""
         if source == target:
             return {"error": tr("err.same_service")}
         if not targets:
             return {"error": tr("err.choose_target")}
         p = self._prefs()
+        if include_doubtful is None:
+            include_doubtful = p["add_doubtful"]
+        elif bool(include_doubtful) != p["add_doubtful"]:
+            p["add_doubtful"] = bool(include_doubtful)
+            self._save_prefs(p)
 
         def work(emit, cancel):
             src, dst = self._connector(source), self._connector(target)
             tgts = [Target(str(x.get("name") or "").strip() or tr("playlist.default_name"), x.get("id") or None) for x in targets]
             result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
-                                  score_ok=p["score_ok"], score_min=p["score_min"])
+                                  score_ok=p["score_ok"], score_min=p["score_min"],
+                                  include_doubtful=bool(include_doubtful))
             if not result.dry_run:
                 self._record_transfer(result, src, dst)
             key = f"transfer-{len(self._transfers) + 1}"
@@ -308,6 +318,52 @@ class Api:
             return {"added": song_dict(alt), "targets": done}
         return self._start("alternative", work)
 
+    def add_doubtful(self, transfer: str, ns: list[int]) -> dict:
+        """El usuario eligió agregar igual temas "?" que no se habían agregado (uno o todos).
+        Antes de agregar vuelve a leer cada destino: lo que ya está no se agrega dos veces."""
+        result = self._transfers.get(transfer)
+        if result is None or result.dry_run:
+            return {"error": tr("err.transfer_gone")}
+        wanted = {int(n) for n in ns}
+        tracks = [t for t in result.tracks if t.n in wanted and t.status == DOUBTFUL_SKIPPED and t.match]
+        if not tracks:
+            return {"error": tr("err.version_not_found")}
+
+        def work(emit, cancel):
+            dst = self._connector(result.target_service)
+            service = dict(SERVICES).get(result.source_service, result.source_service)
+            added_total = already_total = 0
+            added_ns: set[int] = set()
+            for t in result.targets:
+                current: list = []
+                if t.target.id is not None:
+                    _, current = dst.read(t.target.id)
+                to_add, already, versions = plan_target([x.match for x in tracks], current)
+                if to_add:
+                    if t.target.id is None:      # playlist nueva que no se creó (no había nada para agregar)
+                        t.target.id = dst.create(t.target.name, tr("playlist.description", service=service,
+                                                                    date=f"{datetime.now():%Y-%m-%d}"))
+                        t.url = dst.url(t.target.id)
+                    dst.add(t.target.id, to_add)
+                present = {id(m) for m in to_add}
+                records = [TrackRecord(i, DOUBTFUL if id(x.match) in present else ALREADY, x.source.title,
+                                       _artist(x.source), x.match.title, _artist(x.match), round(x.score, 3))
+                           for i, x in enumerate(tracks, 1)]
+                self._history.record(
+                    Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
+                              target=result.target_service, target_name=t.target.name, target_url=t.url,
+                              added=len(to_add), already=len(already) + len(versions), doubtful=len(to_add)),
+                    records)
+                added_total += len(to_add)
+                added_ns |= {x.n for x in tracks if id(x.match) in present}
+                already_total += len(already) + len(versions)
+            for x in tracks:              # ya no se ofrecen de nuevo
+                x.status = DOUBTFUL
+            return {"ns": [x.n for x in tracks], "added_ns": sorted(added_ns), "added": added_total,
+                    "already": already_total,
+                    "url": next((t.url for t in result.targets if t.url), None)}
+        return self._start("add_doubtful", work)
+
     @staticmethod
     def _transfer_operations(result: TransferResult) -> list[tuple[Operation, list[TrackRecord]]]:
         """Una operación por playlist de destino, con el estado de cada tema respecto de esa playlist.
@@ -317,15 +373,15 @@ class Api:
         for t in result.targets:
             already_ids = {id(m) for m in t.already} | {id(m) for m, _, _ in t.versions}
             tracks = []
-            for tr in result.tracks:
-                status = ALREADY if tr.match is not None and id(tr.match) in already_ids else tr.status
-                tracks.append(TrackRecord(tr.n, status, tr.source.title, _artist(tr.source),
-                                          tr.match.title if tr.match else None, _artist(tr.match) or None,
-                                          round(tr.score, 3)))
+            for track in result.tracks:
+                status = ALREADY if track.match is not None and id(track.match) in already_ids else track.status
+                tracks.append(TrackRecord(track.n, status, track.source.title, _artist(track.source),
+                                          track.match.title if track.match else None, _artist(track.match) or None,
+                                          round(track.score, 3)))
             op = Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
                            target=result.target_service, target_name=t.target.name, target_url=t.url,
                            added=len(t.added), already=len(t.already) + len(t.versions),
-                           doubtful=s["doubtful"], not_found=s["not_found"])
+                           doubtful=s["doubtful"], not_found=s["not_found"], skipped=s["skipped"])
             out.append((op, tracks))
         return out
 

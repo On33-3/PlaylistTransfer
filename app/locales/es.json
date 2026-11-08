@@ -206,7 +206,31 @@
     "transfer.notes_doubtful_dry_other": "{n} temas se agregarían pero pueden ser otra versión (?).",
     "op.doubtful_one": "1 puede ser otra versión",
     "op.doubtful_other": "{n} pueden ser otra versión",
-    "op.added_with_doubts": "{added} ({doubtful})"
+    "op.added_with_doubts": "{added} ({doubtful})",
+    "transfer.add_doubtful": "Agregar también los que pueden ser otra versión (?)",
+    "transfer.add_doubtful_hint": "(si lo destildás, al final decidís uno por uno)",
+    "legend.skipped": "No agregado, puede ser otra versión",
+    "legend.skipped_dry": "No se agregaría, puede ser otra versión",
+    "legend.doubt_any": "Puede ser otra versión",
+    "transfer.legend_skipped": "? No agregado, puede ser otra versión",
+    "transfer.legend_skipped_dry": "? No se agregaría, puede ser otra versión",
+    "transfer.note_skipped": "No se agregó «{title}» de {artist}: puede ser otra versión",
+    "transfer.note_skipped_dry": "No se agregaría «{title}» de {artist}: puede ser otra versión",
+    "transfer.add_anyway": "+ Agregar igual",
+    "transfer.add_anyway_title": "Agregar «{title}» de {artist} a la playlist",
+    "transfer.added_anyway": "✓ Agregado",
+    "transfer.add_anyway_already": "≈ Ya estaba",
+    "transfer.add_all": "Agregar los {n} que pueden ser otra versión",
+    "transfer.add_all_one": "Agregar el que puede ser otra versión",
+    "transfer.notes_skipped_one": "1 tema no se agregó porque puede ser otra versión: si es el que querías, tocá «+ Agregar igual».",
+    "transfer.notes_skipped_other": "{n} temas no se agregaron porque pueden ser otra versión: agregá los que quieras con «+ Agregar igual».",
+    "transfer.notes_skipped_dry_one": "1 tema no se agregaría porque puede ser otra versión.",
+    "transfer.notes_skipped_dry_other": "{n} temas no se agregarían porque pueden ser otra versión.",
+    "transfer.add_doubtful_toast_one": "Agregaste 1 tema.",
+    "transfer.add_doubtful_toast_other": "Agregaste {n} temas.",
+    "transfer.add_doubtful_already": "Ya estaba en la playlist: no se agregó de nuevo.",
+    "op.skipped_one": "1 sin agregar (puede ser otra versión)",
+    "op.skipped_other": "{n} sin agregar (pueden ser otra versión)"
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",
@@ -290,6 +314,9 @@
     "err.browser_refused": "el navegador rechazó la conexión: {status}",
     "file.csv_type": "Archivo CSV para Excel (*.csv)",
     "csv.status_dry.ok": "Se agregaría",
-    "csv.status_dry.dudoso": "Se agregaría, puede ser otra versión"
+    "csv.status_dry.dudoso": "Se agregaría, puede ser otra versión",
+    "job.add_doubtful": "agregar temas que pueden ser otra versión",
+    "csv.status.dudoso_omitido": "No agregado, puede ser otra versión",
+    "csv.status_dry.dudoso_omitido": "No se agregaría, puede ser otra versión"
   }
 }

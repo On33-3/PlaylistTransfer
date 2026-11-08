@@ -57,7 +57,7 @@ def test_statuses_and_alternatives(services):
     assert by_n[4].status == "dudoso"                                            # solo hay en vivo
     track3 = next(e for e in events if e["type"] == "track" and e["n"] == 3)
     assert track3["alternatives"][0]["artist"] == "Leonard Cohen"
-    assert summary(res) == {"ok": 3, "doubtful": 1, "not_found": 1, "total": 5}
+    assert summary(res) == {"ok": 3, "doubtful": 1, "skipped": 0, "not_found": 1, "total": 5}
 
 
 def test_dry_run_changes_nothing(services):
@@ -136,3 +136,22 @@ def test_needs_a_target(services):
 
 def test_already_constant():
     assert ALREADY == "ya_estaba"
+
+
+# ---------------------------------------------------------------- los "?" los decide el usuario
+
+def test_doubtful_are_not_added_when_the_user_says_so(services):
+    tidal, yt = services
+    events, emit = collect()
+    res = run_transfer(tidal, yt, "src", [Target("x", "dst")], emit=emit, include_doubtful=False)
+    by_n = {t.n: t for t in res.tracks}
+    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # queda para "+ Agregar igual"
+    assert yt.calls == [("add", "dst", ["y-tom"])]                                   # el en vivo no se agregó
+    assert next(e for e in events if e["type"] == "track" and e["n"] == 4)["status"] == "dudoso_omitido"
+    assert summary(res)["skipped"] == 1 and summary(res)["doubtful"] == 0
+
+
+def test_by_default_doubtful_are_added_as_before(services):
+    tidal, yt = services
+    run_transfer(tidal, yt, "src", [Target("x", "dst")])
+    assert ("add", "dst", ["y-tom", "y-boh-live"]) in yt.calls

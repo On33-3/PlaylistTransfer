@@ -357,3 +357,59 @@ def test_history_tiles_say_which_song_each_one_is(app):
     [op] = api.history()
     assert [list(x) for x in op["tile_songs"]] == [["Take On Me", "a-ha"], ["Hallelujah", "Jeff Buckley"]]
     assert op["tiles_total"] == 2
+
+
+# ---------------------------------------------------------------- "+ Agregar igual" para los "?"
+
+@pytest.fixture
+def doubtful_app(app):
+    api, tidal, yt = app
+    tidal.add_playlist("live", "En vivo", [S("Bohemian Rhapsody", "Queen", dur=354, id="q1"),
+                                           S("Take On Me", "a-ha", dur=225, id="q2")])
+    yt.catalog.append(S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356, id="ylive"))
+    return api, tidal, yt
+
+
+def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
+    api, tidal, yt = doubtful_app
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False, False)["job"])
+    assert r["result"]["summary"]["skipped"] == 1
+    assert [s.id for s in yt.songs("dst")] == ["y1"]
+    assert api.settings()["add_doubtful"] is False                         # se recuerda la elección
+    key = r["result"]["transfer"]
+    a = wait(api, api.add_doubtful(key, [1])["job"])
+    assert a["state"] == "done" and a["result"]["added_ns"] == [1]
+    assert [s.id for s in yt.songs("dst")] == ["y1", "ylive"]
+    assert "error" in api.add_doubtful(key, [1])                            # ya no se ofrece de nuevo
+    ops = api.history()
+    assert ops[0]["added"] == 1 and ops[0]["doubtful"] == 1
+    assert ops[1]["skipped"] == 1
+
+
+def test_add_later_does_not_duplicate_what_is_already_there(doubtful_app):
+    api, tidal, yt = doubtful_app
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False, False)["job"])
+    yt.add("dst", [S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356, id="ylive")])   # alguien lo agregó
+    yt.calls.clear()
+    a = wait(api, api.add_doubtful(r["result"]["transfer"], [1])["job"])
+    assert a["result"]["added_ns"] == [] and a["result"]["already"] == 1 and yt.calls == []
+
+
+def test_add_later_is_not_possible_after_a_preview(doubtful_app):
+    api, *_ = doubtful_app
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], True, False)["job"])
+    assert "error" in api.add_doubtful(r["result"]["transfer"], [1])
+
+
+def test_old_history_gets_the_new_column(tmp_path):
+    import sqlite3
+    db = tmp_path / "viejo.sqlite"
+    con = sqlite3.connect(db)
+    con.executescript("""CREATE TABLE operations (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL,
+        kind TEXT NOT NULL, source TEXT NOT NULL, source_name TEXT NOT NULL, target TEXT, target_name TEXT,
+        target_url TEXT, added INTEGER NOT NULL DEFAULT 0, already INTEGER NOT NULL DEFAULT 0,
+        doubtful INTEGER NOT NULL DEFAULT 0, not_found INTEGER NOT NULL DEFAULT 0, removed INTEGER NOT NULL DEFAULT 0);
+        INSERT INTO operations (created_at, kind, source, source_name, added) VALUES ('2026-11-08T01:00:00', 'transfer', 'tidal', 'Anime', 21);""")
+    con.commit(); con.close()
+    [op] = History(db).list()
+    assert (op.source_name, op.added, op.skipped) == ("Anime", 21, 0)

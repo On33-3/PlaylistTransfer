@@ -18,6 +18,10 @@ from app.core.models import Song
 from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
+# "?" que el usuario eligió no agregar solos (casilla "Agregar también los que pueden ser otra
+# versión" destildada): quedan con su coincidencia para "+ Agregar igual" al final.
+DOUBTFUL_SKIPPED = "dudoso_omitido"
+ADDABLE = (OK, DOUBTFUL)
 
 Emit = Callable[[dict], None]
 
@@ -38,7 +42,7 @@ class TrackResult:
     source: Song
     match: Song | None
     score: float
-    status: str                                  # ok / dudoso / no_encontrado
+    status: str                                  # ok / dudoso / dudoso_omitido / no_encontrado
     alternatives: list[Song] = field(default_factory=list)
 
 
@@ -69,7 +73,8 @@ def song_dict(s: Song | None) -> dict | None:
 
 
 def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.Event | None = None,
-              score_ok: float = SCORE_OK, score_min: float = SCORE_MIN) -> list[TrackResult]:
+              score_ok: float = SCORE_OK, score_min: float = SCORE_MIN,
+              include_doubtful: bool = True) -> list[TrackResult]:
     results = []
     for n, src in enumerate(songs, 1):
         if cancel is not None and cancel.is_set():
@@ -78,6 +83,8 @@ def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.
         candidates = dest.search(src)
         match, sc = best_match(src, candidates)
         status = classify(sc, score_ok, score_min) if match else NOT_FOUND
+        if status == DOUBTFUL and not include_doubtful:
+            status = DOUBTFUL_SKIPPED
         alts = alternatives(src, candidates) if status == NOT_FOUND else []
         r = TrackResult(n, src, match if status != NOT_FOUND else None, sc, status, alts)
         results.append(r)
@@ -111,17 +118,18 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
 
 def run_transfer(source: Connector, dest: Connector, source_id: str, targets: list[Target], *,
                  dry_run: bool = False, emit: Emit = lambda e: None, cancel: threading.Event | None = None,
-                 score_ok: float = SCORE_OK, score_min: float = SCORE_MIN, public: bool = False) -> TransferResult:
+                 score_ok: float = SCORE_OK, score_min: float = SCORE_MIN, public: bool = False,
+                 include_doubtful: bool = True) -> TransferResult:
     if not targets:
         raise ValueError(tr("err.choose_target"))
     src_name, songs = source.read(source_id)
     emit({"type": "source", "name": src_name, "total": len(songs), "service": source.name})
 
-    tracks = match_all(songs, dest, emit, cancel, score_ok, score_min)
+    tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful)
 
-    found: list[Song] = []                       # sin repetir el mismo id
+    found: list[Song] = []                       # sin repetir el mismo id; los "?" omitidos no
     for t in tracks:
-        if t.match and t.match.id and all(t.match.id != f.id for f in found):
+        if t.status in ADDABLE and t.match and t.match.id and all(t.match.id != f.id for f in found):
             found.append(t.match)
 
     if cancel is not None and cancel.is_set():   # última oportunidad antes de modificar algo
@@ -158,7 +166,8 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
 
 def summary(result: TransferResult) -> dict:
     """Cantidades para la UI y el historial."""
-    by = {OK: 0, DOUBTFUL: 0, NOT_FOUND: 0}
+    by = {OK: 0, DOUBTFUL: 0, DOUBTFUL_SKIPPED: 0, NOT_FOUND: 0}
     for t in result.tracks:
         by[t.status] += 1
-    return {"ok": by[OK], "doubtful": by[DOUBTFUL], "not_found": by[NOT_FOUND], "total": len(result.tracks)}
+    return {"ok": by[OK], "doubtful": by[DOUBTFUL], "skipped": by[DOUBTFUL_SKIPPED],
+            "not_found": by[NOT_FOUND], "total": len(result.tracks)}

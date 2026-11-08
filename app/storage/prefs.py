@@ -12,6 +12,7 @@ DEFAULTS: dict = {
     "browser": None,          # {"name", "kind", "exe"}: se pregunta en el primer login
     "score_ok": SCORE_OK,
     "score_min": SCORE_MIN,
+    "add_doubtful": True,     # agregar también los "?" (pueden ser otra versión); el usuario lo elige en Transferir
     "language": None,         # "es" | "en"; None = todavía no se eligió (ver Api._resolve_language)
 }
 

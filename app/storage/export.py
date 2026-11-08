@@ -25,7 +25,7 @@ def header() -> list[str]:
 
 def status_label(status: str, dry_run: bool = False) -> str:
     """En una prueba sin cambios, lo encontrado "se agregaría": no se agregó nada."""
-    if dry_run and status in ("ok", "dudoso"):
+    if dry_run and status in ("ok", "dudoso", "dudoso_omitido"):
         return tr(f"csv.status_dry.{status}")
     return tr(f"csv.status.{status}")
 
