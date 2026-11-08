@@ -15,6 +15,7 @@ from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedE
                                  Status, require_confirmation)
 from app.core.matching import SCORE_OK, best_match, queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
+from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def browser_headers(jar: dict[str, str], user_agent: str, ts: int | None = None)
     """Headers en texto (como los copiarías del navegador) a partir de las cookies de YouTube."""
     sapisid = jar.get("__Secure-3PAPISID") or jar.get("SAPISID")
     if not sapisid:
-        raise LoginError("No encontré la sesión de Google. ¿Iniciaste sesión?")
+        raise LoginError(tr("err.google_session_missing"))
     cookie = "; ".join(f"{k}={v}" for k, v in jar.items())
     if "__Secure-3PAPISID" not in jar:   # ytmusicapi busca esta cookie por nombre
         cookie += f"; __Secure-3PAPISID={sapisid}"
@@ -92,7 +93,7 @@ class YTMusicConnector(Connector):
 
     def connect(self, browser: Browser | None = None) -> None:
         if browser is None:
-            raise ConnectorError("Elegí un navegador para iniciar sesión en YouTube Music.")
+            raise ConnectorError(tr("err.yt_choose_browser"))
         if browser.is_firefox:
             jar, ua = firefox.login_and_read_cookies(LOGIN_URL, "youtube.com", SESSION_COOKIES)
         else:
@@ -101,7 +102,7 @@ class YTMusicConnector(Connector):
         self.save_session(jar, ua)
         self.yt = self._open()
         if self.yt is None:
-            raise ConnectorError("YouTube Music no aceptó la sesión. Probá de nuevo.")
+            raise ConnectorError(tr("err.yt_session_rejected"))
 
     def save_session(self, jar: dict[str, str], user_agent: str) -> None:
         import ytmusicapi
@@ -118,7 +119,7 @@ class YTMusicConnector(Connector):
 
     def _ready(self):
         if self.yt is None and self.status() is not Status.CONNECTED:
-            raise NotConnectedError("YouTube Music no está conectado.")
+            raise NotConnectedError(tr("err.not_connected", service=self.name))
         return self.yt
 
     # ---- ids
@@ -130,9 +131,9 @@ class YTMusicConnector(Connector):
             q = parse_qs(urlparse(value).query)
             if "list" in q:
                 return q["list"][0]
-            raise ConnectorError(f"La URL de YouTube Music no tiene el parámetro list=: {value}")
+            raise ConnectorError(tr("err.yt_url_without_list", value=value))
         if not value:
-            raise ConnectorError("Falta el ID de la playlist de YouTube Music.")
+            raise ConnectorError(tr("err.yt_missing_id"))
         return value
 
     @staticmethod
@@ -186,7 +187,7 @@ class YTMusicConnector(Connector):
     def create(self, name: str, description: str, public: bool = False) -> str:
         pid = self._ready().create_playlist(name, description, privacy_status="PUBLIC" if public else "PRIVATE")
         if not isinstance(pid, str):
-            raise ConnectorError(f"YouTube Music no creó la playlist: {pid}")
+            raise ConnectorError(tr("err.yt_create_failed", detail=pid))
         return pid
 
     def add(self, playlist_id: str, songs: list[Song]) -> None:
@@ -195,7 +196,7 @@ class YTMusicConnector(Connector):
         for i in range(0, len(ids), BATCH):
             res = yt.add_playlist_items(playlist_id, ids[i:i + BATCH], duplicates=False)
             if isinstance(res, dict) and res.get("status") not in (None, "STATUS_SUCCEEDED"):
-                raise NotOwnerError(f"YouTube Music respondió {res.get('status')}. ¿La playlist es tuya?")
+                raise NotOwnerError(tr("err.yt_add_failed", status=res.get("status")))
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         """Hace falta el setVideoId de cada aparición: con el videoId solo se quitarían todas las copias."""
@@ -203,7 +204,7 @@ class YTMusicConnector(Connector):
         payload = [{"videoId": d.song.id, "setVideoId": d.song.set_id}
                    for d in items if d.song.id and d.song.set_id]
         if len(payload) < len(items):
-            raise ConnectorError("Faltan datos para quitar algunos temas (setVideoId). Volvé a leer la playlist.")
+            raise ConnectorError(tr("err.yt_missing_set_id"))
         yt = self._ready()
         for i in range(0, len(payload), BATCH):
             yt.remove_playlist_items(playlist_id, payload[i:i + BATCH])

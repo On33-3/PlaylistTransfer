@@ -6,11 +6,13 @@ import os
 from pathlib import Path
 
 from app.core.matching import SCORE_MIN, SCORE_OK
+from app.i18n import t as tr
 
 DEFAULTS: dict = {
     "browser": None,          # {"name", "kind", "exe"}: se pregunta en el primer login
     "score_ok": SCORE_OK,
     "score_min": SCORE_MIN,
+    "language": None,         # "es" | "en"; None = todavía no se eligió (ver Api._resolve_language)
 }
 
 
@@ -30,16 +32,13 @@ def validate_thresholds(score_ok, score_min) -> tuple[float, float]:
     try:
         ok, mn = round(float(score_ok), 2), round(float(score_min), 2)
     except (TypeError, ValueError):
-        raise ValueError("Escribí los dos umbrales como números, por ejemplo 0.75 y 0.60.")
+        raise ValueError(tr("err.th_not_numbers"))
     if not lim["ok_min"] <= ok <= lim["ok_max"]:
-        raise ValueError(f"\"Agregar sin dudar\" tiene que estar entre {lim['ok_min']:.2f} y {lim['ok_max']:.2f}: "
-                         "más abajo, las versiones en vivo o remix se agregarían como si fueran la original.")
+        raise ValueError(tr("err.th_ok_range", ok_min=f"{lim['ok_min']:.2f}", ok_max=f"{lim['ok_max']:.2f}"))
     if mn < lim["min_min"]:
-        raise ValueError(f"\"Agregar para revisar\" tiene que ser {lim['min_min']:.2f} o más: más abajo se "
-                         "agregarían canciones de otro artista o covers.")
+        raise ValueError(tr("err.th_min_low", min_min=f"{lim['min_min']:.2f}"))
     if mn > round(ok - lim["gap"], 2):
-        raise ValueError(f"\"Agregar para revisar\" tiene que ser al menos {lim['gap']:.2f} menor que "
-                         "\"Agregar sin dudar\".")
+        raise ValueError(tr("err.th_gap", gap=f"{lim['gap']:.2f}"))
     return ok, mn
 
 

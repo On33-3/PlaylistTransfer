@@ -14,6 +14,7 @@ from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedE
                                  Status, require_confirmation)
 from app.core.matching import SCORE_OK, best_match, queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
+from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class TidalConnector(Connector):
         s = self._session()
         s.login_oauth_simple(show)
         if not s.check_login():
-            raise ConnectorError("No se pudo iniciar sesión en Tidal.")
+            raise ConnectorError(tr("err.tidal_login_failed"))
         self._loaded = True
         self._save()
 
@@ -109,7 +110,7 @@ class TidalConnector(Connector):
 
     def _ready(self):
         if not self._loaded and self.status() is not Status.CONNECTED:
-            raise NotConnectedError("Tidal no está conectado.")
+            raise NotConnectedError(tr("err.not_connected", service=self.name))
         return self._session()
 
     # ---- ids
@@ -118,7 +119,7 @@ class TidalConnector(Connector):
     def parse_id(value: str) -> str:
         m = _UUID.search(value or "")
         if not m:
-            raise ConnectorError(f"No encontré un ID de playlist de Tidal en: {value}")
+            raise ConnectorError(tr("err.tidal_bad_id", value=value))
         return m.group(0)
 
     @staticmethod
@@ -214,8 +215,7 @@ class TidalConnector(Connector):
         if not hasattr(pl, "add") and hasattr(pl, "factory"):
             pl = pl.factory()
         if not hasattr(pl, "add"):
-            raise NotOwnerError(f"La playlist {playlist_id} de Tidal no es tuya: "
-                                "solo se pueden modificar playlists propias.")
+            raise NotOwnerError(tr("err.tidal_not_owner", id=playlist_id))
         return pl
 
     def add(self, playlist_id: str, songs: list[Song]) -> None:

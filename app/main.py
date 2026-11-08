@@ -30,6 +30,8 @@ def main() -> None:
 
     setup_logging()
     api = Api.create()
+    from app import i18n
+    logging.getLogger(__name__).info("Arranca PlaylistTransfer; idioma: %s", i18n.get_language())
     window = webview.create_window(TITLE, url=str(ui_dir() / "index.html"), js_api=api,
                                    width=1120, height=780, min_size=(860, 620), background_color="#F3F1FA")
 
@@ -37,7 +39,7 @@ def main() -> None:
         documents = Path.home() / "Documents"
         return window.create_file_dialog(webview.FileDialog.SAVE, save_filename=default_name,
                                          directory=str(documents if documents.is_dir() else Path.home()),
-                                         file_types=("Archivo CSV para Excel (*.csv)",))
+                                         file_types=(i18n.t("file.csv_type"),))
 
     api._save_dialog = save_dialog
 

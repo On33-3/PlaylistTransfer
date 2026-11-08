@@ -15,6 +15,7 @@ from typing import Any, Callable
 from app.connectors.base import ConnectorError
 from app.auth.cdp_login import LoginError
 from app.core.transfer import Cancelled
+from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class Jobs:
         with self._lock:
             running = next((j for j in self._jobs.values() if j.state == RUNNING), None)
             if running:
-                raise BusyError(f"Esperá a que termine lo que está en curso ({running.kind}).")
+                raise BusyError(tr("err.busy", kind=tr(f"job.{running.kind}")))
             job = Job(f"{kind}-{next(self._ids)}", kind)
             self._jobs[job.id] = job
 
@@ -78,7 +79,7 @@ class Jobs:
             except Exception as e:      # error inesperado: se registra completo y se avisa corto
                 log.error("Falló %s:\n%s", job.id, traceback.format_exc())
                 with job.lock:
-                    job.error = f"Algo salió mal ({type(e).__name__}: {e}). Probá de nuevo."
+                    job.error = tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
                     job.state = ERROR
 
         t = threading.Thread(target=run, name=job.id, daemon=True)
@@ -89,7 +90,7 @@ class Jobs:
     def poll(self, job_id: str, since: int = 0) -> dict:
         job = self._jobs.get(job_id)
         if job is None:
-            return {"state": ERROR, "error": "Esa tarea ya no existe.", "events": [], "next": since}
+            return {"state": ERROR, "error": tr("err.job_gone"), "events": [], "next": since}
         with job.lock:
             events = job.events[since:]
             return {"id": job.id, "kind": job.kind, "state": job.state, "events": events,

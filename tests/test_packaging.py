@@ -93,3 +93,10 @@ def test_files_in_the_zip_root_have_ascii_names():
     build = (ROOT / "packaging" / "build.py").read_text(encoding="utf-8")
     roots = re.findall(r'app_dir / "([^"]+)"', build)
     assert roots and all(name.isascii() for name in roots), roots
+
+
+@pytest.mark.parametrize("name", ["README_USER", "README_USER_EN"])
+def test_user_readmes_have_clean_windows_paths(name):
+    text = getattr(load("build"), name).format(version="9.9.9")
+    assert "\t" not in text and "\\\\" not in text                    # ni tabs (por un "\t" suelto) ni barras dobles
+    assert r"%LOCALAPPDATA%\PlaylistTransfer" in text and r"_internal\tidalapi" in text

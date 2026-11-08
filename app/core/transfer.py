@@ -15,6 +15,7 @@ from app.connectors.base import Connector
 from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, alternatives, best_match,
                                classify, same_song)
 from app.core.models import Song
+from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
 
@@ -112,7 +113,7 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
                  dry_run: bool = False, emit: Emit = lambda e: None, cancel: threading.Event | None = None,
                  score_ok: float = SCORE_OK, score_min: float = SCORE_MIN, public: bool = False) -> TransferResult:
     if not targets:
-        raise ValueError("Elegí al menos una playlist de destino.")
+        raise ValueError(tr("err.choose_target"))
     src_name, songs = source.read(source_id)
     emit({"type": "source", "name": src_name, "total": len(songs), "service": source.name})
 
@@ -135,7 +136,7 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
         res = TargetResult(target, to_add, already, versions)
         if not dry_run and to_add:
             if target.id is None:
-                desc = f"Transferida desde {source.name} el {datetime.now():%d/%m/%Y}"
+                desc = tr("playlist.description", service=source.name, date=f"{datetime.now():%Y-%m-%d}")
                 target.id = dest.create(target.name, desc, public)
                 res.created = True
             dest.add(target.id, to_add)

@@ -10,6 +10,7 @@ import webbrowser
 from pathlib import Path
 
 from app.auth.cdp_login import LoginError
+from app.i18n import t as tr
 
 FIREFOX_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
@@ -60,4 +61,4 @@ def login_and_read_cookies(login_url: str, domain: str, wanted: set[str],
         jar = read_cookies(domain, wanted)
         if jar:
             return jar, FIREFOX_UA
-    raise LoginError("Se acabó el tiempo para iniciar sesión.")
+    raise LoginError(tr("err.login_timeout"))

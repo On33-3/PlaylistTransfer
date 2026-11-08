@@ -294,3 +294,5 @@
 .licenses { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13.5px; }
 .licenses li { padding: 2px 0; }
 .licenses a { color: var(--ink); }
+/* Mientras llegan los textos del idioma elegido, la ventana no se muestra (evita ver un idioma y después el otro) */
+html.i18n-pending body { visibility: hidden; }

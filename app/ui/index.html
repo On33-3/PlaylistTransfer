@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="i18n-pending">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,18 +7,19 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- Los textos salen de app/locales/<idioma>.json (data-i18n = clave). El castellano de acá es solo un respaldo. -->
 <div class="window" role="application" aria-label="PlaylistTransfer">
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>PlaylistTransfer</div>
-    <div class="status" id="chips" aria-label="Estado de las conexiones"></div>
+    <div class="status" id="chips" data-i18n-aria="app.status_aria" aria-label="Estado de las conexiones"></div>
   </header>
 
-  <nav aria-label="Secciones">
-    <button data-go="inicio" aria-current="page">Inicio</button>
-    <button data-go="transferir">Transferir</button>
-    <button data-go="repetidos">Quitar repetidos</button>
-    <button data-go="historial">Historial</button>
-    <button data-go="ajustes">Ajustes</button>
+  <nav data-i18n-aria="nav.aria" aria-label="Secciones">
+    <button data-go="inicio" aria-current="page" data-i18n="nav.home">Inicio</button>
+    <button data-go="transferir" data-i18n="nav.transfer">Transferir</button>
+    <button data-go="repetidos" data-i18n="nav.dedupe">Quitar repetidos</button>
+    <button data-go="historial" data-i18n="nav.history">Historial</button>
+    <button data-go="ajustes" data-i18n="nav.settings">Ajustes</button>
     <span class="spacer"></span>
     <span class="version" id="version"></span>
   </nav>
@@ -27,78 +28,78 @@
     <!-- ================= INICIO ================= -->
     <section class="screen active" id="inicio" aria-labelledby="t-inicio">
       <div class="notice" id="home-connect" hidden>
-        <p><b>Para empezar, conectá tus servicios.</b> <span class="muted" id="home-connect-text"></span></p>
-        <button class="btn primary" data-go="ajustes">Conectar</button>
+        <p><b data-i18n="home.connect_title">Para empezar, conectá tus servicios.</b> <span class="muted" id="home-connect-text"></span></p>
+        <button class="btn primary" data-go="ajustes" data-i18n="home.connect_btn">Conectar</button>
       </div>
       <h1 id="t-inicio" class="sentence">
-        Pasar de
-        <select aria-label="Servicio de origen" id="from"></select><br>
-        a
-        <select aria-label="Servicio de destino" class="to" id="to"></select>
+        <span data-i18n="home.from">Pasar de</span>
+        <select data-i18n-aria="home.from_aria" aria-label="Servicio de origen" id="from"></select><br>
+        <span data-i18n="home.to">a</span>
+        <select data-i18n-aria="home.to_aria" aria-label="Servicio de destino" class="to" id="to"></select>
       </h1>
-      <p class="lede">Elegís una playlist de origen y una o varias de destino. Los temas que ya están, aunque sea en otra versión, no se repiten.</p>
+      <p class="lede" data-i18n="home.lede">Elegís una playlist de origen y una o varias de destino. Los temas que ya están, aunque sea en otra versión, no se repiten.</p>
       <div class="actions">
-        <button class="btn primary" data-go="transferir">Elegir playlists</button>
-        <button class="btn ghost" data-go="repetidos">Quitar repetidos</button>
+        <button class="btn primary" data-go="transferir" data-i18n="home.pick">Elegir playlists</button>
+        <button class="btn ghost" data-go="repetidos" data-i18n="home.dedupe">Quitar repetidos</button>
       </div>
 
-      <h2>Lo último que pasaste</h2>
+      <h2 data-i18n="home.recent">Lo último que pasaste</h2>
       <ul class="history-mini" id="home-history"></ul>
     </section>
 
     <!-- ================= TRANSFERIR ================= -->
     <section class="screen" id="transferir" aria-labelledby="t-transferir">
-      <h1 id="t-transferir">Transferir</h1>
+      <h1 id="t-transferir" data-i18n="transfer.title">Transferir</h1>
       <p class="lede" id="route-lede"></p>
       <ol class="steps" id="steps">
-        <li class="current"><b>1</b>Origen y destino</li>
-        <li><b>2</b>Transferencia</li>
-        <li><b>3</b>Resultado</li>
+        <li class="current"><b>1</b><span data-i18n="transfer.step1">Origen y destino</span></li>
+        <li><b>2</b><span data-i18n="transfer.step2">Transferencia</span></li>
+        <li><b>3</b><span data-i18n="transfer.step3">Resultado</span></li>
       </ol>
 
       <div id="pick">
         <div class="notice" id="pick-connect" hidden>
           <p id="pick-connect-text"></p>
-          <button class="btn primary" data-go="ajustes">Ir a conectar</button>
+          <button class="btn primary" data-go="ajustes" data-i18n="transfer.go_connect">Ir a conectar</button>
         </div>
         <div class="pickers" id="pickers">
           <div class="picker">
-            <h3 id="src-title">Origen</h3>
+            <h3 id="src-title"></h3>
             <ul id="src-list"></ul>
           </div>
           <div class="picker">
-            <h3 id="dst-title">Destino</h3>
+            <h3 id="dst-title"></h3>
             <ul id="dst-list"></ul>
           </div>
         </div>
         <p class="error" id="pick-error" hidden></p>
-        <label class="opt report-opt"><input type="checkbox" id="want-report"> Guardar también un reporte para Excel <span class="muted">(opcional: todo queda igual en el Historial)</span></label>
+        <label class="opt report-opt"><input type="checkbox" id="want-report"> <span data-i18n="transfer.report">Guardar también un reporte para Excel</span> <span class="muted" data-i18n="transfer.report_hint">(opcional: todo queda igual en el Historial)</span></label>
         <div class="actions">
-          <button class="btn primary" id="go" disabled>Transferir</button>
-          <button class="btn ghost" id="dry" disabled>Probar sin cambiar nada</button>
+          <button class="btn primary" id="go" disabled data-i18n="transfer.go">Transferir</button>
+          <button class="btn ghost" id="dry" disabled data-i18n="transfer.dry">Probar sin cambiar nada</button>
         </div>
       </div>
 
       <div id="run" hidden>
         <div class="progress-head">
-          <div class="counter num"><span id="count">0</span> <small id="count-of">temas</small></div>
+          <div class="counter num"><span id="count">0</span> <small id="count-of"></small></div>
           <div class="route" id="run-route"></div>
         </div>
-        <div class="mosaic big" id="mosaic" role="img" aria-label="Progreso de la transferencia"></div>
+        <div class="mosaic big" id="mosaic" role="img" data-i18n-aria="transfer.mosaic_aria" aria-label="Progreso de la transferencia"></div>
         <div class="legend">
-          <span><i style="background:var(--mint)"></i>✓ Encontrado <b class="num" id="n-ok">0</b></span>
-          <span><i style="background:var(--peach)"></i>? Revisar <b class="num" id="n-doubt">0</b></span>
-          <span><i style="background:var(--rose)"></i>✗ No encontrado <b class="num" id="n-miss">0</b></span>
-          <span><i style="background:var(--sage)"></i>≈ Ya estaba <b class="num" id="n-dup">0</b></span>
+          <span><i style="background:var(--mint)"></i><span data-i18n="transfer.legend_ok">✓ Encontrado</span> <b class="num" id="n-ok">0</b></span>
+          <span><i style="background:var(--peach)"></i><span data-i18n="transfer.legend_doubt">? Revisar</span> <b class="num" id="n-doubt">0</b></span>
+          <span><i style="background:var(--rose)"></i><span data-i18n="transfer.legend_miss">✗ No encontrado</span> <b class="num" id="n-miss">0</b></span>
+          <span><i style="background:var(--sage)"></i><span data-i18n="transfer.legend_dup">≈ Ya estaba</span> <b class="num" id="n-dup">0</b></span>
         </div>
-        <div class="actions" id="run-actions"><button class="btn ghost" id="cancel">Cancelar</button></div>
+        <div class="actions" id="run-actions"><button class="btn ghost" id="cancel" data-i18n="transfer.cancel">Cancelar</button></div>
         <div class="done-box" id="done" role="status">
           <p><b id="done-title"></b></p>
           <p class="muted" id="done-detail"></p>
           <div class="actions" style="margin-top:14px">
-            <button class="btn primary" id="open-dest" hidden>Abrir</button>
-            <button class="btn ghost" id="open-report" hidden>Abrir el reporte</button>
-            <button class="btn ghost" id="again">Hacer otra transferencia</button>
+            <button class="btn primary" id="open-dest" hidden></button>
+            <button class="btn ghost" id="open-report" hidden data-i18n="transfer.open_report">Abrir el reporte</button>
+            <button class="btn ghost" id="again" data-i18n="transfer.again">Hacer otra transferencia</button>
           </div>
         </div>
         <ul class="tracks" id="tracks" aria-live="polite"></ul>
@@ -107,85 +108,90 @@
 
     <!-- ================= REPETIDOS ================= -->
     <section class="screen" id="repetidos" aria-labelledby="t-rep">
-      <h1 id="t-rep">Quitar repetidos</h1>
-      <p class="lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero. Las versiones de otros artistas no cuentan como repetidas.</p>
+      <h1 id="t-rep" data-i18n="dedupe.title">Quitar repetidos</h1>
+      <p class="lede" data-i18n="dedupe.lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero. Las versiones de otros artistas no cuentan como repetidas.</p>
       <div class="notice" id="dup-connect" hidden>
-        <p>Conectá Tidal o YouTube Music para revisar tus playlists.</p>
-        <button class="btn primary" data-go="ajustes">Ir a conectar</button>
+        <p data-i18n="dedupe.connect">Conectá Tidal o YouTube Music para revisar tus playlists.</p>
+        <button class="btn primary" data-go="ajustes" data-i18n="transfer.go_connect">Ir a conectar</button>
       </div>
       <div class="row-controls" id="dup-controls">
-        <div class="seg" role="group" aria-label="Servicio" id="dup-svc"></div>
-        <select class="select" aria-label="Playlist" id="dup-playlist"></select>
-        <button class="btn ghost" id="dup-scan" disabled>Buscar repetidos</button>
+        <div class="seg" role="group" data-i18n-aria="dedupe.service_aria" aria-label="Servicio" id="dup-svc"></div>
+        <select class="select" data-i18n-aria="dedupe.playlist_aria" aria-label="Playlist" id="dup-playlist"></select>
+        <button class="btn ghost" id="dup-scan" disabled data-i18n="dedupe.scan">Buscar repetidos</button>
       </div>
       <p style="margin:22px 0 0" id="dup-summary" hidden></p>
       <ul class="dups" id="dups"></ul>
       <div class="actions" id="dup-actions" hidden>
-        <button class="btn danger" id="remove" disabled>Quitar</button>
+        <button class="btn danger" id="remove" disabled data-i18n="dedupe.remove">Quitar</button>
       </div>
     </section>
 
     <!-- ================= HISTORIAL ================= -->
     <section class="screen" id="historial" aria-labelledby="t-hist">
-      <h1 id="t-hist">Historial</h1>
-      <p class="lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
+      <h1 id="t-hist" data-i18n="history.title">Historial</h1>
+      <p class="lede" data-i18n="history.lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
       <div class="row-controls hist-controls">
-        <div class="seg" role="group" aria-label="Mostrar" id="hist-filter">
-          <button data-kind="" aria-pressed="true">Todo</button>
-          <button data-kind="transfer" aria-pressed="false">Transferencias</button>
-          <button data-kind="dedupe" aria-pressed="false">Repetidos</button>
+        <div class="seg" role="group" data-i18n-aria="history.filter_aria" aria-label="Mostrar" id="hist-filter">
+          <button data-kind="" aria-pressed="true" data-i18n="history.all">Todo</button>
+          <button data-kind="transfer" aria-pressed="false" data-i18n="history.transfers">Transferencias</button>
+          <button data-kind="dedupe" aria-pressed="false" data-i18n="history.duplicates">Repetidos</button>
         </div>
       </div>
       <ul class="hist" id="hist"></ul>
       <div class="actions" id="hist-actions" hidden>
-        <button class="btn ghost" id="export" data-needs-idle>Exportar a CSV</button>
-        <button class="btn ghost" id="open-export" hidden>Abrir el archivo</button>
+        <button class="btn ghost" id="export" data-needs-idle data-i18n="history.export">Exportar a CSV</button>
+        <button class="btn ghost" id="open-export" hidden data-i18n="history.open_file">Abrir el archivo</button>
       </div>
       <p class="muted export-note" id="export-note" hidden></p>
     </section>
 
     <!-- ================= AJUSTES ================= -->
     <section class="screen settings" id="ajustes" aria-labelledby="t-aj">
-      <h1 id="t-aj">Ajustes</h1>
-      <p class="lede">Conexiones, navegador y datos.</p>
+      <h1 id="t-aj" data-i18n="settings.title">Ajustes</h1>
+      <p class="lede" data-i18n="settings.lede">Conexiones, navegador, idioma y datos.</p>
 
       <section>
-        <div><h3>Servicios</h3><p>Tus sesiones se guardan solo en esta compu.</p></div>
+        <div><h3 data-i18n="settings.services">Servicios</h3><p data-i18n="settings.services_text">Tus sesiones se guardan solo en esta compu.</p></div>
         <div id="svc-list"></div>
       </section>
 
       <section>
-        <div><h3>Navegador</h3><p>Dónde se abren las ventanas para iniciar sesión.</p></div>
-        <div role="radiogroup" aria-label="Navegador" id="browser-list"></div>
+        <div><h3 data-i18n="settings.language">Idioma</h3><p data-i18n="settings.language_text">El idioma de la app.</p></div>
+        <div role="radiogroup" data-i18n-aria="settings.language_aria" aria-label="Idioma" id="language-list"></div>
       </section>
 
       <section>
-        <div><h3>Coincidencias</h3><p>Avanzado. Cuánto se tienen que parecer dos temas para agregarlos.</p></div>
+        <div><h3 data-i18n="settings.browser">Navegador</h3><p data-i18n="settings.browser_text">Dónde se abren las ventanas para iniciar sesión.</p></div>
+        <div role="radiogroup" data-i18n-aria="settings.browser_aria" aria-label="Navegador" id="browser-list"></div>
+      </section>
+
+      <section>
+        <div><h3 data-i18n="settings.matching">Coincidencias</h3><p data-i18n="settings.matching_text">Avanzado. Cuánto se tienen que parecer dos temas para agregarlos.</p></div>
         <div>
           <div class="thresholds">
-            <label>Agregar sin dudar desde<input type="number" id="th-ok" step="0.01" inputmode="decimal"></label>
-            <label>Agregar para revisar (?) desde<input type="number" id="th-min" step="0.01" inputmode="decimal"></label>
+            <label><span data-i18n="settings.th_ok">Agregar sin dudar desde</span><input type="number" id="th-ok" step="0.01" inputmode="decimal"></label>
+            <label><span data-i18n="settings.th_min">Agregar para revisar (?) desde</span><input type="number" id="th-min" step="0.01" inputmode="decimal"></label>
           </div>
           <p class="muted th-help" id="th-help"></p>
           <p class="error" id="th-error" hidden></p>
           <div class="actions" style="margin-top:12px">
-            <button class="btn ghost" id="th-save">Guardar</button>
-            <button class="btn ghost" id="th-reset">Volver a los valores de fábrica</button>
+            <button class="btn ghost" id="th-save" data-i18n="settings.th_save">Guardar</button>
+            <button class="btn ghost" id="th-reset" data-i18n="settings.th_reset">Volver a los valores de fábrica</button>
           </div>
         </div>
       </section>
 
       <section>
-        <div><h3>Datos</h3><p>Historial, sesiones y preferencias. No salen de tu compu.</p></div>
-        <div><button class="btn ghost" id="open-data">Abrir carpeta de datos</button><div class="path" id="data-path"></div></div>
+        <div><h3 data-i18n="settings.data">Datos</h3><p data-i18n="settings.data_text">Historial, sesiones y preferencias. No salen de tu compu.</p></div>
+        <div><button class="btn ghost" id="open-data" data-i18n="settings.open_data">Abrir carpeta de datos</button><div class="path" id="data-path"></div></div>
       </section>
 
       <section class="about">
-        <div><h3>Acerca de</h3></div>
+        <div><h3 data-i18n="settings.about">Acerca de</h3></div>
         <div>
-          <p id="about-version">PlaylistTransfer, open source con licencia MIT.</p>
-          <p class="muted">No está afiliado a Tidal, Google ni Spotify.</p>
-          <p class="muted" style="margin-top:12px">Usa estas librerías de código abierto:</p>
+          <p id="about-version"></p>
+          <p class="muted" data-i18n="settings.not_affiliated">No está afiliado a Tidal, Google ni Spotify.</p>
+          <p class="muted" style="margin-top:12px" data-i18n="settings.libraries">Usa estas librerías de código abierto:</p>
           <ul class="licenses" id="licenses"></ul>
         </div>
       </section>
@@ -195,10 +201,10 @@
 
 <dialog id="confirm" aria-labelledby="c-title">
   <h3 id="c-title"></h3>
-  <p>Queda la versión que estaba primero en la playlist. Lo quitado queda anotado en el historial.</p>
+  <p data-i18n="dedupe.confirm_text">Queda la versión que estaba primero en la playlist. Lo quitado queda anotado en el historial.</p>
   <div class="actions">
     <button class="btn danger" id="confirm-yes"></button>
-    <button class="btn ghost" id="confirm-no" autofocus>Cancelar</button>
+    <button class="btn ghost" id="confirm-no" autofocus data-i18n="common.cancel">Cancelar</button>
   </div>
 </dialog>
 <div class="toast" id="toast" role="status"></div>

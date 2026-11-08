@@ -6,6 +6,7 @@ from enum import Enum
 
 from app.auth.browsers import Browser
 from app.core.models import Duplicate, PlaylistInfo, Song
+from app.i18n import t as tr
 
 BATCH = 50           # temas por pedido al agregar o quitar
 SEARCH_PAUSE = 0.3   # segundos entre búsquedas, para no saturar las APIs
@@ -84,4 +85,4 @@ class Connector(ABC):
 
 def require_confirmation(confirmed: bool) -> None:
     if confirmed is not True:
-        raise RemovalNotConfirmedError("Para quitar temas hace falta la confirmación del usuario.")
+        raise RemovalNotConfirmedError(tr("err.removal_not_confirmed"))

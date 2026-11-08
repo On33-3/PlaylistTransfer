@@ -5,7 +5,7 @@ import csv
 
 import pytest
 
-from app.storage.export import HEADER, ReportOperation, from_history, safe_cell, write_csv
+from app.storage.export import ReportOperation, header, from_history, safe_cell, write_csv
 from app.storage.history import History, Operation, TrackRecord
 
 NAMES = {"tidal": "Tidal", "ytmusic": "YouTube Music"}
@@ -36,12 +36,12 @@ def test_english_windows_uses_comma_and_point(history, tmp_path):
     out = tmp_path / "h.csv"
     assert write_csv(out, from_history(history), NAMES, sep=",", decimal=".") == 4
     rows = read(out, ",")
-    assert rows[0] == HEADER
+    assert rows[0] == header() and rows[0][0] == "Fecha"
     assert rows[1] == ["2026-11-08 · 01:00", "Transferencia", "Tidal", "Clásicos", "YouTube Music", "Clásicos",
                        "1", "Encontrado", "Corazón Espinado", "Santana, Maná", "Corazón Espinado", "Santana", "0.97"]
     assert rows[2][7] == "Ya estaba" and rows[3][7] == "No encontrado" and rows[3][10] == ""
     assert rows[4][:2] == ["2026-11-08 · 01:02", "Quitar repetidos"] and rows[4][7] == "Quitado"
-    assert all(len(r) == len(HEADER) for r in rows)
+    assert all(len(r) == len(header()) for r in rows)
 
 
 def test_spanish_windows_uses_semicolon_and_comma(history, tmp_path):
@@ -49,7 +49,7 @@ def test_spanish_windows_uses_semicolon_and_comma(history, tmp_path):
     write_csv(out, from_history(history), NAMES, sep=";", decimal=",")
     rows = read(out, ";")
     assert rows[1][-1] == "0,97" and rows[1][9] == "Santana, Maná"      # la coma del artista no corta columnas
-    assert all(len(r) == len(HEADER) for r in rows)
+    assert all(len(r) == len(header()) for r in rows)
 
 
 def test_oldest_first_and_filter_by_kind(history, tmp_path):
