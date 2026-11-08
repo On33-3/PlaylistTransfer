@@ -30,8 +30,13 @@ class PlaylistInfo:
     count: int | None = None
 
 
+SAME = "misma"                  # la misma grabación (otro video, remaster, otra portada)
+OTHER_VERSION = "otra_version"  # la misma canción en otra versión (en vivo, remix, sped up...)
+
+
 class Duplicate(NamedTuple):
     """Una copia repetida dentro de una playlist. `index` es su posición (desde 0)."""
     index: int
     song: Song
-    kept: Song    # la que queda: siempre la que aparece primero
+    kept: Song         # la que queda: siempre la que aparece primero
+    kind: str = SAME   # OTHER_VERSION: la UI la muestra sin tildar

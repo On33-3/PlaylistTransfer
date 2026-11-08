@@ -6,7 +6,8 @@ Proyecto open source pensado para GitHub. El plan completo, con decisiones y fas
 ## Estado actual
 - F0 aprobada (`prototype/index.html` es la referencia visual). **F1 hecha**: motor en `app/core/`, conectores en `app/connectors/`, login en `app/auth/`, tests en `tests/`.
 - `legacy/transfer_playlist.py` es la **versión de consola que ya funciona** (probada con cuentas reales) y la referencia del motor. No la rompas hasta que la app la reemplace (F2). Se corre desde la raíz, así sigue usando las sesiones guardadas ahí.
-- `app/core/matching.py` es la lógica del script más un cambio a propósito: artista y título son requisitos en `score` (ver SPEC). `test_same_results_as_legacy_script` verifica que no haya otras diferencias. Si cambiás el matching, revisalo contra los reportes reales (`reporte_*.csv`, locales) y actualizá ese test.
+- `app/core/matching.py` parte de la lógica del script, con reglas nuevas (SPEC, "Reglas del matching"). Cada regla tiene su escenario en `tests/test_scenarios.py`: si encontrás un caso nuevo, agregalo ahí primero. Al cambiar el matching, corré también `py tools/check_reports.py` (compara contra tus reportes reales, locales): ninguna coincidencia real debería empeorar.
+- Una misma canción puede tenerla varios artistas: nunca se reemplaza la versión de un artista por la de otro sin preguntar (`alternatives()`).
 - Primer uso: nada viene con el repo ni con la app; historial, sesiones y preferencias se crean en `%LOCALAPPDATA%\PlaylistTransfer\` recién cuando hacen falta (SPEC, "Primer uso"). Los datos de ejemplo (prototipo, tests) son inventados o canciones conocidas, nunca el historial del usuario.
 - Los conectores no imprimen ni llaman a `sys.exit`: lanzan `ConnectorError` (mensajes para el usuario). `remove()` exige `confirmed=True`.
 - Entorno del usuario: Windows 11, Python 3.14 (`py`), PowerShell. Navegadores: Vivaldi (predeterminado), Brave, Chrome (del trabajo: **no usarlo por defecto**) y Edge.
