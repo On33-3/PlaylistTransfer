@@ -60,7 +60,8 @@ def make_api(tmp_path, connected=True):
     vivaldi = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
     api = Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "historial.sqlite"), tmp_path / "prefs.json",
               tmp_path, list_browsers=lambda: [vivaldi, Browser("Brave", "brave", Path(r"C:\brave.exe"))],
-              open_url=lambda u, b: None, system_language=lambda: "es")
+              open_url=lambda u, b: api._open_url_calls.append(u), system_language=lambda: "es")
+    api._open_url_calls = []
     api.asked = []                                     # nombres que propuso el diálogo "Guardar como"
     api._save_dialog = lambda name: (api.asked.append(name), str(tmp_path / "exportado" / name))[1]
     api._open_file = lambda p: None
@@ -182,6 +183,86 @@ def test_connect_from_settings(browser, tmp_path):
     assert tidal.calls == [("connect", "Vivaldi")]
     page.wait_for_selector("#chips .chip.ok")
     assert "Tidal ✓" in page.inner_text("#chips")
+    assert errors == []
+
+
+def with_spotify(api, tmp_path):
+    """Suma Spotify con la API falsa de test_spotify. El "navegador" aprueba el login solo."""
+    import threading
+    import urllib.request
+    from urllib.parse import parse_qs, urlparse
+
+    from app.connectors.spotify import SpotifyConnector
+    from tests.test_spotify import FakeSpotify, track
+
+    def browser_opens(url, b):
+        q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
+        back = f"{q['redirect_uri']}?code=OK&state={q['state']}"
+        threading.Thread(target=lambda: urllib.request.urlopen(back).read(), daemon=True).start()
+
+    fake = FakeSpotify()
+    fake.add_tracks(track(1, "Take On Me", "a-ha", dur=225))
+    fake.add_playlist("p" * 22, "Mi lista de Spotify", [])
+    c = SpotifyConnector(tmp_path / "spotify_session.json", tmp_path / "spotify_app.json", http=fake,
+                         open_browser=browser_opens)
+    c.search_pause = 0
+    api._connectors["spotify"] = c
+    return c, fake
+
+
+def test_spotify_setup_from_settings(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    sp, fake = with_spotify(api, tmp_path)
+    page, errors = open_page(browser, api)
+    shot(page, "inicio-spotify-sin-configurar")
+    assert "Spotify sin configurar" in " ".join(page.inner_text("#chips").split())
+    assert page.is_hidden("#home-connect")              # no se reclama: Spotify es opcional
+    page.click("nav [data-go=ajustes]")
+    page.click("[data-setup=spotify]")
+    page.wait_for_selector("#setup-spotify:not([hidden])")
+    panel = page.inner_text("#setup-spotify")
+    assert "Premium" in panel and "http://127.0.0.1/callback" in panel
+    from tests.test_ui_design import check
+    assert check(page, "ajustes") == []                 # el panel respeta el sistema de tamaños
+    shot(page, "ajustes-spotify-configurar")
+    page.fill("#client-spotify", "no-es-un-id")
+    page.click("[data-save-client=spotify]")
+    page.wait_for_selector("#client-error-spotify:not([hidden])")
+    assert "32 letras y números" in page.inner_text("#client-error-spotify")
+    page.fill("#client-spotify", "0123456789abcdef0123456789abcdef")
+    page.press("#client-spotify", "Enter")
+    page.wait_for_selector("text=Spotify conectado.")
+    page.wait_for_selector("#chips .chip.ok >> text=Spotify")
+    assert sp.client_id == "0123456789abcdef0123456789abcdef" and sp.status().value == "connected"
+    assert page.is_visible("[data-disconnect=spotify]") and page.is_visible("[data-setup=spotify]")
+    # Spotify ya se puede elegir de destino
+    page.click("nav [data-go=inicio]")
+    page.select_option("#to", "spotify")
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("#dst-list >> text=Mi lista de Spotify")
+    assert errors == []
+
+
+def test_copy_redirect_uri(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    with_spotify(api, tmp_path)
+    page, errors = open_page(browser, api)
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    page.click("nav [data-go=ajustes]")
+    page.click("[data-setup=spotify]")
+    page.click("[data-copy=spotify]")
+    page.wait_for_selector("text=Copiado.")
+    assert page.evaluate("navigator.clipboard.readText()") == "http://127.0.0.1/callback"
+    page.click("[data-dashboard=spotify]")
+    page.wait_for_timeout(300)                                     # el pedido a Python es asíncrono
+    assert api._open_url_calls[-1] == "https://developer.spotify.com/dashboard"
+    page.set_viewport_size({"width": 860, "height": 620})          # ventana mínima: nada se sale
+    overflow = page.evaluate("""() => [...document.querySelectorAll('#setup-spotify *')].filter(el => {
+        const r = el.getBoundingClientRect(), p = document.querySelector('#setup-spotify').getBoundingClientRect();
+        return r.width && (r.right > p.right + 0.5 || r.left < p.left - 0.5); }).map(el => el.className || el.tagName)""")
+    assert overflow == []
+    assert page.evaluate("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth")
+    shot(page, "ajustes-spotify-minima")
     assert errors == []
 
 
