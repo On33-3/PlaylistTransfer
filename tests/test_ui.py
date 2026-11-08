@@ -311,9 +311,15 @@ def test_copy_redirect_uri(browser, tmp_path):
     page.click("[data-copy=spotify]")
     page.wait_for_selector("text=Copiado.")
     assert page.evaluate("navigator.clipboard.readText()") == "http://127.0.0.1/callback"
-    page.click("[data-dashboard=spotify]")
-    page.wait_for_timeout(300)                                     # el pedido a Python es asíncrono
-    assert api._open_url_calls[-1] == "https://developer.spotify.com/dashboard"
+    # cada paso trae su link, y cada uno abre la página justa
+    links = page.eval_on_selector_all("#setup-spotify [data-link]", "bs => bs.map(b => b.dataset.link)")
+    assert links == ["https://www.spotify.com/premium/", "https://developer.spotify.com/dashboard/create",
+                     "https://developer.spotify.com/dashboard"]
+    for i, url in enumerate(links):
+        page.locator("#setup-spotify [data-link]").nth(i).click()
+        page.wait_for_timeout(300)                                 # el pedido a Python es asíncrono
+        assert api._open_url_calls[-1] == url
+    assert "not secure" in page.inner_text("#setup-spotify")
     page.set_viewport_size({"width": 860, "height": 620})          # ventana mínima: nada se sale
     overflow = page.evaluate("""() => [...document.querySelectorAll('#setup-spotify *')].filter(el => {
         const r = el.getBoundingClientRect(), p = document.querySelector('#setup-spotify').getBoundingClientRect();

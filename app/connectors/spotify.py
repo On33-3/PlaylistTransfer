@@ -34,7 +34,9 @@ log = logging.getLogger(__name__)
 API = "https://api.spotify.com/v1"
 AUTHORIZE = "https://accounts.spotify.com/authorize"
 TOKEN = "https://accounts.spotify.com/api/token"
-DASHBOARD = "https://developer.spotify.com/dashboard"
+DASHBOARD = "https://developer.spotify.com/dashboard"     # "tus apps"
+CREATE_APP = DASHBOARD + "/create"
+PREMIUM = "https://www.spotify.com/premium/"
 REDIRECT_URI = "http://127.0.0.1/callback"     # lo que el usuario registra en su app (sin puerto)
 SCOPES = "playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public"
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -117,7 +119,9 @@ class SpotifyConnector(Connector):
         return cid
 
     def setup_info(self) -> dict:
-        return {"dashboard": DASHBOARD, "redirect_uri": REDIRECT_URI, "client_id": self.client_id}
+        # un link por paso, para que nadie tenga que buscar a dónde ir
+        return {"links": {"premium": PREMIUM, "create": CREATE_APP, "apps": DASHBOARD},
+                "redirect_uri": REDIRECT_URI, "client_id": self.client_id}
 
     # ---- HTTP
 
