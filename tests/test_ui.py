@@ -116,13 +116,13 @@ def test_transfer_live_then_add_another_artist(browser, tmp_path):
     assert page.inner_text("#count") == "4"
     assert [page.inner_text(f"#n-{k}") for k in ("ok", "doubt", "miss", "dup")] == ["1", "1", "1", "1"]
     done = page.inner_text("#done")
-    assert "«Para correr»" in done and "agregaste 2 temas; 1 ya estaba en otra versión" in done
+    assert "«Para correr»" in done and "agregaste 1 tema; 1 ya estaba en otra versión" in done
     tracks = page.inner_text("#tracks")
     assert "No está la de Jeff Buckley" in tracks and "Ya estaba como «Mr. Blue Sky - 2012 Remaster»" in tracks
     shot(page, "4-transferir-resultado")
     page.click("[data-alt='3:0']")
     page.wait_for_selector("text=Agregada la de Leonard Cohen")
-    assert [s.id for s in yt.songs("dst")] == ["y2old", "y1", "y4", "y3"]
+    assert [s.id for s in yt.songs("dst")] == ["y2old", "y1", "y3"]          # el en vivo (?) no se agregó solo
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist li[data-op]")
     page.click("#hist button.row >> nth=1")
@@ -187,30 +187,24 @@ def test_connect_from_settings(browser, tmp_path):
 
 # ---------------------------------------------------------------- F3
 
-def transfer(page, report=False, dry=False):
+def transfer(page, dry=False):
     page.click("nav [data-go=transferir]")
     page.check("input[name=src][value=src]")
     page.check("input[name=dst][value=dst]")
-    if report:
-        page.check("#want-report")
     page.click("#dry" if dry else "#go")
     page.wait_for_selector("#done.show")
 
 
-def test_report_is_only_saved_when_ticked(browser, tmp_path):
+def test_transfer_screen_stays_simple(browser, tmp_path):
+    """Sin casillas extra: ni reporte por transferencia ni "agregar los que pueden ser otra versión"."""
     api, tidal, yt = make_api(tmp_path)
     page, errors = open_page(browser, api)
     page.click("nav [data-go=transferir]")
     page.wait_for_selector("input[name=src]")
-    assert not page.is_checked("#want-report")                       # destildado por defecto
+    assert page.locator("#pick input[type=checkbox]:not([name=dst]):not(#dst-new)").count() == 0
     transfer(page)
     page.wait_for_timeout(300)
-    assert api.asked == [] and page.is_hidden("#open-report")
-    page.click("#again")
-    transfer(page, report=True, dry=True)
-    page.wait_for_selector("#open-report:not([hidden])")
-    assert len(api.asked) == 1 and api.asked[0].startswith("prueba-Favoritas-")
-    assert (tmp_path / "exportado" / api.asked[0]).exists()
+    assert api.asked == []                                           # nunca se guarda un archivo solo
     assert errors == []
 
 
@@ -237,8 +231,10 @@ def test_history_filter_mosaic_and_export(browser, tmp_path):
     page.wait_for_function("document.querySelectorAll('#hist li[data-op]').length === 2")
     page.click("#export")
     page.wait_for_selector("#open-export:not([hidden])")
-    assert "Guardé 5 filas" in page.inner_text("#export-note")
-    assert (tmp_path / "exportado" / api.asked[-1]).exists()
+    assert "Guardé 2 operaciones" in page.inner_text("#export-note")
+    assert api.asked[-1].endswith(".txt")
+    text = (tmp_path / "exportado" / api.asked[-1]).read_text(encoding="utf-8")
+    assert text.startswith("# PlaylistTransfer — historial") and "- Quitado (repetido):" in text
     shot(page, "8-historial-exportado")
     page.click("nav [data-go=inicio]")
     assert page.locator("#home-history .mosaic i").count() == 5
@@ -294,7 +290,7 @@ def test_every_screen_in_english_has_no_spanish_left(browser, tmp_path):
     assert page.inner_text("nav") .startswith("Home")
     assert visible_spanish(page) == []
     transfer(page)
-    assert "added 2 songs" in page.inner_text("#done") and visible_spanish(page) == []
+    assert "added 1 song" in page.inner_text("#done") and visible_spanish(page) == []
     shot(page, "en-transfer")
     page.click("nav [data-go=repetidos]")
     page.click("#dup-svc [data-svc=ytmusic]")
@@ -361,7 +357,7 @@ def test_each_small_tile_says_which_song_it_is(browser, tmp_path):
     assert "Hallelujah — Jeff Buckley: No encontrado" in titles
     assert "Mr. Blue Sky — Electric Light Orchestra: Ya estaba" in titles
     label = page.get_attribute("#home-history .mosaic", "aria-label")
-    assert label == "2 agregados (1 puede ser otra versión), 1 ya estaba, 1 no encontrado"
+    assert label == "1 agregado, 1 ya estaba, 1 sin agregar (puede ser otra versión), 1 no encontrado"
     shot(page, "11-inicio-leyenda")
     assert errors == []
 
@@ -456,26 +452,26 @@ def test_a_preview_says_would_be_added(browser, tmp_path):
     page, errors = open_page(browser, api)
     transfer(page, dry=True)
     legend = page.inner_text("#run .legend")
-    assert "✓ Se agregaría" in legend and "? Se agregaría, puede ser otra versión" in legend
+    assert "✓ Se agregaría" in legend and "? No se agregaría, puede ser otra versión" in legend
     assert "Agregado" not in legend
-    assert "Se agregaría «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
-    assert "1 tema se agregaría pero puede ser otra versión" in page.inner_text("#done")
+    assert "No se agregaría «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "1 tema no se agregaría porque puede ser otra versión" in page.inner_text("#done")
     assert page.locator("#mosaic i >> nth=0").get_attribute("title").startswith("Take On Me — a-ha: Se agregaría.")
     page.click("#again")                                             # una transferencia real después
     transfer(page)
     assert "✓ Agregado" in page.inner_text("#run .legend")
-    assert "Se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
-    assert "1 tema se agregó pero puede ser otra versión (?)" in page.inner_text("#done")
+    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "1 tema no se agregó porque puede ser otra versión" in page.inner_text("#done")
     assert errors == []
 
 
-def test_history_summary_counts_doubtful_inside_added(browser, tmp_path):
+def test_history_summary_says_what_was_not_added(browser, tmp_path):
     api, *_ = english_api(tmp_path)
     page, errors = open_page(browser, api)
     transfer(page)
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist li[data-op]")
-    assert "2 added (1 may be another version), 1 already there, 1 not found" in page.inner_text("#hist")
+    assert "1 added, 1 already there, 1 not added (may be another version), 1 not found" in page.inner_text("#hist")
     assert errors == []
 
 
@@ -490,24 +486,20 @@ def doubtful_setup(tmp_path):
     return api, tidal, yt
 
 
-def run_live(page, dry=False, add_doubtful=False):
+def run_live(page, dry=False):
     page.click("nav [data-go=transferir]")
     if page.is_visible("#again"):
         page.click("#again")
     page.wait_for_selector("input[name=src][value=live]")
     page.check("input[name=src][value=live]")
     page.check("input[name=dst][value=dst]")
-    page.set_checked("#add-doubtful", add_doubtful)
     page.click("#dry" if dry else "#go")
     page.wait_for_selector("#done.show")
 
 
-def test_unticked_doubtful_are_offered_one_by_one(browser, tmp_path):
+def test_doubtful_are_decided_at_the_end_one_by_one(browser, tmp_path):
     api, tidal, yt = doubtful_setup(tmp_path)
     page, errors = open_page(browser, api)
-    page.click("nav [data-go=transferir]")
-    page.wait_for_selector("input[name=src][value=live]")
-    assert page.is_checked("#add-doubtful")                            # como hasta ahora: tildada
     run_live(page)
     assert "? No agregado, puede ser otra versión" in page.inner_text("#run .legend")
     assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
@@ -523,14 +515,10 @@ def test_unticked_doubtful_are_offered_one_by_one(browser, tmp_path):
     page.click("#add-all")                                              # el resto, de una
     page.wait_for_selector("#add-all[hidden]", state="attached")
     assert "ylayla" in [s.id for s in yt.songs("dst")]
-    page.click("nav [data-go=transferir]")                             # la elección se recuerda
-    page.click("#again")
-    page.wait_for_selector("input[name=src][value=live]")
-    assert not page.is_checked("#add-doubtful")
     assert errors == []
 
 
-def test_preview_with_unticked_doubtful_has_no_buttons(browser, tmp_path):
+def test_preview_has_no_add_buttons(browser, tmp_path):
     api, *_ = doubtful_setup(tmp_path)
     page, errors = open_page(browser, api)
     run_live(page, dry=True)

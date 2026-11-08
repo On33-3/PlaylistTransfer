@@ -54,10 +54,10 @@ def test_statuses_and_alternatives(services):
     assert by_n[1].status == "ok" and by_n[1].match.id == "y-tom"
     assert by_n[3].status == "no_encontrado" and by_n[3].match is None          # Cohen ≠ Buckley
     assert [a.id for a in by_n[3].alternatives] == ["y-cohen"]                  # pero se ofrece
-    assert by_n[4].status == "dudoso"                                            # solo hay en vivo
+    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # solo hay en vivo: no se agrega solo
     track3 = next(e for e in events if e["type"] == "track" and e["n"] == 3)
     assert track3["alternatives"][0]["artist"] == "Leonard Cohen"
-    assert summary(res) == {"ok": 3, "doubtful": 1, "skipped": 0, "not_found": 1, "total": 5}
+    assert summary(res) == {"ok": 3, "doubtful": 0, "skipped": 1, "not_found": 1, "total": 5}
 
 
 def test_dry_run_changes_nothing(services):
@@ -66,7 +66,7 @@ def test_dry_run_changes_nothing(services):
     res = run_transfer(tidal, yt, "src", [Target("Favoritas", "dst"), Target("Nueva")], dry_run=True)
     assert yt.calls == [] and yt.playlists == before
     new = res.targets[1]
-    assert new.target.id is None and not new.created and len(new.added) == 3
+    assert new.target.id is None and not new.created and len(new.added) == 2
 
 
 def test_real_transfer_adds_only_what_is_missing(services):
@@ -75,9 +75,9 @@ def test_real_transfer_adds_only_what_is_missing(services):
     res = run_transfer(tidal, yt, "src", [Target("?", "dst")], emit=emit)
     t = res.targets[0]
     assert t.target.name == "Favoritas"                                          # nombre real del destino
-    assert [s.id for s in t.added] == ["y-tom", "y-boh-live"]                    # ok y dudoso; Cohen no
+    assert [s.id for s in t.added] == ["y-tom"]                                  # ni Cohen ni el en vivo (?)
     assert [(m.id, w.id, why) for m, w, why in t.versions] == [("y-blue", "y-blue-old", "ya estaba")]
-    assert yt.calls == [("add", "dst", ["y-tom", "y-boh-live"])]
+    assert yt.calls == [("add", "dst", ["y-tom"])]
     already = [e for e in events if e["type"] == "already"]
     assert [(e["n"], e["as"]["title"]) for e in already] == [(2, "Mr. Blue Sky - 2012 Remaster")]
 
@@ -106,7 +106,7 @@ def test_several_targets(services):
     tidal, yt = services
     yt.add_playlist("dst2", "Otra", [])
     res = run_transfer(tidal, yt, "src", [Target("a", "dst"), Target("b", "dst2")])
-    assert [len(t.added) for t in res.targets] == [2, 3]
+    assert [len(t.added) for t in res.targets] == [1, 2]
 
 
 def test_cancel_during_search_changes_nothing(services):
@@ -124,8 +124,8 @@ def test_cancel_during_search_changes_nothing(services):
 def test_thresholds_from_preferences(services):
     tidal, yt = services
     res = run_transfer(tidal, yt, "src", [Target("x", "dst")], dry_run=True, score_ok=0.99, score_min=0.0)
-    assert {t.status for t in res.tracks} <= {"ok", "dudoso", "no_encontrado"}
-    assert sum(t.status == "dudoso" for t in res.tracks) >= 2
+    assert {t.status for t in res.tracks} <= {"ok", "dudoso_omitido", "no_encontrado"}
+    assert sum(t.status == "dudoso_omitido" for t in res.tracks) >= 2
 
 
 def test_needs_a_target(services):
@@ -151,7 +151,11 @@ def test_doubtful_are_not_added_when_the_user_says_so(services):
     assert summary(res)["skipped"] == 1 and summary(res)["doubtful"] == 0
 
 
-def test_by_default_doubtful_are_added_as_before(services):
+def test_by_default_doubtful_wait_for_the_user(services):
+    """Los "?" nunca se agregan solos: el usuario decide al final ("+ Agregar igual")."""
     tidal, yt = services
     run_transfer(tidal, yt, "src", [Target("x", "dst")])
-    assert ("add", "dst", ["y-tom", "y-boh-live"]) in yt.calls
+    assert yt.calls == [("add", "dst", ["y-tom"])]
+    yt.calls.clear()
+    run_transfer(tidal, yt, "src", [Target("x", "dst")], include_doubtful=True)     # el motor todavía lo permite
+    assert yt.calls == [("add", "dst", ["y-boh-live"])]

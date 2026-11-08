@@ -18,8 +18,8 @@ from app.core.models import Song
 from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
-# "?" que el usuario eligió no agregar solos (casilla "Agregar también los que pueden ser otra
-# versión" destildada): quedan con su coincidencia para "+ Agregar igual" al final.
+# "?" (puede ser otra versión): no se agregan solos. Quedan con su coincidencia para que el
+# usuario decida al final ("+ Agregar igual" / "Agregar los N…").
 DOUBTFUL_SKIPPED = "dudoso_omitido"
 ADDABLE = (OK, DOUBTFUL)
 
@@ -74,7 +74,7 @@ def song_dict(s: Song | None) -> dict | None:
 
 def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.Event | None = None,
               score_ok: float = SCORE_OK, score_min: float = SCORE_MIN,
-              include_doubtful: bool = True) -> list[TrackResult]:
+              include_doubtful: bool = False) -> list[TrackResult]:
     results = []
     for n, src in enumerate(songs, 1):
         if cancel is not None and cancel.is_set():
@@ -119,7 +119,7 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
 def run_transfer(source: Connector, dest: Connector, source_id: str, targets: list[Target], *,
                  dry_run: bool = False, emit: Emit = lambda e: None, cancel: threading.Event | None = None,
                  score_ok: float = SCORE_OK, score_min: float = SCORE_MIN, public: bool = False,
-                 include_doubtful: bool = True) -> TransferResult:
+                 include_doubtful: bool = False) -> TransferResult:
     if not targets:
         raise ValueError(tr("err.choose_target"))
     src_name, songs = source.read(source_id)

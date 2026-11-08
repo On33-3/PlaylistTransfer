@@ -74,8 +74,6 @@
           </div>
         </div>
         <p class="error" id="pick-error" hidden></p>
-        <label class="opt report-opt"><input type="checkbox" id="add-doubtful" checked> <span data-i18n="transfer.add_doubtful">Agregar también los que pueden ser otra versión (?)</span> <span class="muted" data-i18n="transfer.add_doubtful_hint">(si lo destildás, al final decidís uno por uno)</span></label>
-        <label class="opt report-opt"><input type="checkbox" id="want-report"> <span data-i18n="transfer.report">Guardar también un reporte para Excel</span> <span class="muted" data-i18n="transfer.report_hint">(opcional: todo queda igual en el Historial)</span></label>
         <div class="actions">
           <button class="btn primary" id="go" disabled data-i18n="transfer.go">Transferir</button>
           <button class="btn ghost" id="dry" disabled data-i18n="transfer.dry">Probar sin cambiar nada</button>
@@ -90,7 +88,7 @@
         <div class="mosaic big" id="mosaic" role="img" data-i18n-aria="transfer.mosaic_aria" aria-label="Progreso de la transferencia"></div>
         <div class="legend">
           <span><i style="background:var(--mint)"></i><span data-i18n="transfer.legend_ok">✓ Encontrado</span> <b class="num" id="n-ok">0</b></span>
-          <span><i style="background:var(--peach)"></i><span data-i18n="transfer.legend_doubt">? Revisar</span> <b class="num" id="n-doubt">0</b></span>
+          <span><i style="background:var(--peach)"></i><span data-i18n="transfer.legend_skipped">? No agregado, puede ser otra versión</span> <b class="num" id="n-doubt">0</b></span>
           <span><i style="background:var(--rose)"></i><span data-i18n="transfer.legend_miss">✗ No encontrado</span> <b class="num" id="n-miss">0</b></span>
           <span><i style="background:var(--sage)"></i><span data-i18n="transfer.legend_dup">≈ Ya estaba</span> <b class="num" id="n-dup">0</b></span>
         </div>
@@ -101,7 +99,6 @@
           <div class="done-extra"><button class="btn ghost md" id="add-all" hidden data-needs-idle></button></div>
           <div class="actions">
             <button class="btn primary" id="open-dest" hidden></button>
-            <button class="btn ghost" id="open-report" hidden data-i18n="transfer.open_report">Abrir el reporte</button>
             <button class="btn ghost" id="again" data-i18n="transfer.again">Hacer otra transferencia</button>
           </div>
         </div>
@@ -143,7 +140,7 @@
       <div class="legend compact" id="hist-legend" role="note" data-i18n-aria="legend.aria" hidden></div>
       <ul class="hist" id="hist"></ul>
       <div class="actions" id="hist-actions" hidden>
-        <button class="btn ghost" id="export" data-needs-idle data-i18n="history.export">Exportar a CSV</button>
+        <button class="btn ghost" id="export" data-needs-idle data-i18n="history.download">Descargar historial</button>
         <button class="btn ghost" id="open-export" hidden data-i18n="history.open_file">Abrir el archivo</button>
       </div>
       <p class="muted export-note" id="export-note" hidden></p>

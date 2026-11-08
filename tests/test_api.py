@@ -238,12 +238,12 @@ def test_jobs_poll_unknown():
     assert Jobs().poll("nada")["state"] == "error"
 
 
-# ---------------------------------------------------------------- F3: reportes y umbrales
+# ---------------------------------------------------------------- historial en texto y umbrales
 
 @pytest.fixture
 def saving(app, tmp_path):
     api, tidal, yt = app
-    chosen = {"path": str(tmp_path / "salida" / "reporte.csv"), "asked": []}
+    chosen = {"path": str(tmp_path / "salida" / "historial.txt"), "asked": []}
     def dialog(name):
         chosen["asked"].append(name)
         return chosen["path"]
@@ -252,13 +252,15 @@ def saving(app, tmp_path):
     return api, yt, chosen
 
 
-def test_export_history_on_request(saving):
+def test_download_history_on_request(saving):
     api, yt, chosen = saving
-    assert "error" in api.export_history()                                  # vacío: nada para exportar
+    assert "error" in api.export_history()                                  # vacío: nada para descargar
     wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
     r = api.export_history()
-    assert r["rows"] == 2 and r["name"] == "reporte.csv" and chosen["asked"][0].startswith("historial-")
-    assert Path(r["path"]).read_text(encoding="utf-8-sig").count("\n") == 3
+    assert r["operations"] == 1 and r["name"] == "historial.txt" and chosen["asked"][0].startswith("historial-")
+    assert chosen["asked"][0].endswith(".txt")
+    text = Path(r["path"]).read_text(encoding="utf-8")
+    assert "- Agregado: Take On Me — a-ha" in text and "- No encontrado: Hallelujah — Jeff Buckley" in text
     assert api.open_export() == {"ok": True} and Path(chosen["opened"]) == Path(r["path"])
 
 
@@ -270,40 +272,17 @@ def test_cancelling_save_as_writes_nothing(saving):
     assert "error" in api.open_export()
 
 
-def test_csv_extension_is_added(saving):
+def test_txt_extension_is_added(saving):
     api, yt, chosen = saving
     wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
-    chosen["path"] = chosen["path"].replace(".csv", "")
-    assert api.export_history()["name"] == "reporte.csv"
+    chosen["path"] = chosen["path"].replace(".txt", "")
+    assert api.export_history()["name"] == "historial.txt"
 
 
-def test_transfer_report_is_optional_and_works_for_dry_runs(saving):
-    api, yt, chosen = saving
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], True)["job"])
-    assert chosen["asked"] == []                                            # nunca se guarda solo
-    assert api.history() == []                                              # la prueba no va al historial...
-    out = api.export_transfer(r["result"]["transfer"])                      # ...pero se puede pedir el reporte
-    assert out["rows"] == 2 and chosen["asked"][0].startswith("prueba-Favoritas-")
-    assert "Prueba (sin cambios)" in Path(out["path"]).read_text(encoding="utf-8-sig")
-    assert "error" in api.export_transfer("transfer-inventada")
-
-
-def test_report_and_history_say_the_same(saving):
-    api, yt, chosen = saving
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
-    a = Path(api.export_transfer(r["result"]["transfer"])["path"]).read_text(encoding="utf-8-sig").splitlines()
-    chosen["path"] = chosen["path"].replace("reporte", "historial")
-    b = Path(api.export_history()["path"]).read_text(encoding="utf-8-sig").splitlines()
-    strip = lambda rows: [line.split(",", 1)[1] for line in rows[1:]]           # sin la fecha
-    assert strip(a) == strip(b)
-
-
-def test_report_filename_is_safe_for_windows(saving):
-    api, yt, chosen = saving
-    api._connectors["tidal"].add_playlist("raro", 'AC/DC: "Lo mejor"?', [S("Thunderstruck", "AC/DC", id="z")])
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "raro", [{"id": "dst", "name": "x"}], True)["job"])
-    api.export_transfer(r["result"]["transfer"])
-    assert chosen["asked"][0].startswith("prueba-ACDC Lo mejor-")
+def test_there_is_no_per_transfer_report_anymore(app):
+    """Se quitó el reporte de cada transferencia: lo que pasó queda en el Historial."""
+    api, *_ = app
+    assert not hasattr(api, "export_transfer")
 
 
 def test_history_tiles_and_filter(app):
@@ -335,7 +314,7 @@ def test_thresholds_are_validated_and_used(app):
     st, sc = status()
     assert 0.8 <= sc < 0.9 and st == "ok"
     api.save_thresholds(0.9, 0.8)
-    assert status() == ("dudoso", sc)
+    assert status() == ("dudoso_omitido", sc)                              # "?": queda para decidir al final
 
 
 def test_thresholds_edited_by_hand_out_of_range_fall_back(app):
@@ -372,10 +351,9 @@ def doubtful_app(app):
 
 def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
     api, tidal, yt = doubtful_app
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False, False)["job"])
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False)["job"])
     assert r["result"]["summary"]["skipped"] == 1
-    assert [s.id for s in yt.songs("dst")] == ["y1"]
-    assert api.settings()["add_doubtful"] is False                         # se recuerda la elección
+    assert [s.id for s in yt.songs("dst")] == ["y1"]                        # el "?" no se agregó solo
     key = r["result"]["transfer"]
     a = wait(api, api.add_doubtful(key, [1])["job"])
     assert a["state"] == "done" and a["result"]["added_ns"] == [1]
@@ -388,7 +366,7 @@ def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
 
 def test_add_later_does_not_duplicate_what_is_already_there(doubtful_app):
     api, tidal, yt = doubtful_app
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False, False)["job"])
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False)["job"])
     yt.add("dst", [S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356, id="ylive")])   # alguien lo agregó
     yt.calls.clear()
     a = wait(api, api.add_doubtful(r["result"]["transfer"], [1])["job"])
@@ -397,7 +375,7 @@ def test_add_later_does_not_duplicate_what_is_already_there(doubtful_app):
 
 def test_add_later_is_not_possible_after_a_preview(doubtful_app):
     api, *_ = doubtful_app
-    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], True, False)["job"])
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], True)["job"])
     assert "error" in api.add_doubtful(r["result"]["transfer"], [1])
 
 

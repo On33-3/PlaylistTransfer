@@ -47,7 +47,6 @@ def test_every_control_uses_the_design_sizes(browser, tmp_path):
     bad += check(page, "transferir")
     page.uncheck("#dst-new")
     page.check("input[name=dst][value=dst]")
-    page.uncheck("#add-doubtful")
     page.click("#go")
     page.wait_for_selector("#done.show")
     bad += check(page, "transferir")

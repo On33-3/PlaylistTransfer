@@ -16,7 +16,7 @@ Funciona en Windows 10 y 11.
 
 ## Qué hace
 
-**Transferir.** Elegís una playlist de origen y una o varias de destino (o una nueva). Ves cada tema en vivo: ✓ agregado, ? agregado pero puede ser otra versión, ✗ no encontrado y ≈ ya estaba. Con *Probar sin cambiar nada* ves el resultado antes de tocar tus playlists.
+**Transferir.** Elegís una playlist de origen y una o varias de destino (o una nueva). Ves cada tema en vivo: ✓ agregado, ? puede ser otra versión (decidís vos al final), ✗ no encontrado y ≈ ya estaba. Con *Probar sin cambiar nada* ves el resultado antes de tocar tus playlists.
 
 ![Transferir](docs/img/transferir.png)
 
@@ -24,7 +24,7 @@ Funciona en Windows 10 y 11.
 
 ![Quitar repetidos](docs/img/repetidos.png)
 
-**Historial.** Cada transferencia y cada limpieza quedan registradas con el detalle de cada tema. Si querés, lo exportás a CSV para abrirlo en Excel.
+**Historial.** Cada transferencia y cada limpieza quedan registradas con el detalle de cada tema. Si querés, lo descargás como un archivo de texto liviano, fácil de leer o de pasarle a una IA.
 
 ![Historial](docs/img/historial.png)
 
@@ -33,7 +33,7 @@ Funciona en Windows 10 y 11.
 - Tiene que coincidir **el artista**. Una canción puede tenerla más de un artista: si buscás el *Hallelujah* de Jeff Buckley y solo está el de Leonard Cohen, no se agrega solo; la app te lo ofrece y decidís vos.
 - Covers, karaokes y tributos no cuentan como el original.
 - Partes y secuelas son temas distintos (*Pt. 1* ≠ *Pt. 2*, *The Unforgiven* ≠ *The Unforgiven II*), y un *Intro* de otro álbum también.
-- Una versión en vivo, acústica o remix del mismo tema se agrega marcada con **?** (puede ser otra versión), para que sepas cuál mirar.
+- Una versión en vivo, acústica o remix del mismo tema queda marcada con **?** y **no se agrega sola**: al final decidís con "+ Agregar igual".
 
 Los umbrales se pueden ajustar en **Ajustes › Coincidencias**.
 
