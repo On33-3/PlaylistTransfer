@@ -548,6 +548,10 @@ function updateRemove() {
   $("#remove").textContent = label; $("#confirm-yes").textContent = label;
   $("#remove").dataset.blocked = c ? "0" : "1"; $("#remove").disabled = !c || state.busy;
   $("#c-title").textContent = t("dedupe.confirm_title", { action: label, name: state.scan?.name || "" });
+  // Spotify quita todas las copias de una canción: la que queda vuelve a agregarse en su lugar
+  const readd = checkedDups().filter(i => state.scan?.duplicates[i]?.readd).length;
+  $("#c-readd").hidden = !readd;
+  $("#c-readd").textContent = readd ? t("dedupe.confirm_readd", { n: readd, service: NAMES[state.dupService] }) : "";
 }
 $("#dups").addEventListener("change", updateRemove);
 $("#dup-scan").addEventListener("click", scanDups);

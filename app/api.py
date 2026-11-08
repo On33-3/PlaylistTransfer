@@ -405,7 +405,10 @@ class Api:
             self._scans[scan_id] = {"key": key, "playlist_id": playlist_id, "name": name, "songs": songs, "dups": dups}
             return {"scan": scan_id, "name": name, "total": len(songs),
                     "duplicates": [{"i": i, "index": d.index, "kind": d.kind, "song": song_dict(d.song),
-                                    "kept": song_dict(d.kept)} for i, d in enumerate(dups)]}
+                                    "kept": song_dict(d.kept),
+                                    # Spotify: la que queda se quita y se vuelve a agregar (se avisa antes)
+                                    "readd": c.removes_all_copies and d.song.id is not None and d.song.id == d.kept.id}
+                                   for i, d in enumerate(dups)]}
         return self._start("scan", work)
 
     def remove_duplicates(self, scan_id: str, selected: list[int], confirmed: bool = False) -> dict:

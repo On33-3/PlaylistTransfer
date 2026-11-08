@@ -65,6 +65,7 @@ class SpotifyConnector(Connector):
     key = "spotify"
     name = "Spotify"
     needs_setup = True
+    removes_all_copies = True
 
     def __init__(self, session_file: Path, app_file: Path, http=None, open_browser=open_url,
                  callback_server=loopback.CallbackServer):
