@@ -301,6 +301,21 @@
     "report.status.dudoso_omitido": "No agregado, puede ser otra versión",
     "report.status.no_encontrado": "No encontrado",
     "report.status.ya_estaba": "Ya estaba",
-    "report.status.quitado": "Quitado (repetido)"
+    "report.status.quitado": "Quitado (repetido)",
+    "err.spotify_bad_client_id": "Ese no parece un Client ID de Spotify: son 32 letras y números (lo ves en tu app, en el panel de Spotify).",
+    "err.spotify_setup_first": "Primero configurá Spotify: pegá el Client ID de tu app en Ajustes.",
+    "err.spotify_expired": "El permiso de Spotify venció (dura 6 meses) o se quitó. Volvé a conectar en Ajustes.",
+    "err.spotify_login_failed": "Spotify no completó el inicio de sesión: {detail}",
+    "err.spotify_wait": "Spotify pidió esperar {seconds} segundos. Probá de nuevo en un rato.",
+    "err.spotify_forbidden": "Spotify no dejó entrar. Revisá que tu cuenta tenga Premium y que esté en la lista de usuarios de tu app (en el panel de Spotify, \"User Management\").",
+    "err.spotify_not_found": "Spotify no encontró esa playlist (¿se borró?).",
+    "err.spotify_error": "Spotify respondió con un error ({code}). {detail}",
+    "err.spotify_bad_id": "No reconozco una playlist de Spotify en «{value}».",
+    "err.spotify_not_owner": "Esa playlist de Spotify no es tuya ni colaborativa: no se le pueden agregar temas.",
+    "err.spotify_readded": "Se quitaron los repetidos, pero Spotify no dejó en su lugar algunos temas que tenían que quedar; los volví a agregar al final: {titles}.",
+    "err.login_state_mismatch": "La respuesta del inicio de sesión no era la esperada. Probá de nuevo.",
+    "err.login_denied": "No se dio permiso ({detail}).",
+    "msg.login_back_ok": "Listo. Ya podés cerrar esta pestaña y volver a PlaylistTransfer.",
+    "msg.login_back_error": "No se completó el inicio de sesión. Volvé a PlaylistTransfer para intentarlo de nuevo."
   }
 }

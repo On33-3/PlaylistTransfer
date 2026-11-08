@@ -301,6 +301,21 @@
     "report.status.dudoso_omitido": "Not added, may be another version",
     "report.status.no_encontrado": "Not found",
     "report.status.ya_estaba": "Already there",
-    "report.status.quitado": "Removed (duplicate)"
+    "report.status.quitado": "Removed (duplicate)",
+    "err.spotify_bad_client_id": "That doesn't look like a Spotify Client ID: it's 32 letters and numbers (you'll find it in your app, on the Spotify dashboard).",
+    "err.spotify_setup_first": "Set up Spotify first: paste your app's Client ID in Settings.",
+    "err.spotify_expired": "Spotify's permission expired (it lasts 6 months) or was removed. Connect again in Settings.",
+    "err.spotify_login_failed": "Spotify didn't finish the sign-in: {detail}",
+    "err.spotify_wait": "Spotify asked to wait {seconds} seconds. Try again in a while.",
+    "err.spotify_forbidden": "Spotify didn't let us in. Check that your account has Premium and is on your app's user list (on the Spotify dashboard, \"User Management\").",
+    "err.spotify_not_found": "Spotify couldn't find that playlist (was it deleted?).",
+    "err.spotify_error": "Spotify answered with an error ({code}). {detail}",
+    "err.spotify_bad_id": "I can't find a Spotify playlist in “{value}”.",
+    "err.spotify_not_owner": "That Spotify playlist isn't yours or collaborative: songs can't be added to it.",
+    "err.spotify_readded": "The duplicates were removed, but Spotify didn't keep some songs that had to stay in place; I added them back at the end: {titles}.",
+    "err.login_state_mismatch": "The sign-in answer wasn't the expected one. Try again.",
+    "err.login_denied": "Permission wasn't given ({detail}).",
+    "msg.login_back_ok": "Done. You can close this tab and go back to PlaylistTransfer.",
+    "msg.login_back_error": "The sign-in didn't finish. Go back to PlaylistTransfer to try again."
   }
 }

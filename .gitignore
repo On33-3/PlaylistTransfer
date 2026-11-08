@@ -33,3 +33,5 @@ dist/
 # Empaquetado (los genera packaging/build.py)
 packaging/version_info.txt
 *.spec.bak
+spotify_session.json
+spotify_app.json
