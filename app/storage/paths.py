@@ -22,6 +22,15 @@ def yt_browser_file() -> Path:
     return data_dir() / "browser.json"
 
 
+def spotify_session_file() -> Path:
+    return data_dir() / "spotify_session.json"
+
+
+def spotify_app_file() -> Path:
+    """El Client ID de la app de Spotify del usuario (no es secreto, pero es suyo)."""
+    return data_dir() / "spotify_app.json"
+
+
 def prefs_file() -> Path:
     return data_dir() / "preferencias.json"
 

@@ -186,7 +186,23 @@ class Api:
     def services(self) -> list[dict]:
         """Los servicios en el orden en que se muestran, y cuáles se pueden usar. Es inmediato (no
         consulta a nadie): la UI lo pide al arrancar, antes de `status()`."""
-        return [{"key": s.key, "name": s.name, "available": s.key in self._connectors} for s in registry.SERVICES]
+        out = []
+        for s in registry.SERVICES:
+            c = self._connectors.get(s.key)
+            d = {"key": s.key, "name": s.name, "available": c is not None}
+            if getattr(c, "needs_setup", False):          # Spotify: el usuario carga su Client ID
+                d["setup"] = c.setup_info()
+            out.append(d)
+        return out
+
+    def set_client_id(self, key: str, client_id: str) -> dict:
+        """Guarda el Client ID de la app del usuario (Spotify). Después, la UI conecta."""
+        def work():
+            c = self._connector(key)
+            if not getattr(c, "needs_setup", False):
+                raise ConnectorError(tr("err.service_unavailable"))
+            return {"ok": True, "client_id": c.set_client_id(str(client_id or "")), "status": c.status().value}
+        return self._safe(work)
 
     def status(self) -> list[dict]:
         out = []

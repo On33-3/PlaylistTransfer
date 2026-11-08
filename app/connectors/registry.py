@@ -31,10 +31,15 @@ def _ytmusic() -> Connector:
     return YTMusicConnector(paths.yt_browser_file(), paths.browser_profiles_dir())
 
 
+def _spotify() -> Connector:
+    from app.connectors.spotify import SpotifyConnector
+    return SpotifyConnector(paths.spotify_session_file(), paths.spotify_app_file())
+
+
 SERVICES: tuple[Service, ...] = (
     Service("tidal", "Tidal", ("https://tidal.com/", "https://listen.tidal.com/"), _tidal),
     Service("ytmusic", "YouTube Music", ("https://music.youtube.com/",), _ytmusic),
-    Service("spotify", "Spotify", ("https://open.spotify.com/",), None),
+    Service("spotify", "Spotify", ("https://open.spotify.com/", "https://developer.spotify.com/"), _spotify),
 )
 
 

@@ -52,12 +52,26 @@ def test_preferences_start_with_defaults(new_pc):
 def test_services_start_disconnected(new_pc):
     assert TidalConnector(paths.tidal_session_file()).status() is Status.DISCONNECTED
     assert YTMusicConnector(paths.yt_browser_file(), paths.browser_profiles_dir()).status() is Status.DISCONNECTED
+    from app.connectors.spotify import SpotifyConnector
+    assert SpotifyConnector(paths.spotify_session_file(), paths.spotify_app_file()).status() is Status.SETUP
+
+
+def test_the_app_starts_with_spotify_waiting_for_setup(new_pc):
+    """Sin Client ID no se consulta a nadie: Spotify queda "sin configurar" y el resto funciona."""
+    from app.api import Api
+    api = Api.create()
+    assert {s["key"]: s["status"] for s in api.status()}["spotify"] == "setup"
+    sp = next(s for s in api.services() if s["key"] == "spotify")
+    assert sp["available"] and sp["setup"]["redirect_uri"] == "http://127.0.0.1/callback"
+    assert sp["setup"]["client_id"] is None
+    assert not paths.spotify_app_file().exists() and not paths.spotify_session_file().exists()
 
 
 def test_nothing_is_read_from_the_repo_folder(new_pc):
     """Aunque el repo tenga archivos tuyos ignorados (browser.json, reportes...), la app no los usa."""
     for f in (paths.tidal_session_file(), paths.yt_browser_file(), paths.prefs_file(),
-              paths.history_file(), paths.browser_profiles_dir()):
+              paths.history_file(), paths.browser_profiles_dir(), paths.spotify_session_file(),
+              paths.spotify_app_file()):
         assert new_pc in f.parents and ROOT not in f.parents
 
 

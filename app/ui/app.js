@@ -7,6 +7,7 @@ const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrad
 // Los servicios salen de api.services() (app/connectors/registry.py) al arrancar
 let NAMES = {};          // {tidal: "Tidal", ...} en el orden en que se muestran
 let USABLE = [];         // los que ya se pueden usar
+let SETUP = {};          // los que piden configurar algo antes (Spotify): {dashboard, redirect_uri, client_id}
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -113,11 +114,13 @@ async function refreshStatus() {
   $("#chips").innerHTML = list.map(s => {
     const [cls, label] = { connected: ["ok", "✓"], expired: ["warn", `<span class="state">${esc(t("status.expired"))}</span>`],
       disconnected: ["off", `<span class="state">${esc(t("status.disconnected"))}</span>`],
+      setup: ["off", `<span class="state">${esc(t("status.setup"))}</span>`],
       soon: ["soon", `<span class="state">${esc(t("status.soon"))}</span>`] }[s.status];
     const target = s.status === "soon" ? "" : `data-go="ajustes"`;
     return `<button class="chip ${cls}" ${target} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
   }).join("");
-  const missing = USABLE.filter(k => !connected(k)).map(k => NAMES[k]);
+  // Lo que nunca se configuró (Spotify pide Premium y una app propia) no se reclama en Inicio
+  const missing = USABLE.filter(k => !connected(k) && state.status[k] !== "setup").map(k => NAMES[k]);
   $("#home-connect").hidden = missing.length === 0;
   $("#home-connect-text").textContent = missing.length ? t("home.connect_missing", { services: listAnd(missing) }) : "";
 }
@@ -612,11 +615,15 @@ $("#open-export").addEventListener("click", () => call("open_export"));
 async function renderSettings() {
   $("#svc-list").innerHTML = USABLE.map(k => {
     const st = state.status[k];
-    const label = { connected: t("settings.connected"), expired: t("settings.expired"), disconnected: t("settings.disconnected") }[st] || "…";
-    const btns = st === "connected"
+    const label = { connected: t("settings.connected"), expired: t("settings.expired"), disconnected: t("settings.disconnected"),
+                    setup: t("settings.setup_needed") }[st] || "…";
+    let btns = st === "connected"
       ? `<button class="btn ghost" data-disconnect="${k}" data-needs-idle>${esc(t("settings.disconnect"))}</button>`
+      : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
-    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`;
+    if (SETUP[k] && st !== "setup") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
+    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`
+      + (SETUP[k] ? setupPanelHTML(k) : "");
   }).join("") + Object.keys(NAMES).filter(k => !USABLE.includes(k)).map(k =>
     `<div class="svc"><span><b>${esc(NAMES[k])}</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`).join("");
   setBusy(state.busy);
@@ -682,27 +689,83 @@ $("#browser-list").addEventListener("change", async e => {
   if (r) toast(t("settings.browser_toast", { name: r.name }));
 });
 
+/** Los pasos para usar Spotify con una app propia (lo exige Spotify desde 2026), en la misma fila. */
+function setupPanelHTML(k) {
+  const s = SETUP[k];
+  return `<div class="setup-panel" id="setup-${k}" hidden>
+    <ol class="setup-steps">
+      <li><b>${esc(t("settings.sp_step1_title"))}</b> ${esc(t("settings.sp_step1"))}</li>
+      <li><b>${esc(t("settings.sp_step2_title"))}</b> ${esc(t("settings.sp_step2"))}
+        <div class="setup-row"><code class="uri" id="redirect-${k}">${esc(s.redirect_uri)}</code>
+          <button class="btn ghost" data-copy="${k}">${esc(t("settings.copy"))}</button>
+          <button class="btn ghost" data-dashboard="${k}">${esc(t("settings.sp_open_dashboard"))}</button></div></li>
+      <li><b>${esc(t("settings.sp_step3_title"))}</b> <label for="client-${k}">${esc(t("settings.sp_step3"))}</label>
+        <div class="setup-row"><input type="text" id="client-${k}" class="client-id" spellcheck="false" autocomplete="off" maxlength="64"
+          placeholder="${esc(t("settings.sp_client_placeholder"))}" value="${esc(s.client_id || "")}">
+          <button class="btn primary" data-save-client="${k}" data-needs-idle>${esc(t("settings.sp_save"))}</button></div>
+        <p class="error" id="client-error-${k}" hidden></p></li>
+    </ol>
+    <p class="muted setup-note">${esc(t("settings.sp_note"))}</p></div>`;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* sin permiso: plan B */ }
+  const area = document.createElement("textarea");
+  area.value = text; area.setAttribute("readonly", ""); area.className = "offscreen";
+  document.body.appendChild(area); area.select();
+  const ok = document.execCommand("copy"); area.remove();
+  return ok;
+}
+
+async function saveClientId(key) {
+  const input = $("#client-" + key), err = $("#client-error-" + key);
+  err.hidden = true;
+  const r = await api.set_client_id(key, input.value);
+  if (r.error) { err.textContent = r.error; err.hidden = false; input.focus(); return; }
+  SETUP[key].client_id = r.client_id;
+  await refreshStatus(); await renderSettings();
+  connectService(key);                 // ya está configurado: sigue con el inicio de sesión
+}
+
+async function connectService(key) {
+  const c = $(`[data-connect="${key}"]`); if (!c) return;
+  const r = await call("connect", key); if (!r) return;
+  const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = t("settings.opening");
+  // Mientras espera el login se puede cancelar (si el usuario cerró el navegador o cambió de idea)
+  const stop = document.createElement("button");
+  stop.className = "btn ghost"; stop.id = "cancel-login"; stop.textContent = t("settings.cancel_login");
+  stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
+  $(".actions-inline", c.closest(".svc")).append(stop);
+  const done = await follow(r.job, ev => {
+    if (ev.type === "login") wait.textContent = t("settings.login_wait", { browser: ev.browser, service: ev.service });
+  });
+  wait.hidden = true; stop.remove();
+  if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
+  else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
+  else toast(done.error || t("settings.connect_error"));
+  delete state.playlists[key];
+  await refreshStatus(); renderSettings();
+}
+
+$("#svc-list").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.matches("input.client-id")) saveClientId(e.target.id.replace("client-", ""));
+});
+
 $("#svc-list").addEventListener("click", async e => {
   const c = e.target.closest("[data-connect]"), d = e.target.closest("[data-disconnect]");
-  if (c) {
-    const key = c.dataset.connect;
-    const r = await call("connect", key); if (!r) return;
-    const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = t("settings.opening");
-    // Mientras espera el login se puede cancelar (si el usuario cerró el navegador o cambió de idea)
-    const stop = document.createElement("button");
-    stop.className = "btn ghost"; stop.id = "cancel-login"; stop.textContent = t("settings.cancel_login");
-    stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
-    $(".actions-inline", c.closest(".svc")).append(stop);
-    const done = await follow(r.job, ev => {
-      if (ev.type === "login") wait.textContent = t("settings.login_wait", { browser: ev.browser, service: ev.service });
-    });
-    wait.hidden = true; stop.remove();
-    if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
-    else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
-    else toast(done.error || t("settings.connect_error"));
-    delete state.playlists[key];
-    await refreshStatus(); renderSettings();
+  const setup = e.target.closest("[data-setup]");
+  if (setup) {
+    const panel = $("#setup-" + setup.dataset.setup), open = panel.hidden;
+    panel.hidden = !open; setup.setAttribute("aria-expanded", open);
+    if (open) $("input", panel).focus();
   }
+  const copy = e.target.closest("[data-copy]");
+  if (copy && await copyText(SETUP[copy.dataset.copy].redirect_uri)) toast(t("settings.copied"));
+  const dash = e.target.closest("[data-dashboard]");
+  if (dash) call("open_url", SETUP[dash.dataset.dashboard].dashboard);
+  const save = e.target.closest("[data-save-client]");
+  if (save && !save.disabled) saveClientId(save.dataset.saveClient);
+  if (c) connectService(c.dataset.connect);
   if (d) {
     const key = d.dataset.disconnect;
     if (await call("disconnect", key)) {
@@ -726,6 +789,7 @@ async function start() {
   const services = await call("services") || [];
   NAMES = Object.fromEntries(services.map(s => [s.key, s.name]));
   USABLE = services.filter(s => s.available).map(s => s.key);
+  SETUP = Object.fromEntries(services.filter(s => s.setup).map(s => [s.key, s.setup]));
   [state.from, state.to] = USABLE;
   ["#go", "#dry", "#remove", "#dup-scan"].forEach(s => { $(s).dataset.needsIdle = ""; });
   setupRoute();
