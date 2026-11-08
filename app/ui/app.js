@@ -741,7 +741,8 @@ async function copyText(text) {
 async function saveClientId(key) {
   const input = $("#client-" + key), err = $("#client-error-" + key);
   err.hidden = true;
-  const r = await api.set_client_id(key, input.value);
+  let r;
+  try { r = await api.set_client_id(key, input.value); } catch (e) { r = { error: t("common.error", { msg: e.message || e }) }; }
   if (r.error) { err.textContent = r.error; err.hidden = false; input.focus(); return; }
   SETUP[key].client_id = r.client_id;
   await refreshStatus(); await renderSettings();

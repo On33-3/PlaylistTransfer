@@ -110,11 +110,14 @@ class TidalConnector(Connector):
                 raise Cancelled()
             if time.monotonic() > deadline:
                 raise ConnectorError(tr("err.login_timeout"))
+            asked = time.monotonic()
             try:
                 s.process_link_login(link, until_expiry=False)    # una consulta (espera el intervalo)
                 break
-            except TimeoutError:                                   # todavía no lo aprobó
-                continue
+            except TimeoutError:                                   # todavía no lo aprobó...
+                # ...o el link venció: entonces tidalapi contesta enseguida, sin esperar el intervalo
+                if time.monotonic() - asked < getattr(link, "interval", 2) / 2:
+                    raise ConnectorError(tr("err.login_timeout")) from None
         if not s.check_login():
             raise ConnectorError(tr("err.tidal_login_failed"))
         self._loaded = True
