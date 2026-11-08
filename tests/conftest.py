@@ -1,8 +1,6 @@
 """Datos reales del usuario (de los reportes y del video de "Quitar repetidos") y utilidades."""
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -88,15 +86,6 @@ def video_playlist() -> list[Song]:
     for title, artist, dur, album, _ in COPIES:
         add(title, artist, dur, album)
     return songs
-
-
-def load_legacy():
-    """El script de consola original, para comparar resultados con el motor extraído."""
-    spec = importlib.util.spec_from_file_location("legacy_transfer", ROOT / "legacy" / "transfer_playlist.py")
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod          # dataclasses lo busca acá al resolver las anotaciones
-    spec.loader.exec_module(mod)
-    return mod
 
 
 @pytest.fixture(autouse=True)
