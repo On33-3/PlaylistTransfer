@@ -153,7 +153,10 @@ def test_needs_a_client_id_first(tmp_path, api):
         c.connect(None)
     assert c.set_client_id("  " + CID.upper() + " ") == CID       # se limpia: espacios y mayúsculas
     assert c.status() is Status.DISCONNECTED
-    assert c.setup_info() == {"dashboard": sp.DASHBOARD, "redirect_uri": "http://127.0.0.1/callback", "client_id": CID}
+    assert c.setup_info() == {"links": {"premium": sp.PREMIUM, "create": sp.CREATE_APP, "apps": sp.DASHBOARD},
+                              "redirect_uri": "http://127.0.0.1/callback", "client_id": CID}
+    from app.connectors import registry
+    assert all(registry.is_allowed_link(u) for u in c.setup_info()["links"].values())   # la app los deja abrir
 
 
 def test_changing_the_client_id_drops_the_old_session(tmp_path, api):

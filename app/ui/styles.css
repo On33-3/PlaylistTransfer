@@ -406,6 +406,7 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 .setup-row .client-id { height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface);
   padding: 0 12px; width: 300px; max-width: 100%; font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink); }
 .setup-note { margin: 12px 0 0; font-size: 13.5px; }
+.setup-hint { margin: 8px 0 0; font-size: 13.5px; }
 .setup-panel .error { margin: 8px 0 0; }
 .offscreen { position: fixed; left: -9999px; top: 0; }
 dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */

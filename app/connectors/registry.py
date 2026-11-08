@@ -39,7 +39,8 @@ def _spotify() -> Connector:
 SERVICES: tuple[Service, ...] = (
     Service("tidal", "Tidal", ("https://tidal.com/", "https://listen.tidal.com/"), _tidal),
     Service("ytmusic", "YouTube Music", ("https://music.youtube.com/",), _ytmusic),
-    Service("spotify", "Spotify", ("https://open.spotify.com/", "https://developer.spotify.com/"), _spotify),
+    Service("spotify", "Spotify", ("https://open.spotify.com/", "https://developer.spotify.com/",
+                                     "https://www.spotify.com/"), _spotify),
 )
 
 
