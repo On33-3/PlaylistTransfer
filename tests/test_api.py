@@ -64,6 +64,16 @@ def test_connect_uses_the_suggested_browser_never_chrome(app):
     assert any(e["type"] == "login" and e["browser"] == "Vivaldi" for e in r["events"])
 
 
+def test_connect_can_be_cancelled(app):
+    api, tidal, yt = app
+    tidal.connected, tidal.login_hangs = False, True
+    job = api.connect("tidal")["job"]
+    api.cancel(job)
+    r = wait(api, job)
+    assert r["state"] == "cancelled" and not tidal.connected
+    assert "job" in api.connect("ytmusic")             # no queda nada trabado
+
+
 def test_choose_browser(app):
     api, *_ = app
     assert api.choose_browser(str(CHROME.exe))["name"] == "Google Chrome"   # elegido a mano, sí

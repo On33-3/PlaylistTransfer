@@ -126,6 +126,75 @@ def test_tidal_login_link():
     assert login_link("sin link") is None
 
 
+class FakeTidalLogin:
+    """La parte de tidalapi que usa el login por link: aprueba después de `pending` consultas."""
+    def __init__(self, pending=2):
+        self.pending, self.asked = pending, 0
+        self.token_type, self.access_token, self.refresh_token, self.expiry_time = "Bearer", "a", "r", None
+
+    def get_link_login(self):
+        return NS(verification_uri_complete="link.tidal.com/ABCDE", expires_in=300)
+
+    def process_link_login(self, link, until_expiry=True):
+        assert until_expiry is False          # una consulta por vez: así se puede cancelar
+        self.asked += 1
+        if self.asked <= self.pending:
+            raise TimeoutError("todavía no")
+        return True
+
+    def check_login(self):
+        return self.asked > self.pending
+
+
+def test_tidal_login_opens_the_link_and_waits_for_approval(tmp_path, monkeypatch):
+    import app.connectors.tidal as tidal_mod
+    opened = []
+    monkeypatch.setattr(tidal_mod, "open_url", lambda url, browser: opened.append(url))
+    fake = FakeTidalLogin(pending=2)
+    c = TidalConnector(tmp_path / "tidal_session.json")
+    c._s = fake
+    c.connect(None)
+    assert opened == ["https://link.tidal.com/ABCDE"] and fake.asked == 3
+    assert json.loads((tmp_path / "tidal_session.json").read_text(encoding="utf-8"))["access_token"] == "a"
+
+
+def test_tidal_login_can_be_cancelled(tmp_path, monkeypatch):
+    import threading
+
+    import app.connectors.tidal as tidal_mod
+    from app.core.models import Cancelled
+    monkeypatch.setattr(tidal_mod, "open_url", lambda url, browser: None)
+    fake = FakeTidalLogin(pending=10 ** 6)
+    cancel = threading.Event()
+    original = fake.process_link_login
+    def ask(link, until_expiry=True):
+        if fake.asked == 3:
+            cancel.set()                      # el usuario tocó "Cancelar" mientras esperaba
+        return original(link, until_expiry)
+    fake.process_link_login = ask
+    c = TidalConnector(tmp_path / "tidal_session.json")
+    c._s = fake
+    with pytest.raises(Cancelled):
+        c.connect(None, cancel=cancel)
+    assert fake.asked == 4 and not (tmp_path / "tidal_session.json").exists()
+
+
+def test_firefox_login_can_be_cancelled(monkeypatch):
+    import threading
+    import time
+
+    from app.auth import firefox
+    from app.core.models import Cancelled
+    monkeypatch.setattr(firefox, "read_cookies", lambda domain, wanted: {})
+    monkeypatch.setattr(firefox.webbrowser, "open", lambda url: True)
+    cancel = threading.Event()
+    threading.Timer(0.2, cancel.set).start()
+    start = time.monotonic()
+    with pytest.raises(Cancelled):
+        firefox.login_and_read_cookies("https://example.com", "youtube.com", {"SID"}, cancel=cancel)
+    assert time.monotonic() - start < 2       # no espera los 3 segundos enteros
+
+
 def test_tidal_status_without_network(tmp_path):
     f = tmp_path / "tidal_session.json"
     assert TidalConnector(f).status() is Status.DISCONNECTED

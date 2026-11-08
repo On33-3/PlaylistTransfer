@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -91,14 +92,14 @@ class YTMusicConnector(Connector):
         self.yt = self._open()
         return Status.CONNECTED if self.yt is not None else Status.EXPIRED
 
-    def connect(self, browser: Browser | None = None) -> None:
+    def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
         if browser is None:
             raise ConnectorError(tr("err.yt_choose_browser"))
         if browser.is_firefox:
-            jar, ua = firefox.login_and_read_cookies(LOGIN_URL, "youtube.com", SESSION_COOKIES)
+            jar, ua = firefox.login_and_read_cookies(LOGIN_URL, "youtube.com", SESSION_COOKIES, cancel=cancel)
         else:
             jar, ua = cdp_login.login_and_read_cookies(browser.exe, browser.name, self.profiles_dir,
-                                                       LOGIN_URL, "youtube.com", SESSION_COOKIES)
+                                                       LOGIN_URL, "youtube.com", SESSION_COOKIES, cancel=cancel)
         self.save_session(jar, ua)
         self.yt = self._open()
         if self.yt is None:

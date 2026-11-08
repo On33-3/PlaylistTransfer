@@ -1,6 +1,7 @@
 """Interfaz que cumple cada servicio de música. El resto de la app solo habla con esto."""
 from __future__ import annotations
 
+import threading
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -43,8 +44,9 @@ class Connector(ABC):
     def status(self) -> Status: ...
 
     @abstractmethod
-    def connect(self, browser: Browser | None = None) -> None:
-        """Inicia sesión (puede abrir el navegador y bloquear hasta que el usuario termine)."""
+    def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
+        """Inicia sesión (puede abrir el navegador y bloquear hasta que el usuario termine).
+        Si `cancel` se activa mientras espera, corta y lanza `Cancelled`."""
 
     @abstractmethod
     def disconnect(self) -> None:

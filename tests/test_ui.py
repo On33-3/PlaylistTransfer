@@ -185,6 +185,21 @@ def test_connect_from_settings(browser, tmp_path):
     assert errors == []
 
 
+def test_login_can_be_cancelled_from_settings(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    tidal.login_hangs = True
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=ajustes]")
+    page.click("[data-connect=tidal]")
+    page.wait_for_selector("#cancel-login")
+    assert round(page.locator("#cancel-login").bounding_box()["height"]) == 36   # sistema de tamaños
+    page.click("#cancel-login")
+    page.wait_for_selector("text=Cancelaste el inicio de sesión.")
+    assert page.locator("#cancel-login").count() == 0 and page.is_hidden("#wait-tidal")
+    assert not tidal.connected and page.is_enabled("[data-connect=tidal]")
+    assert errors == []
+
+
 # ---------------------------------------------------------------- F3
 
 def transfer(page, dry=False):

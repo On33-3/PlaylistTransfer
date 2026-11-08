@@ -688,11 +688,17 @@ $("#svc-list").addEventListener("click", async e => {
     const key = c.dataset.connect;
     const r = await call("connect", key); if (!r) return;
     const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = t("settings.opening");
+    // Mientras espera el login se puede cancelar (si el usuario cerró el navegador o cambió de idea)
+    const stop = document.createElement("button");
+    stop.className = "btn ghost"; stop.id = "cancel-login"; stop.textContent = t("settings.cancel_login");
+    stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
+    $(".actions-inline", c.closest(".svc")).append(stop);
     const done = await follow(r.job, ev => {
       if (ev.type === "login") wait.textContent = t("settings.login_wait", { browser: ev.browser, service: ev.service });
     });
-    wait.hidden = true;
+    wait.hidden = true; stop.remove();
     if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
+    else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
     else toast(done.error || t("settings.connect_error"));
     delete state.playlists[key];
     await refreshStatus(); renderSettings();

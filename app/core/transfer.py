@@ -15,6 +15,7 @@ from app.connectors.base import Connector
 from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, alternatives, best_match,
                                classify, same_song)
 from app.core.models import Song
+from app.core.models import Cancelled  # noqa: F401  (se importa también desde acá)
 from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
@@ -24,10 +25,6 @@ DOUBTFUL_SKIPPED = "dudoso_omitido"
 ADDABLE = (OK, DOUBTFUL)
 
 Emit = Callable[[dict], None]
-
-
-class Cancelled(Exception):
-    pass
 
 
 @dataclass

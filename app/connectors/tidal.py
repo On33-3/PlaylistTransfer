@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedE
                                  Status, require_confirmation)
 from app.core.matching import SCORE_OK, best_match, queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
+from app.core.models import Cancelled
 from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
@@ -92,13 +94,27 @@ class TidalConnector(Connector):
             return Status.CONNECTED
         return Status.EXPIRED
 
-    def connect(self, browser: Browser | None = None) -> None:
-        def show(text: str) -> None:
-            url = login_link(text)
-            if url:
-                open_url(url, browser)
+    def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
+        """Login por link (el del dispositivo): se abre en el navegador elegido y se consulta a Tidal
+        cada pocos segundos hasta que el usuario lo aprueba, el link vence o se cancela.
+        (No usamos `login_oauth_simple`: deja un hilo esperando hasta 5 minutos aunque se cancele.)"""
         s = self._session()
-        s.login_oauth_simple(show)
+        link = s.get_link_login()
+        url = login_link(link.verification_uri_complete)
+        if not url:
+            raise ConnectorError(tr("err.tidal_login_failed"))
+        open_url(url, browser)
+        deadline = time.monotonic() + link.expires_in
+        while True:
+            if cancel is not None and cancel.is_set():
+                raise Cancelled()
+            if time.monotonic() > deadline:
+                raise ConnectorError(tr("err.login_timeout"))
+            try:
+                s.process_link_login(link, until_expiry=False)    # una consulta (espera el intervalo)
+                break
+            except TimeoutError:                                   # todavía no lo aprobó
+                continue
         if not s.check_login():
             raise ConnectorError(tr("err.tidal_login_failed"))
         self._loaded = True
