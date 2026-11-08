@@ -3,17 +3,14 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
 import pytest
 
 from app import i18n
-from app.api import Api
 from app.storage.export import ReportOperation, render
 from app.storage.history import Operation, TrackRecord
-from app.storage.history import History
 from tests.conftest import ROOT
-from tests.fakes import FakeService, S
+from tests.fakes import FakeService, S, build_api
 
 LOCALES = ROOT / "app" / "locales"
 UI = ROOT / "app" / "ui"
@@ -187,8 +184,7 @@ def make(tmp_path, system="en", prefs_text=None):
     tidal.add_playlist("src", "Favoritas", [S("Take On Me", "a-ha", id="t1")])
     yt = FakeService("ytmusic", "YouTube Music", catalog=[S("Take On Me", "a-ha", id="y1")])
     yt.add_playlist("dst", "Mix", [])
-    return Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "h.sqlite"), p, tmp_path,
-               list_browsers=lambda: [], open_url=lambda u, b: None, system_language=lambda: system)
+    return build_api(tmp_path, {"tidal": tidal, "ytmusic": yt}, system_language=system, prefs=p)
 
 
 def test_new_install_follows_windows(tmp_path):

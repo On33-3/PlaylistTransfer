@@ -7,12 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from app.api import Api
 from app.auth.browsers import Browser
 from app.jobs import Jobs
 from app.storage import prefs
 from app.storage.history import History
-from tests.fakes import FakeService, S
+from tests.fakes import FakeService, S, build_api
 
 VIVALDI = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
 CHROME = Browser("Google Chrome", "chrome", Path(r"C:\chrome.exe"))
@@ -32,10 +31,7 @@ def app(tmp_path):
         S("Virtual Insanity (Official Video)", "Jamiroquai", dur=245, id="v3"),
         S("Virtual Insanity (Live)", "Jamiroquai", dur=300, id="v4"),
     ])
-    opened = []
-    api = Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "historial.sqlite"), tmp_path / "preferencias.json",
-              tmp_path, list_browsers=lambda: [VIVALDI, CHROME], open_url=lambda url, b: opened.append((url, b)), system_language=lambda: "es")
-    api.opened = opened
+    api = build_api(tmp_path, {"tidal": tidal, "ytmusic": yt}, browsers=[VIVALDI, CHROME])
     return api, tidal, yt
 
 
@@ -238,7 +234,7 @@ def test_open_url_only_for_music_services(app):
     assert "error" in api.open_url("file:///C:/Windows/System32/calc.exe")
     assert "error" in api.open_url("https://evil.example.com")
     assert "error" in api.open_url("https://tidal.com.evil.example/")         # el prefijo incluye la barra
-    assert len(api.opened) == 1
+    assert len(api._open_url_calls) == 1
 
 
 def test_services_come_from_the_registry(app):

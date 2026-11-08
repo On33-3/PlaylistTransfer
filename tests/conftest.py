@@ -95,3 +95,16 @@ def spanish_by_default():
     i18n.set_language("es")
     yield
     i18n.set_language("es")
+
+
+@pytest.fixture(scope="module")
+def browser():
+    """Edge sin ventana (el mismo motor que WebView2), para los tests de la UI. Si no está, se saltean."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    with sync_api.sync_playwright() as pw:
+        try:
+            b = pw.chromium.launch(channel="msedge", headless=True)
+        except Exception as e:
+            pytest.skip(f"No pude abrir Edge: {e}")
+        yield b
+        b.close()
