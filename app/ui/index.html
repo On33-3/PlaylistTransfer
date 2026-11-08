@@ -98,9 +98,9 @@
         <div class="done-box" id="done" role="status">
           <p><b id="done-title"></b></p>
           <p class="muted" id="done-detail"></p>
-          <div class="actions" style="margin-top:14px">
+          <div class="done-extra"><button class="btn ghost md" id="add-all" hidden data-needs-idle></button></div>
+          <div class="actions">
             <button class="btn primary" id="open-dest" hidden></button>
-            <button class="btn ghost" id="add-all" hidden data-needs-idle></button>
             <button class="btn ghost" id="open-report" hidden data-i18n="transfer.open_report">Abrir el reporte</button>
             <button class="btn ghost" id="again" data-i18n="transfer.again">Hacer otra transferencia</button>
           </div>
@@ -122,7 +122,7 @@
         <select class="select" data-i18n-aria="dedupe.playlist_aria" aria-label="Playlist" id="dup-playlist"></select>
         <button class="btn ghost" id="dup-scan" disabled data-i18n="dedupe.scan">Buscar repetidos</button>
       </div>
-      <p style="margin:22px 0 0" id="dup-summary" hidden></p>
+      <p class="dup-summary" id="dup-summary" hidden></p>
       <ul class="dups" id="dups"></ul>
       <div class="actions" id="dup-actions" hidden>
         <button class="btn danger" id="remove" disabled data-i18n="dedupe.remove">Quitar</button>
@@ -178,7 +178,7 @@
           </div>
           <p class="muted th-help" id="th-help"></p>
           <p class="error" id="th-error" hidden></p>
-          <div class="actions" style="margin-top:12px">
+          <div class="actions">
             <button class="btn ghost" id="th-save" data-i18n="settings.th_save">Guardar</button>
             <button class="btn ghost" id="th-reset" data-i18n="settings.th_reset">Volver a los valores de fábrica</button>
           </div>
@@ -195,7 +195,7 @@
         <div>
           <p id="about-version"></p>
           <p class="muted" data-i18n="settings.not_affiliated">No está afiliado a Tidal, Google ni Spotify.</p>
-          <p class="muted" style="margin-top:12px" data-i18n="settings.libraries">Usa estas librerías de código abierto:</p>
+          <p class="muted libs-title" data-i18n="settings.libraries">Usa estas librerías de código abierto:</p>
           <ul class="licenses" id="licenses"></ul>
         </div>
       </section>

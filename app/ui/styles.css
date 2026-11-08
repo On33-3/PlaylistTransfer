@@ -340,3 +340,52 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 
 /* Repetidos: el selector no crece con el nombre más largo */
 #dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+
+/* =====================================================================================
+   Armonización (mejoras 3): un solo sistema de tamaños para toda la app.
+   Botones: grande (acción principal de la pantalla), mediano (secundarias, Ajustes, avisos,
+   estados vacíos) y chico (dentro de un tema de la lista). Los campos usan el alto mediano.
+   ===================================================================================== */
+:root {
+  --h-lg: 42px;
+  --h-md: 36px;
+  --h-sm: 28px;
+  --r-field: 12px;
+  --gap-actions: 24px;       /* separación entre el contenido y su fila de botones */
+  --gap-in-box: 16px;        /* lo mismo, dentro de una caja (resultado, Ajustes) */
+}
+
+/* Botones */
+.btn { height: var(--h-lg); }
+.btn.md, .svc .btn, .notice .btn, .empty .btn, .settings .btn {
+  height: var(--h-md); padding: 0 16px; font-size: 14px;
+}
+.tracks .alts button { height: var(--h-sm); padding: 0 12px; font-weight: 500; }
+
+/* Selector de opciones (Tidal / YouTube Music, Todo / Transferencias / Repetidos): mide lo
+   mismo que un botón grande, así la fila de Repetidos queda alineada */
+.seg { padding: 3px; align-items: center; }
+.seg button { height: calc(var(--h-lg) - 8px); padding: 0 16px; }
+
+/* Campos: alto mediano, mismo radio. El desplegable de una fila de acciones va al alto grande */
+.picker .filter, .picker .new input[type="text"], .thresholds input {
+  height: var(--h-md); border-radius: var(--r-field); font-size: 14px;
+}
+.row-controls .select { height: var(--h-lg); }
+
+/* Filas de acciones: misma separación en todas las pantallas */
+.actions { margin-top: var(--gap-actions); }
+.done-box .actions, .settings .actions { margin-top: var(--gap-in-box); }
+
+/* Cajas: avisos y resultado con el mismo aspecto */
+.notice, .done-box { padding: 18px 20px; border-radius: 16px; }
+.done-box .done-extra { margin-top: 12px; }
+
+/* Estado vacío: texto y botón en una línea, alineados */
+.history-mini li.empty, .hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.empty .btn { margin-left: 0; }
+
+/* Ayuda de los umbrales: más corta y del mismo tamaño que el resto de las ayudas */
+.th-help { margin: 12px 0 0; font-size: 13.5px; }
+.dup-summary { margin: var(--gap-actions) 0 0; }
+.libs-title { margin-top: 12px; }

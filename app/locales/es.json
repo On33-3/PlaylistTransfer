@@ -173,7 +173,7 @@
     "settings.matching_text": "Avanzado. Cuánto se tienen que parecer dos temas para agregarlos.",
     "settings.th_ok": "Agregar sin dudar desde",
     "settings.th_min": "Agregar con dudas (?) desde",
-    "settings.th_help": "De fábrica: {ok} y {min}. Más alto es más estricto (menos temas agregados, menos errores). \"Sin dudar\" va de {ok_min} a {ok_max} y \"con dudas\" desde {min_min}: así nunca se agregan solas otras versiones ni canciones de otro artista.",
+    "settings.th_help": "De fábrica: {ok} y {min}. Más alto es más estricto: se agregan menos temas, pero con menos errores.",
     "settings.th_save": "Guardar",
     "settings.th_reset": "Volver a los valores de fábrica",
     "settings.th_saved": "Guardado: sin dudar desde {ok}, con dudas desde {min}.",

@@ -173,7 +173,7 @@
     "settings.matching_text": "Advanced. How similar two songs must be to add them.",
     "settings.th_ok": "Add without asking from",
     "settings.th_min": "Add as possibly another version (?) from",
-    "settings.th_help": "Defaults: {ok} and {min}. Higher is stricter (fewer songs added, fewer mistakes). \"Without asking\" goes from {ok_min} to {ok_max} and \"possibly another version\" from {min_min}: that way other versions or songs by another artist are never added on their own.",
+    "settings.th_help": "Defaults: {ok} and {min}. Higher is stricter: fewer songs are added, but with fewer mistakes.",
     "settings.th_save": "Save",
     "settings.th_reset": "Restore defaults",
     "settings.th_saved": "Saved: without asking from {ok}, possibly another version from {min}.",
