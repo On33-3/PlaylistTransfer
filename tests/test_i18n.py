@@ -16,6 +16,11 @@ LOCALES = ROOT / "app" / "locales"
 UI = ROOT / "app" / "ui"
 
 
+def ui_scripts() -> str:
+    """Todo el JavaScript de la UI (app/ui/js/*.js), junto."""
+    return "\n".join(f.read_text(encoding="utf-8") for f in sorted((UI / "js").glob("*.js")))
+
+
 def load(lang):
     return json.loads((LOCALES / f"{lang}.json").read_text(encoding="utf-8"))
 
@@ -48,8 +53,7 @@ def test_no_empty_texts_and_english_has_no_spanish_marks():
 
 def test_every_key_used_in_the_ui_exists():
     used = set()
-    for f in ("app.js", "index.html"):
-        src = (UI / f).read_text(encoding="utf-8")
+    for src in (ui_scripts(), (UI / "index.html").read_text(encoding="utf-8")):
         src = re.sub(r"/\*.*?\*/|<!--.*?-->", "", src, flags=re.S)        # sin comentarios
         used |= set(re.findall(r'data-i18n(?:-aria)?="([\w.]+)"', src))
         used |= set(re.findall(r'\bt\("([\w.]+)"', src))
@@ -115,9 +119,9 @@ def test_every_login_step_exists_in_both_languages(tmp_path):
                 assert all(k in load(lang)["ui"] for k in steps), (lang, s.key, b.kind)
 
 
-def test_no_hardcoded_spanish_left_in_app_js():
-    """Fuera de los comentarios, app.js no tiene texto en castellano: todo pasa por t()."""
-    src = (UI / "app.js").read_text(encoding="utf-8")
+def test_no_hardcoded_spanish_left_in_the_ui_scripts():
+    """Fuera de los comentarios, el JavaScript de la UI no tiene texto en castellano: todo pasa por t()."""
+    src = ui_scripts()
     src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
     src = re.sub(r"(^|\s)//.*$", "", src, flags=re.M)
     strings = re.findall(r'"([^"\n]*)"|`([^`]*)`', src)
