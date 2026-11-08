@@ -229,6 +229,14 @@ class Api:
                 "chosen": str(chosen.exe) if chosen else None,
                 "suggested": str(suggested.exe) if suggested else None}
 
+    def login_steps(self) -> dict:
+        """{servicio: [claves de los pasos]} para el navegador que se va a usar (el elegido o el propuesto).
+        Ajustes los muestra antes de conectar, así se leen antes de que se abra nada."""
+        found = self._list_browsers()
+        browser = self._browser(found) or browsers_mod.suggested_browser(found)
+        return {s.key: self._connectors[s.key].login_steps(browser)
+                for s in registry.SERVICES if s.key in self._connectors}
+
     def choose_browser(self, exe: str) -> dict:
         b = next((b for b in self._list_browsers() if str(b.exe).lower() == str(exe).lower()), None)
         if b is None:

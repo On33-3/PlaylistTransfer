@@ -625,15 +625,10 @@ $("#open-export").addEventListener("click", () => call("open_export"));
 // La ayuda de cada servicio sale del diccionario por su clave (settings.hint.<servicio>), con variantes
 // opcionales _setup (antes de configurarlo) y _firefox (si el navegador es Firefox): un servicio nuevo
 // solo suma textos, nunca código acá. test_i18n.py exige la clave para cada servicio del registro.
-function serviceHint(k, st, browser) {
-  const base = `settings.hint.${k}`;
-  const key = [st === "setup" && `${base}_setup`, browser?.kind === "firefox" && `${base}_firefox`, base]
-    .find(x => x && STR[x] !== undefined) || base;
-  return t(key, { browser: browser?.name || t("settings.your_browser"), button: t("settings.setup") });
-}
 
 async function renderSettings() {
   const b = await call("browsers");
+  const loginSteps = await call("login_steps") || {};
   const chosenExe = b && (b.chosen || b.suggested);
   const browser = b && b.browsers.find(x => x.exe === chosenExe);
   $("#svc-list").innerHTML = USABLE.map(k => {
@@ -645,7 +640,13 @@ async function renderSettings() {
       : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
     if (SETUP[k] && st !== "setup") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
-    const hint = st === "connected" ? "" : `<div class="svc-hint muted">${esc(serviceHint(k, st, browser))}</div>`;
+    // Sin conectar: los pasos numerados se ven antes de tocar nada (el 1 es tocar este botón). Lo que pide
+    // configurarse antes (Spotify) muestra una línea que manda a «Configurar», donde están sus pasos.
+    const button = t(st === "expired" ? "settings.reconnect" : "settings.connect");
+    const hint = st === "connected" ? ""
+      : st === "setup" ? `<div class="svc-hint muted">${richText(`settings.hint.${k}_setup`, { button: t("settings.setup") })}</div>`
+      : loginSteps[k]?.length ? `<div class="svc-steps">${stepsHTML(loginSteps[k], { browser: browser?.name || t("settings.your_browser"), button })}</div>`
+      : "";
     return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span>${hint}<div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`
       + (SETUP[k] ? setupPanelHTML(k) : "");
   }).join("") + Object.keys(NAMES).filter(k => !USABLE.includes(k)).map(k =>
@@ -778,8 +779,9 @@ async function connectService(key) {
   $(".actions-inline", c.closest(".svc")).append(stop);
   const done = await follow(r.job, ev => {
     if (ev.type !== "login") return;
-    // Lo que hay que hacer, paso por paso, en el momento en que hace falta (lo define cada conector)
-    wait.innerHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser })
+    // Los pasos ya están a la vista desde antes de tocar Conectar: mientras tanto se ven igual, con Cancelar
+    if ($(".svc-steps", c.closest(".svc") || document)) { wait.hidden = true; return; }
+    wait.innerHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser, button: t("settings.connect") })
       : esc(t("settings.login_wait", { browser: ev.browser, service: ev.service }));
   });
   wait.hidden = true; stop.remove();

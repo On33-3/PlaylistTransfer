@@ -237,24 +237,32 @@ def with_spotify(api, tmp_path):
     return c, fake
 
 
-def test_each_service_says_what_happens_before_connecting(browser, tmp_path):
-    """Debajo de cada servicio sin conectar, una línea dice qué pasa al tocar Conectar; al conectar, desaparece."""
+def test_each_service_shows_its_steps_before_connecting(browser, tmp_path):
+    """Sin conectar, cada servicio muestra sus pasos numerados antes de tocar nada (el 1: tocar Conectar);
+    lo que se configura antes (Spotify) manda a «Configurar». Al conectar, los pasos desaparecen."""
     api, tidal, yt = make_api(tmp_path, connected=False)
     with_spotify(api, tmp_path)
+    from app.connectors.tidal import TidalConnector
+    from app.connectors.ytmusic import YTMusicConnector
+    tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
+    yt.login_steps = lambda b: YTMusicConnector.login_steps(None, b)
     page, errors = open_page(browser, api)
     page.click("nav [data-go=ajustes]")
-    page.wait_for_selector(".svc-hint")
-    hints = page.eval_on_selector_all(".svc-hint", "hs => hs.map(h => h.textContent)")
-    assert hints == ["Se abre Vivaldi en la página de Tidal: iniciá sesión con tu cuenta y aprobá el acceso.",
-                     "Se abre una ventana de Vivaldi solo para esto: iniciá sesión con tu cuenta de Google y se cierra sola.",
-                     "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los pasos."]
-    shot(page, "ajustes-ayuda-servicios")
+    page.wait_for_selector(".svc-steps")
+    first = page.eval_on_selector_all(".svc-steps li:first-child p", "ps => ps.map(p => p.textContent)")
+    assert first == ["Tocá «Conectar»: se abre la página de Tidal en Vivaldi. Si no la ves, buscá Vivaldi en la barra de tareas.",
+                     "Tocá «Conectar»: se abre una ventana nueva de Vivaldi, aparte de la tuya y sin tus sesiones. Es normal."]
+    assert page.eval_on_selector_all(".svc-steps", "s => s.map(x => x.querySelectorAll('li').length)") == [4, 4]
+    assert page.inner_text(".svc-hint") == "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los pasos."
+    from tests.test_ui_design import check
+    assert check(page, "ajustes") == []
+    shot(page, "ajustes-pasos-antes")
     page.click("[data-connect=tidal]")
     page.wait_for_selector("text=Tidal conectado.")
-    page.wait_for_function("document.querySelectorAll('.svc-hint').length === 2")
-    page.locator("input[name=br]").nth(1).check()                  # cambia a Brave: la ayuda lo nombra
+    page.wait_for_function("document.querySelectorAll('.svc-steps').length === 1")     # quedan los de YouTube Music
+    page.locator("input[name=br]").nth(1).check()                  # cambia a Brave: los pasos lo nombran
     page.click("nav [data-go=inicio]"); page.click("nav [data-go=ajustes]")
-    page.wait_for_selector(".svc-hint >> text=ventana de Brave")
+    page.wait_for_selector(".svc-steps >> text=ventana nueva de Brave")
     assert errors == []
 
 
@@ -429,12 +437,13 @@ def test_while_connecting_the_steps_show_up_numbered(browser, tmp_path):
     tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
     page, errors = open_page(browser, api)
     page.click("nav [data-go=ajustes]")
+    page.wait_for_selector(".svc:has(#wait-tidal) .svc-steps li")    # ya antes de tocar nada
     page.click("[data-connect=tidal]")
-    page.wait_for_selector("#wait-tidal .setup-steps li")
-    assert page.eval_on_selector_all("#wait-tidal .step-n", "ns => ns.map(n => n.textContent)") == ["1", "2", "3", "4"]
-    text = page.inner_text("#wait-tidal")
-    assert "Se abrió la página de Tidal en Vivaldi" in text and "«Tidal ✓»" in text
-    assert page.is_hidden(".svc:has(#wait-tidal) .svc-hint")          # mientras tanto, mandan los pasos
+    page.wait_for_selector("#cancel-login")
+    steps = ".svc:has(#wait-tidal) .svc-steps"
+    assert page.eval_on_selector_all(steps + " .step-n", "ns => ns.map(n => n.textContent)") == ["1", "2", "3", "4"]
+    text = page.inner_text(steps)
+    assert "se abre la página de Tidal en Vivaldi" in text and "«Tidal ✓»" in text
     from tests.test_ui_design import check
     assert check(page, "ajustes") == []                 # con los pasos abiertos, los botones no se aplastan
     page.set_viewport_size({"width": 860, "height": 620})
