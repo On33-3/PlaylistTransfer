@@ -1,97 +1,71 @@
 # PlaylistTransfer
 
-Pasa temas de **Tidal → YouTube Music** y de **YouTube Music → Tidal** desde tu compu, sin páginas externas.
-Elegís la playlist de origen y la de destino (una nueva, una existente o varias), y los temas que ya están en el destino no se repiten.
+Una app de escritorio para Windows que **pasa tus playlists entre Tidal y YouTube Music** y **quita temas repetidos**. Gratis, open source y sin cuentas propias: todo pasa en tu compu.
 
-## Cómo usarlo
+![Inicio](docs/img/inicio.png)
 
-**Doble clic en `Transferir playlists.bat`.** Nada más.
+## Descargar
 
-1. **La primera vez** instala lo necesario solo (tarda alrededor de un minuto).
-2. **La primera vez** te pregunta en qué navegador abrir las ventanas para iniciar sesión (Enter = el predeterminado). Lo recuerda para las próximas veces:
-   ```
-   ¿En qué navegador abro las ventanas para iniciar sesión (Tidal y YouTube Music)?
-     1. Vivaldi (predeterminado)
-     2. Google Chrome
-     3. Microsoft Edge
-   ```
-3. Te pregunta qué querés hacer:
-   ```
-   1. Pasar temas de Tidal a YouTube Music
-   2. Pasar temas de YouTube Music a Tidal
-   3. Cambiar el navegador (ahora: Vivaldi)
-   4. Quitar temas repetidos de una playlist
-   ```
-4. **Solo la primera vez**, conecta tus cuentas en ese navegador:
-   - **Tidal:** se abre la página de autorización en tu navegador de siempre. Aceptá y volvé a la ventana negra.
-   - **YouTube Music:**
-     - **Vivaldi, Chrome, Edge, Brave u Opera:** abre una ventana de ese navegador con un perfil aparte, solo para este script (los navegadores basados en Chrome no dejan que un programa use tu perfil normal). Iniciá sesión con tu cuenta de Google y la ventana se cierra sola.
-     - **Firefox:** si ya tenés YouTube abierto con tu cuenta, toma esa sesión sin abrir nada.
+1. Entrá a [**Releases**](../../releases/latest) y bajá `PlaylistTransfer-<versión>-windows.zip`.
+2. Descomprimilo donde quieras (por ejemplo, en Documentos).
+3. Abrí `PlaylistTransfer.exe`. No hace falta instalar Python.
 
-   Después queda guardado y ya no te lo pide más.
-5. Elegís la playlist de **origen** de la lista.
-6. Elegís el **destino**:
-   ```
-   ¿A qué playlist de YouTube Music los agrego?
-     0. Crear una playlist nueva
-     1. Rock  (42 temas)
-     2. Para correr  (18 temas)
-     (Podés elegir varias separadas por coma, por ejemplo: 2,5)
-   ```
-7. Busca los temas, los agrega al final de cada playlist elegida y te muestra el resultado de cada tema:
-   - `✓` coincidencia clara.
-   - `?` se agregó, pero conviene revisarlo (puede ser una versión en vivo, un remix o un video).
-   - `✗` no se encontró; buscalo a mano.
+> **Windows protegió su PC:** aparece porque el programa todavía no está firmado digitalmente. Tocá **Más información → Ejecutar de todas formas**. Si querés verificar el archivo, cada release trae su código SHA-256.
 
-   El detalle queda en `reporte_<fecha>.csv`, que podés abrir con Excel.
+Funciona en Windows 10 y 11.
 
-### Repetidos y otras versiones
-El script compara **por canción**, no solo por el ID exacto: mismo artista y mismo título base, sin contar lo que cambia entre versiones, como `(Official Video)`, `(Remastered 2009)`, `(Mono)`, `(Deluxe Edition)`, `feat. X`, otro álbum, otra portada u otra duración.
-- **Al transferir:** si en el destino ya está otra versión de la canción, no la agrega y te avisa con `≈` cuál encontró.
-- **Opción 4 del menú:** busca repetidos dentro de una playlist (de Tidal o de YouTube Music) y te muestra cuáles quitaría. Queda la que estaba primero en la playlist. **No quita nada hasta que confirmes con `s`.**
+## Qué hace
 
-Solo aparecen playlists tuyas: las de otros usuarios que guardaste no se pueden modificar. "Me gusta" de YouTube Music tampoco aparece.
+**Transferir.** Elegís una playlist de origen y una o varias de destino (o una nueva). Ves cada tema en vivo: ✓ encontrado, ? para revisar, ✗ no encontrado y ≈ ya estaba. Con *Probar sin cambiar nada* ves el resultado antes de tocar tus playlists.
 
-## Si algo falla
-| Problema | Qué hacer |
-|---|---|
-| "No encontré Python" | Instalá Python desde https://www.python.org/downloads/ (marcá "Add python.exe to PATH") y volvé a abrir el `.bat`. |
-| Google dice "Este navegador o esta app no son seguros" | Usá el método manual: abrí PowerShell en la carpeta y corré `py legacy/transfer_playlist.py setup-yt --manual` (pasos abajo). |
-| Querés cambiar el navegador | Opción **3** del menú principal. |
-| Querés conectar otra cuenta de Google | Borrá la carpeta `.yt-login` y el archivo `browser.json`, y volvé a abrir el `.bat`. |
-| "No pude abrir el navegador" | Cerrá todas las ventanas de ese navegador y probá de nuevo, o elegí otro con la opción **3** del menú. |
-| Querés conectar otra cuenta de Tidal | Borrá `tidal_session.json` y volvé a abrir el `.bat`. |
-| Un error raro después de meses | Actualizá las librerías: `py -m pip install -U -r legacy/requirements.txt`. |
+![Transferir](docs/img/transferir.png)
 
-### Método manual para YouTube Music (solo si falla el automático)
-1. Abrí https://music.youtube.com con tu sesión iniciada, apretá F12 → pestaña **Network** y filtrá por `browse`.
-2. Hacé clic en cualquier sección de la página y elegí una petición **POST** a `browse`.
-3. Copiá sus **Request Headers** (en Firefox: clic derecho → Copy Value → Copy Request Headers).
-4. En PowerShell: `py legacy/transfer_playlist.py setup-yt --manual`. Pegá los headers y apretá Enter, Ctrl+Z y Enter.
+**Quitar repetidos.** Encuentra la misma canción dos veces aunque sea otro video, un remaster u otra portada. Las versiones en vivo o remix aparecen sin tildar, y nada se quita sin que lo confirmes.
 
-## Uso avanzado (por consola)
-Abrí PowerShell en la carpeta (en el Explorador: clic derecho → "Abrir en Terminal").
+![Quitar repetidos](docs/img/repetidos.png)
 
-```powershell
-py legacy/transfer_playlist.py                     # lo mismo que el .bat: todo con menús
-py legacy/transfer_playlist.py tidal2yt            # salta la primera pregunta
-py legacy/transfer_playlist.py tidal2yt https://tidal.com/playlist/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX --to "https://music.youtube.com/playlist?list=XXXX" --dry-run
-py legacy/transfer_playlist.py yt2tidal "https://music.youtube.com/playlist?list=XXXX" --new --name "Desde YouTube"
-```
-Poné las URLs de YouTube entre comillas: el `&` rompe el comando en PowerShell.
+**Historial.** Cada transferencia y cada limpieza quedan registradas con el detalle de cada tema. Si querés, lo exportás a CSV para abrirlo en Excel.
 
-| Opción | Qué hace |
-|---|---|
-| *(URL de origen)* | Opcional. Si no la pasás, elegís de una lista |
-| `--to URL_O_ID` | Agrega a esa playlist existente. Se puede repetir para varias |
-| `--new` | Crea una playlist nueva, sin mostrar el menú de destino |
-| `--name "Nombre"` | Nombre de la playlist nueva (por defecto, el mismo del origen) |
-| `--dry-run` | Solo busca, genera el reporte y dice cuántos temas agregaría; no modifica nada |
-| `--public` | (YouTube Music) la playlist nueva se crea pública; por defecto es privada |
+![Historial](docs/img/historial.png)
 
-Al principio de `legacy/transfer_playlist.py` podés ajustar `SCORE_OK` (0.75) y `SCORE_MIN` (0.60), los umbrales de coincidencia.
+## Cómo decide si es "la misma canción"
+
+- Tiene que coincidir **el artista**. Una canción puede tenerla más de un artista: si buscás el *Hallelujah* de Jeff Buckley y solo está el de Leonard Cohen, no se agrega solo; la app te lo ofrece y decidís vos.
+- Covers, karaokes y tributos no cuentan como el original.
+- Partes y secuelas son temas distintos (*Pt. 1* ≠ *Pt. 2*, *The Unforgiven* ≠ *The Unforgiven II*), y un *Intro* de otro álbum también.
+- Una versión en vivo, acústica o remix del mismo tema queda marcada con **?** para que la revises.
+
+Los umbrales se pueden ajustar en **Ajustes › Coincidencias**.
 
 ## Privacidad
-- Todo corre en tu compu. Las sesiones quedan guardadas en esta carpeta, en `tidal_session.json`, `browser.json` y la carpeta `.yt-login` (perfiles de navegador solo para este script). Si usás Firefox, el script lee tus cookies de YouTube de tu perfil, solo en tu compu, para no pedirte que inicies sesión de nuevo.
-- **No compartas esos archivos**: equivalen a tener tus cuentas abiertas. El `.gitignore` ya los excluye por si subís la carpeta a GitHub.
-- `tidalapi` y `ytmusicapi` no son librerías oficiales. Para uso personal funcionan bien, pero si Tidal o Google cambian algo pueden fallar hasta que las actualicen.
+
+- Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, cerrá la app y borrá esa carpeta.
+- La app no tiene servidores ni estadísticas: solo habla con Tidal y YouTube Music.
+- Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen.
+
+No está afiliado a Tidal, Google ni Spotify.
+
+## Para desarrollar
+
+Necesitás Windows y Python 3.14.
+
+```powershell
+py -m pip install -r requirements-dev.txt
+py -m pytest -q                 # tests (los de la UI necesitan playwright y Edge)
+py -m app                       # abre la app
+py packaging/build.py           # arma dist/PlaylistTransfer-<versión>-windows.zip
+```
+
+- `app/core/`: el motor (coincidencias, repetidos, transferencias). Cada regla tiene su escenario en `tests/test_scenarios.py`.
+- `app/connectors/`: un conector por servicio, con la misma interfaz. Spotify viene después.
+- `app/ui/`: la interfaz (HTML, CSS y JS, sin frameworks), dentro de una ventana de [pywebview](https://pywebview.flowrl.com/).
+- [`SPEC.md`](SPEC.md): el plan, las fases y por qué se decidió cada cosa.
+- Publicar una versión: subí el número en `app/__init__.py` y creá el tag `vX.Y.Z`. GitHub Actions corre los tests, compila el `.exe`, prueba que abra y lo publica en Releases.
+
+La versión de consola original sigue en [`legacy/`](legacy/).
+
+## Licencia
+
+Copyright © 2026 Emmanuel Gaitan. Software libre con licencia [GNU GPL v3 o posterior](LICENSE).
+
+Las librerías incluidas tienen sus propias licencias (ver `THIRD-PARTY-NOTICES.txt` dentro del zip). tidalapi es LGPL-3.0: en la app va como archivos `.py` sueltos en `_internal\tidalapi`, así se puede reemplazar por otra versión.

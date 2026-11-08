@@ -42,18 +42,21 @@ def main() -> None:
     api._save_dialog = save_dialog
 
     smoke = os.environ.get("PT_SMOKE") == "1"   # prueba automática: abre, espera la UI y cierra
+    ready = threading.Event()
+    api._on_ready = ready.set                    # la UI llama a api.ui_ready() al terminar de cargar
 
     def on_start():
         if not smoke:
             return
-        ready = threading.Event()
-        api._on_ready = ready.set     # la UI llama a api.ui_ready() al terminar de cargar
         ok = ready.wait(30)
         print("UI lista" if ok else "La UI no avisó que estaba lista", flush=True)
+        logging.getLogger(__name__).info("Prueba de arranque: %s", "UI lista" if ok else "la UI no cargó")
         window.destroy()
 
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
                   storage_path=str(paths.data_dir() / "webview"))
+    if smoke:   # el .exe no tiene consola: el resultado sale como código de salida
+        sys.exit(0 if ready.is_set() else 1)
 
 
 if __name__ == "__main__":
