@@ -236,3 +236,116 @@ def test_api_exposes_no_public_state(app):
 
 def test_jobs_poll_unknown():
     assert Jobs().poll("nada")["state"] == "error"
+
+
+# ---------------------------------------------------------------- F3: reportes y umbrales
+
+@pytest.fixture
+def saving(app, tmp_path):
+    api, tidal, yt = app
+    chosen = {"path": str(tmp_path / "salida" / "reporte.csv"), "asked": []}
+    def dialog(name):
+        chosen["asked"].append(name)
+        return chosen["path"]
+    api._save_dialog = dialog
+    api._open_file = lambda p: chosen.setdefault("opened", p)
+    return api, yt, chosen
+
+
+def test_export_history_on_request(saving):
+    api, yt, chosen = saving
+    assert "error" in api.export_history()                                  # vacío: nada para exportar
+    wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    r = api.export_history()
+    assert r["rows"] == 2 and r["name"] == "reporte.csv" and chosen["asked"][0].startswith("historial-")
+    assert Path(r["path"]).read_text(encoding="utf-8-sig").count("\n") == 3
+    assert api.open_export() == {"ok": True} and Path(chosen["opened"]) == Path(r["path"])
+
+
+def test_cancelling_save_as_writes_nothing(saving):
+    api, yt, chosen = saving
+    wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    chosen["path"] = None
+    assert api.export_history() == {"cancelled": True}
+    assert "error" in api.open_export()
+
+
+def test_csv_extension_is_added(saving):
+    api, yt, chosen = saving
+    wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    chosen["path"] = chosen["path"].replace(".csv", "")
+    assert api.export_history()["name"] == "reporte.csv"
+
+
+def test_transfer_report_is_optional_and_works_for_dry_runs(saving):
+    api, yt, chosen = saving
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], True)["job"])
+    assert chosen["asked"] == []                                            # nunca se guarda solo
+    assert api.history() == []                                              # la prueba no va al historial...
+    out = api.export_transfer(r["result"]["transfer"])                      # ...pero se puede pedir el reporte
+    assert out["rows"] == 2 and chosen["asked"][0].startswith("prueba-Favoritas-")
+    assert "Prueba (sin cambios)" in Path(out["path"]).read_text(encoding="utf-8-sig")
+    assert "error" in api.export_transfer("transfer-inventada")
+
+
+def test_report_and_history_say_the_same(saving):
+    api, yt, chosen = saving
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    a = Path(api.export_transfer(r["result"]["transfer"])["path"]).read_text(encoding="utf-8-sig").splitlines()
+    chosen["path"] = chosen["path"].replace("reporte", "historial")
+    b = Path(api.export_history()["path"]).read_text(encoding="utf-8-sig").splitlines()
+    strip = lambda rows: [line.split(",", 1)[1] for line in rows[1:]]           # sin la fecha
+    assert strip(a) == strip(b)
+
+
+def test_report_filename_is_safe_for_windows(saving):
+    api, yt, chosen = saving
+    api._connectors["tidal"].add_playlist("raro", 'AC/DC: "Lo mejor"?', [S("Thunderstruck", "AC/DC", id="z")])
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "raro", [{"id": "dst", "name": "x"}], True)["job"])
+    api.export_transfer(r["result"]["transfer"])
+    assert chosen["asked"][0].startswith("prueba-ACDC Lo mejor-")
+
+
+def test_history_tiles_and_filter(app):
+    api, tidal, yt = app
+    wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    res = wait(api, api.scan_duplicates("ytmusic", "dups")["job"])["result"]
+    wait(api, api.remove_duplicates(res["scan"], [0], True)["job"])
+    assert [o["kind"] for o in api.history()] == ["dedupe", "transfer"]
+    assert [o["kind"] for o in api.history(None, "transfer")] == ["transfer"]
+    assert api.history(None, "transfer")[0]["tiles"] == ["ok", "no_encontrado"]
+    assert api.history(1)[0]["tiles"] == ["quitado"]
+
+
+def test_thresholds_are_validated_and_used(app):
+    api, tidal, yt = app
+    s = api.settings()
+    assert (s["score_ok"], s["score_min"]) == (0.75, 0.6) and s["limits"]["ok_min"] == 0.71
+    for ok, mn in [(0.70, 0.6), (1.0, 0.6), (0.8, 0.5), (0.8, 0.78), ("a", 0.6), (None, None)]:
+        assert "error" in api.save_thresholds(ok, mn), (ok, mn)
+    assert api.save_thresholds("0.9", "0.8") == {"ok": True, "score_ok": 0.9, "score_min": 0.8}
+    assert api.settings()["score_ok"] == 0.9
+
+    # Un candidato con puntaje entre 0.80 y 0.90: con los umbrales de fábrica es OK, con 0.90 queda dudoso
+    yt.catalog = [S("Take On Me", "a-ha", dur=262, id="lejos")]           # misma canción, 37 s de diferencia
+    def status():
+        r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], True)["job"])
+        return next((e["status"], e["score"]) for e in r["events"] if e["type"] == "track" and e["n"] == 1)
+    api.save_thresholds(0.75, 0.6)
+    st, sc = status()
+    assert 0.8 <= sc < 0.9 and st == "ok"
+    api.save_thresholds(0.9, 0.8)
+    assert status() == ("dudoso", sc)
+
+
+def test_thresholds_edited_by_hand_out_of_range_fall_back(app):
+    api, *_ = app
+    api._prefs_path.write_text('{"score_ok": 0.3, "score_min": 0.1}', encoding="utf-8")
+    s = api.settings()
+    assert (s["score_ok"], s["score_min"]) == (0.75, 0.6)
+
+
+def test_licenses_listed(app):
+    api, *_ = app
+    names = {l["name"]: l["license"] for l in api.info()["licenses"]}
+    assert names == {"tidalapi": "LGPL-3.0", "ytmusicapi": "MIT", "pywebview": "BSD-3-Clause"}

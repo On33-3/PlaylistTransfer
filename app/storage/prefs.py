@@ -14,6 +14,35 @@ DEFAULTS: dict = {
 }
 
 
+def threshold_limits() -> dict:
+    """Rangos permitidos para los umbrales.
+
+    "Agregar sin dudar" tiene que quedar por encima del tope de "otra versión" (en vivo, remix):
+    si no, esas versiones pasarían como OK. "Agregar para revisar" tiene que quedar por encima del
+    tope de "otra canción" (otro artista, cover): si no, se agregarían como dudosas."""
+    from app.core.matching import NO_MATCH_CAP, VERSION_CAP
+    return {"ok_min": round(VERSION_CAP + 0.01, 2), "ok_max": 0.99,
+            "min_min": round(NO_MATCH_CAP + 0.01, 2), "gap": 0.05}
+
+
+def validate_thresholds(score_ok, score_min) -> tuple[float, float]:
+    lim = threshold_limits()
+    try:
+        ok, mn = round(float(score_ok), 2), round(float(score_min), 2)
+    except (TypeError, ValueError):
+        raise ValueError("Escribí los dos umbrales como números, por ejemplo 0.75 y 0.60.")
+    if not lim["ok_min"] <= ok <= lim["ok_max"]:
+        raise ValueError(f"\"Agregar sin dudar\" tiene que estar entre {lim['ok_min']:.2f} y {lim['ok_max']:.2f}: "
+                         "más abajo, las versiones en vivo o remix se agregarían como si fueran la original.")
+    if mn < lim["min_min"]:
+        raise ValueError(f"\"Agregar para revisar\" tiene que ser {lim['min_min']:.2f} o más: más abajo se "
+                         "agregarían canciones de otro artista o covers.")
+    if mn > round(ok - lim["gap"], 2):
+        raise ValueError(f"\"Agregar para revisar\" tiene que ser al menos {lim['gap']:.2f} menor que "
+                         "\"Agregar sin dudar\".")
+    return ok, mn
+
+
 def load(path: Path) -> dict:
     """Las preferencias guardadas sobre los valores por defecto. Si no hay archivo, o está roto,
     devuelve los valores por defecto (sin pisar el archivo roto)."""
@@ -24,6 +53,10 @@ def load(path: Path) -> dict:
         return prefs
     if isinstance(saved, dict):
         prefs.update({k: v for k, v in saved.items() if k in DEFAULTS})
+    try:   # umbrales editados a mano y fuera de rango: se usan los de fábrica
+        prefs["score_ok"], prefs["score_min"] = validate_thresholds(prefs["score_ok"], prefs["score_min"])
+    except ValueError:
+        prefs["score_ok"], prefs["score_min"] = DEFAULTS["score_ok"], DEFAULTS["score_min"]
     return prefs
 
 

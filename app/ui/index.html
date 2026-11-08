@@ -72,6 +72,7 @@
           </div>
         </div>
         <p class="error" id="pick-error" hidden></p>
+        <label class="opt report-opt"><input type="checkbox" id="want-report"> Guardar también un reporte para Excel <span class="muted">(opcional: todo queda igual en el Historial)</span></label>
         <div class="actions">
           <button class="btn primary" id="go" disabled>Transferir</button>
           <button class="btn ghost" id="dry" disabled>Probar sin cambiar nada</button>
@@ -96,6 +97,7 @@
           <p class="muted" id="done-detail"></p>
           <div class="actions" style="margin-top:14px">
             <button class="btn primary" id="open-dest" hidden>Abrir</button>
+            <button class="btn ghost" id="open-report" hidden>Abrir el reporte</button>
             <button class="btn ghost" id="again">Hacer otra transferencia</button>
           </div>
         </div>
@@ -127,7 +129,19 @@
     <section class="screen" id="historial" aria-labelledby="t-hist">
       <h1 id="t-hist">Historial</h1>
       <p class="lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
+      <div class="row-controls hist-controls">
+        <div class="seg" role="group" aria-label="Mostrar" id="hist-filter">
+          <button data-kind="" aria-pressed="true">Todo</button>
+          <button data-kind="transfer" aria-pressed="false">Transferencias</button>
+          <button data-kind="dedupe" aria-pressed="false">Repetidos</button>
+        </div>
+      </div>
       <ul class="hist" id="hist"></ul>
+      <div class="actions" id="hist-actions" hidden>
+        <button class="btn ghost" id="export" data-needs-idle>Exportar a CSV</button>
+        <button class="btn ghost" id="open-export" hidden>Abrir el archivo</button>
+      </div>
+      <p class="muted export-note" id="export-note" hidden></p>
     </section>
 
     <!-- ================= AJUSTES ================= -->
@@ -146,6 +160,22 @@
       </section>
 
       <section>
+        <div><h3>Coincidencias</h3><p>Avanzado. Cuánto se tienen que parecer dos temas para agregarlos.</p></div>
+        <div>
+          <div class="thresholds">
+            <label>Agregar sin dudar desde<input type="number" id="th-ok" step="0.01" inputmode="decimal"></label>
+            <label>Agregar para revisar (?) desde<input type="number" id="th-min" step="0.01" inputmode="decimal"></label>
+          </div>
+          <p class="muted th-help" id="th-help"></p>
+          <p class="error" id="th-error" hidden></p>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn ghost" id="th-save">Guardar</button>
+            <button class="btn ghost" id="th-reset">Volver a los valores de fábrica</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <div><h3>Datos</h3><p>Historial, sesiones y preferencias. No salen de tu compu.</p></div>
         <div><button class="btn ghost" id="open-data">Abrir carpeta de datos</button><div class="path" id="data-path"></div></div>
       </section>
@@ -155,6 +185,8 @@
         <div>
           <p id="about-version">PlaylistTransfer, open source con licencia MIT.</p>
           <p class="muted">No está afiliado a Tidal, Google ni Spotify.</p>
+          <p class="muted" style="margin-top:12px">Usa estas librerías de código abierto:</p>
+          <ul class="licenses" id="licenses"></ul>
         </div>
       </section>
     </section>

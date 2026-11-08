@@ -33,6 +33,14 @@ def main() -> None:
     window = webview.create_window(TITLE, url=str(ui_dir() / "index.html"), js_api=api,
                                    width=1120, height=780, min_size=(860, 620), background_color="#F3F1FA")
 
+    def save_dialog(default_name: str):
+        documents = Path.home() / "Documents"
+        return window.create_file_dialog(webview.FileDialog.SAVE, save_filename=default_name,
+                                         directory=str(documents if documents.is_dir() else Path.home()),
+                                         file_types=("Archivo CSV para Excel (*.csv)",))
+
+    api._save_dialog = save_dialog
+
     smoke = os.environ.get("PT_SMOKE") == "1"   # prueba automática: abre, espera la UI y cierra
 
     def on_start():

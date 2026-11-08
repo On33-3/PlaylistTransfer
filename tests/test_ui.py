@@ -60,6 +60,9 @@ def make_api(tmp_path, connected=True):
     api = Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "historial.sqlite"), tmp_path / "prefs.json",
               tmp_path, list_browsers=lambda: [vivaldi, Browser("Brave", "brave", Path(r"C:\brave.exe"))],
               open_url=lambda u, b: None)
+    api.asked = []                                     # nombres que propuso el diálogo "Guardar como"
+    api._save_dialog = lambda name: (api.asked.append(name), str(tmp_path / "exportado" / name))[1]
+    api._open_file = lambda p: None
     return api, tidal, yt
 
 
@@ -178,4 +181,86 @@ def test_connect_from_settings(browser, tmp_path):
     assert tidal.calls == [("connect", "Vivaldi")]
     page.wait_for_selector("#chips .chip.ok")
     assert "Tidal ✓" in page.inner_text("#chips")
+    assert errors == []
+
+
+# ---------------------------------------------------------------- F3
+
+def transfer(page, report=False, dry=False):
+    page.click("nav [data-go=transferir]")
+    page.check("input[name=src][value=src]")
+    page.check("input[name=dst][value=dst]")
+    if report:
+        page.check("#want-report")
+    page.click("#dry" if dry else "#go")
+    page.wait_for_selector("#done.show")
+
+
+def test_report_is_only_saved_when_ticked(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("input[name=src]")
+    assert not page.is_checked("#want-report")                       # destildado por defecto
+    transfer(page)
+    page.wait_for_timeout(300)
+    assert api.asked == [] and page.is_hidden("#open-report")
+    page.click("#again")
+    transfer(page, report=True, dry=True)
+    page.wait_for_selector("#open-report:not([hidden])")
+    assert len(api.asked) == 1 and api.asked[0].startswith("prueba-Favoritas-")
+    assert (tmp_path / "exportado" / api.asked[0]).exists()
+    assert errors == []
+
+
+def test_history_filter_mosaic_and_export(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
+    page.select_option("#dup-playlist", "dups")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dups li")
+    page.click("#remove"); page.click("#confirm-yes")
+    page.wait_for_selector("text=Quitaste 1 tema")
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist li[data-op]")
+    assert page.locator("#hist li[data-op]").count() == 2
+    assert page.locator("#hist li[data-op] >> nth=1").locator(".mosaic i").count() == 4
+    page.click("#hist-filter [data-kind=dedupe]")
+    page.wait_for_function("document.querySelectorAll('#hist li[data-op]').length === 1")
+    assert "Repetidos en Clásicos" in page.inner_text("#hist")
+    page.click("#hist-filter [data-kind='']")
+    page.wait_for_function("document.querySelectorAll('#hist li[data-op]').length === 2")
+    page.click("#export")
+    page.wait_for_selector("#open-export:not([hidden])")
+    assert "Guardé 5 filas" in page.inner_text("#export-note")
+    assert (tmp_path / "exportado" / api.asked[-1]).exists()
+    shot(page, "8-historial-exportado")
+    page.click("nav [data-go=inicio]")
+    assert page.locator("#home-history .mosaic i").count() == 5
+    shot(page, "9-inicio-con-historial")
+    assert errors == []
+
+
+def test_thresholds_in_settings(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=ajustes]")
+    page.wait_for_function("document.querySelector('#th-ok').value === '0.75'")
+    page.fill("#th-ok", "0.70")
+    page.click("#th-save")
+    page.wait_for_selector("#th-error:not([hidden])")
+    assert "versiones en vivo o remix" in page.inner_text("#th-error")
+    page.fill("#th-ok", "0.85"); page.fill("#th-min", "0.65")
+    page.click("#th-save")
+    page.wait_for_selector("text=Guardado: sin dudar desde 0.85")
+    assert api.settings()["score_ok"] == 0.85
+    shot(page, "10-ajustes-umbrales")
+    page.click("#th-reset")
+    page.wait_for_function("document.querySelector('#th-ok').value === '0.75'")
+    assert api.settings()["score_ok"] == 0.75
+    assert "tidalapi (LGPL-3.0)" in page.inner_text("#licenses")
     assert errors == []

@@ -107,6 +107,21 @@ class History:
         con.close()
         return [Operation(**dict(r)) for r in rows]
 
+    def statuses(self, operation_ids: list[int]) -> dict[int, list[str]]:
+        """{operación: [estado de cada tema en orden]} en una sola consulta (para los mosaicos)."""
+        con = self._connect(create=False)
+        if con is None or not operation_ids:
+            return {}
+        marks = ", ".join("?" for _ in operation_ids)
+        with con:
+            rows = con.execute(f"SELECT operation_id, status FROM operation_tracks WHERE operation_id IN ({marks}) "
+                               "ORDER BY operation_id, n", list(operation_ids)).fetchall()
+        con.close()
+        out: dict[int, list[str]] = {}
+        for r in rows:
+            out.setdefault(r["operation_id"], []).append(r["status"])
+        return out
+
     def tracks(self, operation_id: int) -> list[TrackRecord]:
         con = self._connect(create=False)
         if con is None:
