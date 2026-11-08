@@ -17,6 +17,7 @@ class Status(str, Enum):
     CONNECTED = "connected"
     EXPIRED = "expired"            # hay una sesión guardada, pero el servicio ya no la acepta
     DISCONNECTED = "disconnected"
+    SETUP = "setup"                # falta configurar algo antes de conectar (Spotify: el Client ID)
 
 
 class ConnectorError(Exception):
