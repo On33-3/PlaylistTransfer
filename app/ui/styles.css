@@ -390,6 +390,7 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
   padding: 0 12px; width: 300px; max-width: 100%; font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink); }
 .setup-note { margin: 12px 0 0; font-size: 13.5px; }
 .setup-hint { margin: 8px 0 0; font-size: 13.5px; }
+.svc-hint { font-size: 13.5px; margin-top: 2px; max-width: 46ch; }
 .setup-panel .error { margin: 8px 0 0; }
 .offscreen { position: fixed; left: -9999px; top: 0; }
 dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */

@@ -96,7 +96,8 @@ class YTMusicConnector(Connector):
         if browser is None:
             raise ConnectorError(tr("err.yt_choose_browser"))
         if browser.is_firefox:
-            jar, ua = firefox.login_and_read_cookies(LOGIN_URL, "youtube.com", SESSION_COOKIES, cancel=cancel)
+            jar, ua = firefox.login_and_read_cookies(LOGIN_URL, "youtube.com", SESSION_COOKIES, cancel=cancel,
+                                                     exe=browser.exe)
         else:
             jar, ua = cdp_login.login_and_read_cookies(browser.exe, browser.name, self.profiles_dir,
                                                        LOGIN_URL, "youtube.com", SESSION_COOKIES, cancel=cancel)
