@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import replace
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
+from app.connectors import spotify as sp
 from app.connectors.base import (Connector, ConnectorError, NotConnectedError, Status,
                                  require_confirmation)
 from app.core.matching import norm
@@ -94,3 +97,126 @@ class FakeService(Connector):
 
 def S(title, *artists, dur=200, id=None, album=None) -> Song:
     return Song(title, list(artists), album=album, duration=dur, id=id or f"{norm(title)}|{','.join(artists)}")
+
+
+
+def build_api(tmp_path, connectors: dict, browsers=(), system_language: str = "es", prefs: Path | None = None):
+    """La API real con servicios falsos y todo lo de afuera (navegadores, abrir links, guardar archivos)
+    reemplazado. Lo que haga la app queda anotado: api._open_url_calls (links), api._asked (nombres que
+    propuso el diálogo "Guardar como")."""
+    from app.api import Api
+    from app.storage.history import History
+    api = Api(connectors, History(tmp_path / "historial.sqlite"), prefs or tmp_path / "prefs.json", tmp_path,
+              list_browsers=lambda: list(browsers), open_url=lambda url, b: api._open_url_calls.append(url),
+              system_language=lambda: system_language)
+    api._open_url_calls = []
+    api._asked = []
+    api._save_dialog = lambda name: (api._asked.append(name), str(tmp_path / "exportado" / name))[1]
+    api._open_file = lambda p: None
+    return api
+
+# ---------------------------------------------------------------- la API de Spotify, en memoria
+
+def track(n, name, artist, isrc=None, dur=200, album="Album"):
+    return {"type": "track", "uri": f"spotify:track:{n:0>22}", "name": name, "artists": [{"name": artist}],
+            "album": {"name": album}, "duration_ms": dur * 1000, "external_ids": {"isrc": isrc} if isrc else {},
+            "is_local": False}
+
+
+class Resp:
+    def __init__(self, status, body=None, headers=None):
+        self.status_code, self._body, self.headers = status, body, headers or {}
+
+    def json(self):
+        if self._body is None:
+            raise ValueError("sin cuerpo")
+        return self._body
+
+
+class FakeSpotify:
+    """Lo justo de la Web API para probar el conector, con las reglas de 2026."""
+
+    def __init__(self):
+        self.me = "yo"
+        self.catalog: dict[str, dict] = {}
+        self.playlists: dict[str, dict] = {}
+        self.calls: list[tuple] = []
+        self.forced: list[Resp] = []          # respuestas que se devuelven antes que las normales
+        self.refresh_ok = True
+        self.ignore_adds = False              # simula que Spotify no guardó lo agregado
+        self.tokens = 0
+
+    def add_tracks(self, *tracks):
+        for t in tracks:
+            self.catalog[t["uri"]] = t
+
+    def add_playlist(self, pid, name, uris, owner="yo", collaborative=False):
+        self.playlists[pid] = {"name": name, "owner": owner, "collaborative": collaborative, "items": list(uris)}
+
+    def uris(self, pid):
+        return self.playlists[pid]["items"]
+
+    def _page(self, items, params, url):
+        offset, limit = int(params.get("offset", 0)), int(params.get("limit", 20))
+        assert limit <= 50
+        page = items[offset:offset + limit]
+        nxt = f"{url.split('?')[0]}?offset={offset + limit}&limit={limit}" if offset + limit < len(items) else None
+        return Resp(200, {"items": page, "next": nxt, "total": len(items)})
+
+    def request(self, method, url, params=None, json=None, data=None, headers=None, timeout=None):
+        u = urlparse(url)
+        params = {**{k: v[0] for k, v in parse_qs(u.query).items()}, **(params or {})}
+        path = u.path.replace("/v1", "", 1)
+        self.calls.append((method, path, params, json, data))
+        if url == sp.TOKEN:
+            if data["grant_type"] == "refresh_token" and not self.refresh_ok:
+                return Resp(400, {"error": "invalid_grant", "error_description": "Refresh token revoked"})
+            self.tokens += 1
+            return Resp(200, {"access_token": f"tok{self.tokens}", "refresh_token": "ref", "expires_in": 3600})
+        if self.forced:
+            return self.forced.pop(0)
+        assert headers["Authorization"].startswith("Bearer tok")
+        if (method, path) == ("GET", "/me"):
+            return Resp(200, {"id": self.me})
+        if (method, path) == ("GET", "/me/playlists"):
+            items = [{"id": k, "name": v["name"], "owner": {"id": v["owner"]}, "collaborative": v["collaborative"],
+                      "items": {"total": len(v["items"])}} for k, v in self.playlists.items()]
+            return self._page(items, params, url)
+        if (method, path) == ("POST", "/me/playlists"):
+            pid = f"{len(self.playlists) + 1:0>22}"
+            self.add_playlist(pid, json["name"], [])
+            return Resp(201, {"id": pid})
+        if path == "/search":
+            assert int(params["limit"]) <= 10
+            q = params["q"]
+            if q.startswith("isrc:"):
+                hits = [t for t in self.catalog.values() if t["external_ids"].get("isrc") == q[5:]]
+            else:
+                words = q.lower().replace('"', " ").split()
+                hits = [t for t in self.catalog.values() if any(w in t["name"].lower() for w in words)]
+            return Resp(200, {"tracks": {"items": hits[:int(params["limit"])]}})
+        parts = path.strip("/").split("/")
+        pl = self.playlists.get(parts[1]) if len(parts) > 1 else None
+        if pl is None:
+            return Resp(404, {"error": {"status": 404, "message": "Not found"}})
+        mine = pl["owner"] == self.me or pl["collaborative"]
+        if len(parts) == 2 and method == "GET":
+            return Resp(200, {"name": pl["name"]})
+        if parts[2:] == ["items"]:
+            if not mine:
+                return Resp(403, {"error": {"status": 403, "message": "Forbidden"}})
+            if method == "GET":
+                return self._page([{"item": self.catalog[x]} if x in self.catalog else {"item": None}
+                                   for x in pl["items"]], params, url)
+            if method == "POST":
+                assert len(json["uris"]) <= 100
+                if not self.ignore_adds:
+                    pos = json.get("position", len(pl["items"]))
+                    pl["items"][pos:pos] = json["uris"]
+                return Resp(201, {"snapshot_id": "s"})
+            if method == "DELETE":
+                assert "positions" not in str(json)              # ya no existe: siempre por URI
+                gone = {x["uri"] for x in json["items"]}
+                pl["items"] = [x for x in pl["items"] if x not in gone]     # todas las copias
+                return Resp(200, {"snapshot_id": "s"})
+        raise AssertionError(f"pedido inesperado: {method} {path}")

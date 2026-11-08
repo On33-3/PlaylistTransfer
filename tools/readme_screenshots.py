@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from playwright.sync_api import sync_playwright  # noqa: E402
 
-from tests.test_ui import make_api, open_page  # noqa: E402
+from tests.ui_helpers import make_api, open_page  # noqa: E402
 
 OUT = ROOT / "docs" / "img"
 

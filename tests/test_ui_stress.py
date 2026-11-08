@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from tests.fakes import FakeService, S
-from tests.test_ui import browser, make_api, open_page, shot  # noqa: F401  (fixture de Playwright)
+from tests.fakes import S
+from tests.ui_helpers import make_api, open_page, shot
 
 LONG = "Mi playlist con un nombre larguísimo que no entra de ninguna manera en una sola línea de la lista"
 NOSPACE = "Playlist_sin_espacios_" + "x" * 70
