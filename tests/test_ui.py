@@ -6,6 +6,7 @@ Con PT_SCREENSHOTS=<carpeta> guarda capturas de cada pantalla.
 from __future__ import annotations
 
 import json
+import re
 import os
 from pathlib import Path
 
@@ -59,7 +60,7 @@ def make_api(tmp_path, connected=True):
     vivaldi = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
     api = Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "historial.sqlite"), tmp_path / "prefs.json",
               tmp_path, list_browsers=lambda: [vivaldi, Browser("Brave", "brave", Path(r"C:\brave.exe"))],
-              open_url=lambda u, b: None)
+              open_url=lambda u, b: None, system_language=lambda: "es")
     api.asked = []                                     # nombres que propuso el diálogo "Guardar como"
     api._save_dialog = lambda name: (api.asked.append(name), str(tmp_path / "exportado" / name))[1]
     api._open_file = lambda p: None
@@ -263,4 +264,69 @@ def test_thresholds_in_settings(browser, tmp_path):
     page.wait_for_function("document.querySelector('#th-ok').value === '0.75'")
     assert api.settings()["score_ok"] == 0.75
     assert "tidalapi (LGPL-3.0)" in page.inner_text("#licenses")
+    assert errors == []
+
+
+# ---------------------------------------------------------------- idiomas
+
+SPANISH = re.compile(r"\b(Inicio|Transferir|Quitar|Historial|Ajustes|temas?|Todavía|conectá|Elegí|Listo|"
+                     r"Buscar|repetidos?|Encontrado|Revisar|ya estaba|Coincidencias|Navegador|Idioma|"
+                     r"Datos|Acerca|predeterminado|Cancelar|agregaste|Probar|Origen|Destino|sin conectar)\b")
+
+
+def english_api(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    api.set_language("en")
+    for svc in (tidal, yt):                                   # nombres de playlists en inglés para el test
+        svc.playlists = {k: ({"Favoritas": "Favorites", "Para correr": "Running", "Clásicos": "Classics"}.get(n, n), s)
+                         for k, (n, s) in svc.playlists.items()}
+    return api, tidal, yt
+
+
+def visible_spanish(page):
+    return sorted(set(m.group(0) for m in SPANISH.finditer(page.inner_text("body"))))
+
+
+def test_every_screen_in_english_has_no_spanish_left(browser, tmp_path):
+    api, tidal, yt = english_api(tmp_path)
+    page, errors = open_page(browser, api)
+    assert page.get_attribute("html", "lang") == "en"
+    assert page.inner_text("nav") .startswith("Home")
+    assert visible_spanish(page) == []
+    transfer(page)
+    assert "added 2 songs" in page.inner_text("#done") and visible_spanish(page) == []
+    shot(page, "en-transfer")
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
+    page.select_option("#dup-playlist", "dups")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dups li")
+    assert "Found 2 duplicates" in page.inner_text("#dup-summary") and visible_spanish(page) == []
+    page.click("#remove")
+    assert page.inner_text("#c-title") == "Remove 1 song from “Classics”?"
+    page.click("#confirm-yes")
+    page.wait_for_selector("text=Removed 1 song")
+    for screen in ("historial", "ajustes", "inicio"):
+        page.click(f"nav [data-go={screen}]")
+        page.wait_for_timeout(250)
+        assert visible_spanish(page) == [], screen
+        shot(page, f"en-{screen}")
+    assert errors == []
+
+
+def test_switch_language_from_settings(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    assert page.inner_text("nav [data-go=ajustes]") == "Ajustes"
+    page.click("nav [data-go=ajustes]")
+    page.wait_for_selector("#language-list input[value=en]")
+    assert page.is_checked("#language-list input[value=es]")
+    page.check("#language-list input[value=en]")
+    page.wait_for_selector("nav [data-go=ajustes]:text-is('Settings')")
+    assert page.is_visible("#ajustes")                          # vuelve a Ajustes después de recargar
+    assert page.is_checked("#language-list input[value=en]")
+    assert page.inner_text("#ajustes h1") == "Settings"
+    page.check("#language-list input[value=es]")
+    page.wait_for_selector("nav [data-go=ajustes]:text-is('Ajustes')")
     assert errors == []

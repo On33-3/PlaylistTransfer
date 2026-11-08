@@ -34,7 +34,7 @@ def app(tmp_path):
     ])
     opened = []
     api = Api({"tidal": tidal, "ytmusic": yt}, History(tmp_path / "historial.sqlite"), tmp_path / "preferencias.json",
-              tmp_path, list_browsers=lambda: [VIVALDI, CHROME], open_url=lambda url, b: opened.append((url, b)))
+              tmp_path, list_browsers=lambda: [VIVALDI, CHROME], open_url=lambda url, b: opened.append((url, b)), system_language=lambda: "es")
     api.opened = opened
     return api, tidal, yt
 

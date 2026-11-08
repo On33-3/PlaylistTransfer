@@ -97,3 +97,12 @@ def load_legacy():
     sys.modules[spec.name] = mod          # dataclasses lo busca acá al resolver las anotaciones
     spec.loader.exec_module(mod)
     return mod
+
+
+@pytest.fixture(autouse=True)
+def spanish_by_default():
+    """Los tests están escritos en castellano. El idioma es global: se repone después de cada test."""
+    from app import i18n
+    i18n.set_language("es")
+    yield
+    i18n.set_language("es")

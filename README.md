@@ -37,6 +37,8 @@ Funciona en Windows 10 y 11.
 
 Los umbrales se pueden ajustar en **Ajustes › Coincidencias**.
 
+La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez usa el idioma de Windows. / *The app is available in Spanish and English (Settings › Language).*
+
 ## Privacidad
 
 - Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, cerrá la app y borrá esa carpeta.

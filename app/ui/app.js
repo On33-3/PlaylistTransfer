@@ -1,4 +1,5 @@
-/* PlaylistTransfer: lógica de la UI. Habla con Python por window.pywebview.api (ver app/api.py). */
+/* PlaylistTransfer: lógica de la UI. Habla con Python por window.pywebview.api (ver app/api.py).
+   Todos los textos salen de app/locales/<idioma>.json con t("clave"): acá no va texto suelto. */
 "use strict";
 
 const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", now: "…", removed: "−" };
@@ -10,8 +11,33 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const temas = n => (n === 1 ? "1 tema" : `${n} temas`);
 const mmss = s => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "");
+
+/* ---------------------------------------------------------------- idioma */
+
+let LANG = "es";
+let STR = {};
+
+/** Texto en el idioma actual. Con {n: número} usa la variante _one / _other si existe. */
+function t(key, vars = {}) {
+  let k = key;
+  if (typeof vars.n === "number") {
+    const plural = `${key}_${vars.n === 1 ? "one" : "other"}`;
+    if (plural in STR) k = plural;
+  }
+  const text = STR[k] ?? key;
+  return text.replace(/\{(\w+)\}/g, (m, v) => (v in vars ? vars[v] : m));
+}
+const songs = n => t("songs", { n });
+const listAnd = items => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${t("list.and")} ${items[items.length - 1]}`);
+const dateLocale = () => (LANG === "es" ? "es-AR" : "en-US");
+
+function applyI18n(root = document) {
+  $$("[data-i18n]", root).forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$("[data-i18n-aria]", root).forEach(el => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
+  document.documentElement.lang = LANG;
+  document.documentElement.classList.remove("i18n-pending");
+}
 
 let api = null;
 const state = {
@@ -27,8 +53,8 @@ const state = {
 /* ---------------------------------------------------------------- utilidades */
 
 function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 3200);
+  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 3200);
 }
 
 async function call(method, ...args) {
@@ -37,7 +63,7 @@ async function call(method, ...args) {
     if (r && typeof r === "object" && !Array.isArray(r) && r.error) { toast(r.error); return null; }
     return r;
   } catch (e) {
-    toast(`Algo salió mal: ${e.message || e}`);
+    toast(t("common.error", { msg: e.message || e }));
     return null;
   }
 }
@@ -75,23 +101,24 @@ function go(id) {
   if (id === "historial") renderHistory();
   if (id === "ajustes") renderSettings();
 }
-document.addEventListener("click", e => { const t = e.target.closest("[data-go]"); if (t && !t.disabled) go(t.dataset.go); });
+document.addEventListener("click", e => { const el = e.target.closest("[data-go]"); if (el && !el.disabled) go(el.dataset.go); });
 
 /* ---------------------------------------------------------------- estado de los servicios */
 
 async function refreshStatus() {
-  $("#chips").innerHTML = ["Tidal", "YouTube Music", "Spotify"].map(n => `<span class="chip checking"><span class="dot"></span>${n} <span class="state">…</span></span>`).join("");
+  $("#chips").innerHTML = Object.values(NAMES).map(n => `<span class="chip checking"><span class="dot"></span>${n} <span class="state">…</span></span>`).join("");
   const list = await call("status") || [];
   for (const s of list) state.status[s.key] = s.status;
   $("#chips").innerHTML = list.map(s => {
-    const [cls, label] = { connected: ["ok", "✓"], expired: ["warn", `<span class="state">⚠ venció</span>`],
-      disconnected: ["off", `<span class="state">sin conectar</span>`], soon: ["soon", `<span class="state">próximamente</span>`] }[s.status];
-    const go = s.status === "soon" ? "" : `data-go="ajustes"`;
-    return `<button class="chip ${cls}" ${go} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
+    const [cls, label] = { connected: ["ok", "✓"], expired: ["warn", `<span class="state">${esc(t("status.expired"))}</span>`],
+      disconnected: ["off", `<span class="state">${esc(t("status.disconnected"))}</span>`],
+      soon: ["soon", `<span class="state">${esc(t("status.soon"))}</span>`] }[s.status];
+    const target = s.status === "soon" ? "" : `data-go="ajustes"`;
+    return `<button class="chip ${cls}" ${target} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
   }).join("");
   const missing = USABLE.filter(k => !connected(k)).map(k => NAMES[k]);
   $("#home-connect").hidden = missing.length === 0;
-  $("#home-connect-text").textContent = missing.length ? `Falta ${missing.join(" y ")}.` : "";
+  $("#home-connect-text").textContent = missing.length ? t("home.connect_missing", { services: listAnd(missing) }) : "";
 }
 
 /* ---------------------------------------------------------------- inicio */
@@ -122,33 +149,33 @@ function setupRoute() {
 }
 
 function opTitle(op) {
-  return op.kind === "dedupe" ? `Repetidos en ${op.source_name}` : `${op.source_name} a ${op.target_name}`;
+  return op.kind === "dedupe" ? t("op.dedupe_title", { name: op.source_name })
+    : t("op.transfer_title", { src: op.source_name, dst: op.target_name });
 }
 function opRoute(op) {
-  return op.kind === "dedupe" ? op.source_label : `${op.source_label} a ${op.target_label}`;
+  return op.kind === "dedupe" ? op.source_label : t("op.route", { src: op.source_label, dst: op.target_label });
 }
 function opSub(op) {
-  if (op.kind === "dedupe") return op.removed === 1 ? "1 quitado" : `${op.removed} quitados`;
-  const parts = [`${op.added} ${op.added === 1 ? "agregado" : "agregados"}`];
-  if (op.already) parts.push(`${op.already} ya ${op.already === 1 ? "estaba" : "estaban"}`);
-  if (op.doubtful) parts.push(`${op.doubtful} para revisar`);
-  if (op.not_found) parts.push(`${op.not_found} no ${op.not_found === 1 ? "encontrado" : "encontrados"}`);
+  if (op.kind === "dedupe") return t("op.removed", { n: op.removed });
+  const parts = [t("op.added", { n: op.added })];
+  if (op.already) parts.push(t("op.already", { n: op.already }));
+  if (op.doubtful) parts.push(t("op.doubtful", { n: op.doubtful }));
+  if (op.not_found) parts.push(t("op.not_found", { n: op.not_found }));
   return parts.join(", ");
 }
 function opDate(op) {
   const d = new Date(op.created_at);
-  return isNaN(d) ? op.created_at : d.toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return isNaN(d) ? op.created_at : d.toLocaleString(dateLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
-const EMPTY_HISTORY = `<li class="empty"><b>Todavía no hiciste transferencias.</b> Cuando hagas la primera, aparece acá. <button class="btn ghost" data-go="transferir">Transferir</button></li>`;
+const emptyHistory = () => `<li class="empty"><b>${esc(t("history.empty_title"))}</b> ${esc(t("history.empty_text"))} <button class="btn ghost" data-go="transferir">${esc(t("history.empty_btn"))}</button></li>`;
+const tilesHTML = tiles => (tiles || []).map(s => `<i class="${CLASS[s] || "ok"}"></i>`).join("");
 
 async function renderHomeHistory() {
   const ops = await call("history", 3) || [];
   $("#home-history").innerHTML = ops.length ? ops.map(op => `
     <li><div><div class="what">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
-    <div class="mosaic small" aria-hidden="true" title="${esc(opSub(op))}">${tilesHTML(op.tiles)}</div></li>`).join("") : EMPTY_HISTORY;
+    <div class="mosaic small" aria-hidden="true" title="${esc(opSub(op))}">${tilesHTML(op.tiles)}</div></li>`).join("") : emptyHistory();
 }
-
-const tilesHTML = tiles => (tiles || []).map(s => `<i class="${CLASS[s] || "ok"}"></i>`).join("");
 
 /* ---------------------------------------------------------------- transferir: elegir */
 
@@ -161,31 +188,31 @@ async function getPlaylists(key, force = false) {
 
 async function loadPickers() {
   const { from, to } = state;
-  $("#route-lede").textContent = `De ${NAMES[from]} a ${NAMES[to]}.`;
-  $("#src-title").textContent = `Origen en ${NAMES[from]}`;
-  $("#dst-title").textContent = `Destino en ${NAMES[to]}`;
+  $("#route-lede").textContent = t("transfer.lede", { src: NAMES[from], dst: NAMES[to] });
+  $("#src-title").textContent = t("transfer.src_title", { service: NAMES[from] });
+  $("#dst-title").textContent = t("transfer.dst_title", { service: NAMES[to] });
   const missing = [from, to].filter(k => !connected(k));
   $("#pick-connect").hidden = missing.length === 0;
   $("#pickers").hidden = missing.length > 0;
   if (missing.length) {
-    $("#pick-connect-text").textContent = `Para elegir playlists, conectá ${missing.map(k => NAMES[k]).join(" y ")}.`;
+    $("#pick-connect-text").textContent = t("transfer.connect_needed", { services: listAnd(missing.map(k => NAMES[k])) });
     updateGo(); return;
   }
-  $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">Cargando tus playlists…</li>`;
+  $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">${esc(t("transfer.loading"))}</li>`;
   const [src, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
-  const count = c => (c == null ? "" : temas(c));
-  $("#src-list").innerHTML = !src ? `<li class="loading error">No pude leer tus playlists.</li>`
+  const count = c => (c == null ? "" : songs(c));
+  $("#src-list").innerHTML = !src ? `<li class="loading error">${esc(t("transfer.read_error"))}</li>`
     : src.length ? src.map(p => `<li><label><input type="radio" name="src" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> ${esc(p.name)} <span class="count num">${count(p.count)}</span></label></li>`).join("")
-    : `<li class="loading">No tenés playlists en ${NAMES[from]}.</li>`;
+    : `<li class="loading">${esc(t("transfer.no_playlists", { service: NAMES[from] }))}</li>`;
   $("#dst-list").innerHTML = (dst || []).map(p => `<li><label><input type="checkbox" name="dst" value="${esc(p.id)}" data-name="${esc(p.name)}"> ${esc(p.name)} <span class="count num">${count(p.count)}</span></label></li>`).join("")
-    + `<li class="new"><label><input type="checkbox" id="dst-new"> Crear una playlist nueva</label><input type="text" id="dst-new-name" aria-label="Nombre de la playlist nueva" placeholder="Nombre" hidden></li>`;
+    + `<li class="new"><label><input type="checkbox" id="dst-new"> ${esc(t("transfer.new"))}</label><input type="text" id="dst-new-name" aria-label="${esc(t("transfer.new_aria"))}" placeholder="${esc(t("transfer.new_placeholder"))}" hidden></li>`;
   updateGo();
 }
 
 function selection() {
   const src = $("input[name=src]:checked");
   const targets = $$("input[name=dst]:checked").map(i => ({ id: i.value, name: i.dataset.name }));
-  if ($("#dst-new")?.checked) targets.push({ id: null, name: $("#dst-new-name").value.trim() || src?.dataset.name || "Nueva playlist" });
+  if ($("#dst-new")?.checked) targets.push({ id: null, name: $("#dst-new-name").value.trim() || src?.dataset.name || t("transfer.new_default") });
   return { src, targets };
 }
 
@@ -194,7 +221,7 @@ function updateGo() {
   const ok = !!src && targets.length > 0;
   for (const b of [$("#go"), $("#dry")]) { b.dataset.blocked = ok ? "0" : "1"; b.disabled = !ok || state.busy; }
   const n = src && src.dataset.count ? Number(src.dataset.count) : null;
-  $("#go").textContent = n != null ? `Transferir ${temas(n)}` : "Transferir";
+  $("#go").textContent = n != null ? t("transfer.go_n", { songs: songs(n) }) : t("transfer.go");
 }
 
 $("#pick").addEventListener("change", e => {
@@ -216,19 +243,18 @@ function resetTransferView() {
   if ($("#transferir").classList.contains("active")) loadPickers();
 }
 
-function trackHTML(e, extra = "") {
+function trackHTML(e) {
   const cls = CLASS[e.status] || "now";
   const s = e.song, m = e.match;
   let note = "";
-  if (e.status === "dudoso" && m) note = `. Puede ser otra versión: «${esc(m.title)}» de ${esc(m.artist || "?")}`;
-  if (e.status === "no_encontrado") note = e.alternatives?.length
-    ? `. No está la de ${esc(s.artist)}. Hay de otros artistas:` : ". No lo encontré";
-  if (e.as) note = `. Ya estaba como «${esc(e.as.title)}»`;
-  else if (e.status === "ya_estaba") note = ". Ya estaba";
+  if (e.status === "dudoso" && m) note = t("transfer.note_doubt", { title: m.title, artist: m.artist || "?" });
+  if (e.status === "no_encontrado") note = e.alternatives?.length ? t("transfer.note_miss_alts", { artist: s.artist }) : t("transfer.note_miss");
+  if (e.as) note = t("transfer.note_already_as", { title: e.as.title });
+  else if (e.status === "ya_estaba") note = t("transfer.note_already");
   const alts = e.status === "no_encontrado" && e.alternatives?.length
-    ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="Agregar esta versión">+ ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
+    ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="${esc(t("transfer.alt_title"))}">+ ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
   const score = e.score != null && !["ya_estaba", "no_encontrado"].includes(e.status) ? Number(e.score).toFixed(2) : "";
-  return `<span class="badge ${cls}">${SYMBOL[cls]}</span><span><span class="t">${esc(s.title)}</span> <span class="a">${esc(s.artist)}</span><span class="note">${note}</span>${alts}${extra}</span><span class="score num">${score}</span>`;
+  return `<span class="badge ${cls}">${SYMBOL[cls]}</span><span><span class="t">${esc(s.title)}</span> <span class="a">${esc(s.artist)}</span>${note ? `<span class="note">. ${esc(note)}</span>` : ""}${alts}</span><span class="score num">${score}</span>`;
 }
 
 async function startTransfer(dryRun) {
@@ -236,67 +262,72 @@ async function startTransfer(dryRun) {
   if (!src || !targets.length) return;
   const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
-  const t = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0 }, rows: {}, tracks: {} };
+  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0 }, rows: {}, tracks: {} };
   $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#count").textContent = "0";
-  $("#count-of").textContent = "temas"; $("#run-actions").hidden = false;
-  $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">a</span> ${esc(targets.map(x => x.name).join(", "))}`;
-  for (const k in t.n) $("#n-" + k).textContent = 0;
+  $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
+  $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${esc(targets.map(x => x.name).join(", "))}`;
+  for (const k in tr.n) $("#n-" + k).textContent = 0;
 
-  const done = await follow(t.job, e => onTransferEvent(t, e));
+  const done = await follow(tr.job, e => onTransferEvent(tr, e));
   $("#run-actions").hidden = true; setStep(2);
   if (done.state === "done") {
-    showTransferResult(t, done.result);
+    showTransferResult(tr, done.result);
     if ($("#want-report").checked) await saveTransferReport(done.result.transfer);
+  } else {
+    const cancelled = done.state === "cancelled";
+    $("#done-title").textContent = t(cancelled ? "transfer.cancelled_title" : "transfer.failed_title");
+    $("#done-detail").textContent = cancelled ? t("transfer.cancelled_text") : (done.error || "");
+    $("#open-dest").hidden = true; $("#done").classList.add("show");
   }
-  else if (done.state === "cancelled") { $("#done-title").textContent = "Cancelaste la transferencia."; $("#done-detail").textContent = "No se modificó ninguna playlist."; $("#open-dest").hidden = true; $("#done").classList.add("show"); }
-  else { $("#done-title").textContent = "No se pudo terminar."; $("#done-detail").textContent = done.error || ""; $("#open-dest").hidden = true; $("#done").classList.add("show"); }
   renderHomeHistory();
 }
 
-function onTransferEvent(t, e) {
+function onTransferEvent(tr, e) {
   if (e.type === "source") {
-    t.total = e.total; $("#count-of").textContent = `de ${temas(e.total)}`;
+    tr.total = e.total; $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
     $("#mosaic").innerHTML = Array.from({ length: e.total }, () => "<i></i>").join("");
   } else if (e.type === "searching") {
     const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = "now";
     const li = document.createElement("li");
-    li.innerHTML = `<span class="badge now">…</span><span><span class="t">${esc(e.song.title)}</span> <span class="a">buscando en ${NAMES[state.to]}</span></span><span></span>`;
-    $("#tracks").prepend(li); t.rows[e.n] = li;
+    li.innerHTML = `<span class="badge now">…</span><span><span class="t">${esc(e.song.title)}</span> <span class="a">${esc(t("transfer.searching", { service: NAMES[state.to] }))}</span></span><span></span>`;
+    $("#tracks").prepend(li); tr.rows[e.n] = li;
   } else if (e.type === "track") {
-    t.tracks[e.n] = e;
-    const cls = CLASS[e.status]; t.n[cls]++;
+    tr.tracks[e.n] = e;
+    const cls = CLASS[e.status]; tr.n[cls]++;
     const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = cls;
-    if (t.rows[e.n]) t.rows[e.n].innerHTML = trackHTML(e);
-    $("#count").textContent = e.n; for (const k in t.n) $("#n-" + k).textContent = t.n[k];
+    if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);
+    $("#count").textContent = e.n; for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
   } else if (e.type === "already") {
-    const prev = t.tracks[e.n]; if (!prev || prev.status === "ya_estaba") return;
-    t.n[CLASS[prev.status]]--; t.n.dup++;
+    const prev = tr.tracks[e.n]; if (!prev || prev.status === "ya_estaba") return;
+    tr.n[CLASS[prev.status]]--; tr.n.dup++;
     const upd = { ...prev, status: "ya_estaba", as: e.as };
-    t.tracks[e.n] = upd;
+    tr.tracks[e.n] = upd;
     const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = "dup";
-    if (t.rows[e.n]) t.rows[e.n].innerHTML = trackHTML(upd);
-    for (const k in t.n) $("#n-" + k).textContent = t.n[k];
+    if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(upd);
+    for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
   }
 }
 
-function showTransferResult(t, res) {
-  t.result = res;
+function showTransferResult(tr, res) {
+  tr.result = res;
   const lines = res.targets.map(x => {
-    const extra = [];
-    if (x.already) extra.push(`${x.already} ya ${x.already === 1 ? "estaba" : "estaban"}`);
-    if (x.versions) extra.push(`${x.versions} ya ${x.versions === 1 ? "estaba" : "estaban"} en otra versión`);
-    const verb = res.dry_run ? "se agregarían" : "agregaste";
-    return `${res.dry_run ? "En" : "A"} «${x.name}»${x.created ? " (nueva)" : ""}: ${verb} ${temas(x.added)}${extra.length ? `; ${extra.join(", ")}` : ""}.`;
+    const extras = [];
+    if (x.already) extras.push(t("transfer.extra_already", { n: x.already }));
+    if (x.versions) extras.push(t("transfer.extra_versions", { n: x.versions }));
+    return t(res.dry_run ? "transfer.line_dry" : "transfer.line", {
+      name: x.name, new: x.created ? t("transfer.new_mark") : "", songs: songs(x.added),
+      extra: extras.length ? `; ${extras.join(", ")}` : "",
+    });
   });
-  $("#done-title").textContent = res.dry_run ? "Prueba terminada: no se modificó nada." : "Listo.";
+  $("#done-title").textContent = t(res.dry_run ? "transfer.dry_title" : "transfer.done_title");
   const s = res.summary, notes = [];
-  if (s.doubtful) notes.push(`Revisá ${s.doubtful === 1 ? "el tema marcado" : `los ${s.doubtful} temas marcados`} con ?: puede ser otra versión.`);
-  if (s.not_found) notes.push(`${s.not_found === 1 ? "Un tema no se encontró" : `${s.not_found} temas no se encontraron`}.`);
+  if (s.doubtful) notes.push(t("transfer.notes_doubtful", { n: s.doubtful }));
+  if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
   const first = res.targets.find(x => x.url);
   $("#open-dest").hidden = !first || res.dry_run;
-  $("#open-dest").textContent = `Abrir en ${NAMES[state.to]}`;
+  $("#open-dest").textContent = t("transfer.open", { service: NAMES[state.to] });
   $("#open-dest").onclick = () => first && call("open_url", first.url);
   $("#done").classList.add("show");
   if (!res.dry_run) $$("#tracks [data-alt]").forEach(b => { b.disabled = false; });
@@ -309,22 +340,32 @@ $("#tracks").addEventListener("click", async e => {
   const r = await call("add_alternative", state.transfer.result.transfer, n, k);
   if (!r) { b.disabled = false; return; }
   const done = await follow(r.job);
-  if (done.state === "done") { b.textContent = `✓ Agregada la de ${done.result.added.artist}`; toast(`Agregaste «${done.result.added.title}» de ${done.result.added.artist}.`); renderHomeHistory(); }
-  else { b.disabled = false; toast(done.error || "No se pudo agregar."); }
+  if (done.state === "done") {
+    const a = done.result.added;
+    b.textContent = t("transfer.alt_added", { artist: a.artist });
+    toast(t("transfer.alt_toast", { title: a.title, artist: a.artist }));
+    renderHomeHistory();
+  } else { b.disabled = false; toast(done.error || t("transfer.alt_error")); }
 });
 
 $("#go").addEventListener("click", () => startTransfer(false));
 $("#dry").addEventListener("click", () => startTransfer(true));
-$("#cancel").addEventListener("click", () => { if (state.transfer) { api.cancel(state.transfer.job); $("#cancel").disabled = true; $("#cancel").textContent = "Cancelando…"; } });
+$("#cancel").addEventListener("click", () => {
+  if (state.transfer) { api.cancel(state.transfer.job); $("#cancel").disabled = true; $("#cancel").textContent = t("transfer.cancelling"); }
+});
 async function saveTransferReport(transfer) {
   const r = await call("export_transfer", transfer);
   if (!r || r.cancelled) return;
   $("#open-report").hidden = false;
-  toast(`Guardé el reporte: ${r.name}`);
+  toast(t("transfer.report_toast", { name: r.name }));
 }
 $("#open-report").addEventListener("click", () => call("open_export"));
 
-$("#again").addEventListener("click", () => { $("#open-report").hidden = true; state.transfer = null; $("#cancel").disabled = false; $("#cancel").textContent = "Cancelar"; delete state.playlists[state.to]; resetTransferView(); });
+$("#again").addEventListener("click", () => {
+  $("#open-report").hidden = true; state.transfer = null;
+  $("#cancel").disabled = false; $("#cancel").textContent = t("transfer.cancel");
+  delete state.playlists[state.to]; resetTransferView();
+});
 
 /* ---------------------------------------------------------------- quitar repetidos */
 
@@ -335,10 +376,10 @@ async function renderDupControls() {
   if (!avail.length) return;
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" ${connected(k) ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
-  $("#dup-playlist").innerHTML = `<option>Cargando…</option>`;
+  $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
   const pls = await getPlaylists(state.dupService) || [];
-  $("#dup-playlist").innerHTML = pls.length ? pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.count != null ? ` (${temas(p.count)})` : ""}</option>`).join("")
-    : `<option value="">No tenés playlists</option>`;
+  $("#dup-playlist").innerHTML = pls.length ? pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.count != null ? ` (${songs(p.count)})` : ""}</option>`).join("")
+    : `<option value="">${esc(t("dedupe.no_playlists"))}</option>`;
   const scan = $("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
 }
 
@@ -353,29 +394,33 @@ function clearDups() { state.scan = null; $("#dups").innerHTML = ""; $("#dup-sum
 async function scanDups() {
   const pid = $("#dup-playlist").value; if (!pid) return;
   clearDups();
-  $("#dup-summary").hidden = false; $("#dup-summary").innerHTML = `<span class="muted">Leyendo la playlist…</span>`;
+  $("#dup-summary").hidden = false; $("#dup-summary").innerHTML = `<span class="muted">${esc(t("dedupe.reading"))}</span>`;
   const r = await call("scan_duplicates", state.dupService, pid);
   if (!r) { $("#dup-summary").hidden = true; return; }
   const done = await follow(r.job);
-  if (done.state !== "done") { $("#dup-summary").innerHTML = `<span class="error">${esc(done.error || "No se pudo leer la playlist.")}</span>`; return; }
+  if (done.state !== "done") { $("#dup-summary").innerHTML = `<span class="error">${esc(done.error || t("dedupe.read_error"))}</span>`; return; }
   const res = state.scan = done.result;
-  if (!res.duplicates.length) { $("#dup-summary").innerHTML = `<b>«${esc(res.name)}» no tiene temas repetidos.</b> <span class="muted">Revisé ${temas(res.total)}.</span>`; return; }
+  if (!res.duplicates.length) {
+    $("#dup-summary").innerHTML = `<b>${esc(t("dedupe.clean", { name: res.name }))}</b> <span class="muted">${esc(t("dedupe.checked", { songs: songs(res.total) }))}</span>`;
+    return;
+  }
   const versions = res.duplicates.filter(d => d.kind !== "misma").length;
-  $("#dup-summary").innerHTML = `<b>Encontré ${res.duplicates.length} ${res.duplicates.length === 1 ? "repetido" : "repetidos"} en «${esc(res.name)}».</b> <span class="muted">${versions ? "Las otras versiones (en vivo, remix…) quedan sin tildar. " : ""}Destildá los que quieras conservar.</span>`;
+  const hints = (versions ? `${t("dedupe.versions_hint")} ` : "") + t("dedupe.uncheck_hint");
+  $("#dup-summary").innerHTML = `<b>${esc(t("dedupe.found", { n: res.duplicates.length, name: res.name }))}</b> <span class="muted">${esc(hints)}</span>`;
   const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
   $("#dups").innerHTML = res.duplicates.map(d => `
-    <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="Quitar ${esc(d.song.title)}" data-i="${d.i}">
-      <div class="side remove"><span class="tag">Se quita</span>${d.kind !== "misma" ? `<span class="tag version">Otra versión</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div></div>
-      <div class="side keep"><span class="tag">Queda</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("");
+    <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-i="${d.i}">
+      <div class="side remove"><span class="tag">${esc(t("dedupe.tag_remove"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div></div>
+      <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("");
   $("#dup-actions").hidden = false; updateRemove();
 }
 
 const checkedDups = () => $$("#dups input:checked").map(i => Number(i.dataset.i));
 function updateRemove() {
-  const c = checkedDups().length, label = c === 1 ? "Quitar 1 tema" : `Quitar ${c} temas`;
+  const c = checkedDups().length, label = t("dedupe.remove_n", { n: c });
   $("#remove").textContent = label; $("#confirm-yes").textContent = label;
   $("#remove").dataset.blocked = c ? "0" : "1"; $("#remove").disabled = !c || state.busy;
-  $("#c-title").textContent = `¿${label} de «${state.scan?.name || ""}»?`;
+  $("#c-title").textContent = t("dedupe.confirm_title", { action: label, name: state.scan?.name || "" });
 }
 $("#dups").addEventListener("change", updateRemove);
 $("#dup-scan").addEventListener("click", scanDups);
@@ -388,9 +433,9 @@ $("#confirm-yes").addEventListener("click", async () => {
   if (!r) return;
   const done = await follow(r.job);
   if (done.state === "done") {
-    toast(`Quitaste ${temas(done.result.removed)} de «${done.result.name}».`);
+    toast(t("dedupe.removed_toast", { songs: songs(done.result.removed), name: done.result.name }));
     delete state.playlists[state.dupService]; renderHomeHistory(); await renderDupControls(); scanDups();
-  } else toast(done.error || "No se pudo quitar.");
+  } else toast(done.error || t("dedupe.remove_error"));
 });
 
 /* ---------------------------------------------------------------- historial */
@@ -404,8 +449,8 @@ async function renderHistory() {
       <span class="date">${esc(opDate(op))}</span>
       <span><div class="what">${esc(opTitle(op))}</div><div class="sub">${esc(opRoute(op))}. ${esc(opSub(op))}</div></span>
       <span class="mosaic small" aria-hidden="true">${tilesHTML(op.tiles)}</span></button>
-      <div class="detail"><ul><li class="muted">Cargando…</li></ul></div></li>`).join("")
-    : (kind ? `<li class="empty">No hay ${kind === "dedupe" ? "limpiezas de repetidos" : "transferencias"} en el historial.</li>` : EMPTY_HISTORY);
+      <div class="detail"><ul><li class="muted">${esc(t("common.loading"))}</li></ul></div></li>`).join("")
+    : (kind ? `<li class="empty">${esc(t(kind === "dedupe" ? "history.empty_dedupe" : "history.empty_transfer"))}</li>` : emptyHistory());
 }
 $("#hist").addEventListener("click", async e => {
   const b = e.target.closest("button.row"); if (!b) return;
@@ -413,11 +458,11 @@ $("#hist").addEventListener("click", async e => {
   if (!open || li.dataset.loaded) return;
   const tracks = await call("history_detail", Number(li.dataset.op)) || [];
   li.dataset.loaded = "1";
-  $(".detail ul", li).innerHTML = tracks.length ? tracks.map(t => {
-    const cls = CLASS[t.status] || "ok";
-    const to = t.match_title && t.status !== "no_encontrado" ? ` <span class="muted">→ ${esc(t.match_title)}${t.match_artist ? `, ${esc(t.match_artist)}` : ""}</span>` : "";
-    return `<li><span class="badge ${cls}">${SYMBOL[cls]}</span><span><b>${esc(t.title)}</b> <span class="muted">${esc(t.artist)}</span>${to}</span></li>`;
-  }).join("") : `<li class="muted">Sin detalle.</li>`;
+  $(".detail ul", li).innerHTML = tracks.length ? tracks.map(x => {
+    const cls = CLASS[x.status] || "ok";
+    const to = x.match_title && x.status !== "no_encontrado" ? ` <span class="muted">→ ${esc(x.match_title)}${x.match_artist ? `, ${esc(x.match_artist)}` : ""}</span>` : "";
+    return `<li><span class="badge ${cls}">${SYMBOL[cls]}</span><span><b>${esc(x.title)}</b> <span class="muted">${esc(x.artist)}</span>${to}</span></li>`;
+  }).join("") : `<li class="muted">${esc(t("history.no_detail"))}</li>`;
 });
 
 $("#hist-filter").addEventListener("click", e => {
@@ -431,8 +476,8 @@ $("#export").addEventListener("click", async () => {
   if (!r || r.cancelled) return;
   $("#open-export").hidden = false;
   $("#export-note").hidden = false;
-  $("#export-note").textContent = `Guardé ${r.rows === 1 ? "1 fila" : `${r.rows} filas`} en ${r.path}`;
-  toast(`Exportaste el historial: ${r.name}`);
+  $("#export-note").textContent = t("history.export_note", { n: r.rows, path: r.path });
+  toast(t("history.export_toast", { name: r.name }));
 });
 $("#open-export").addEventListener("click", () => call("open_export"));
 
@@ -441,21 +486,26 @@ $("#open-export").addEventListener("click", () => call("open_export"));
 async function renderSettings() {
   $("#svc-list").innerHTML = USABLE.map(k => {
     const st = state.status[k];
-    const label = { connected: "conectado", expired: "la sesión venció", disconnected: "sin conectar" }[st] || "…";
+    const label = { connected: t("settings.connected"), expired: t("settings.expired"), disconnected: t("settings.disconnected") }[st] || "…";
     const btns = st === "connected"
-      ? `<button class="btn ghost" data-disconnect="${k}" data-needs-idle>Desconectar</button>`
-      : `<button class="btn primary" data-connect="${k}" data-needs-idle>${st === "expired" ? "Reconectar" : "Conectar"}</button>`;
-    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${label}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`;
-  }).join("") + `<div class="svc"><span><b>Spotify</b> <span class="muted">próximamente</span></span><button class="btn ghost" disabled>Conectar</button></div>`;
+      ? `<button class="btn ghost" data-disconnect="${k}" data-needs-idle>${esc(t("settings.disconnect"))}</button>`
+      : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
+    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`;
+  }).join("") + `<div class="svc"><span><b>Spotify</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`;
   setBusy(state.busy);
 
+  const langs = await call("languages");
+  if (langs) {
+    $("#language-list").innerHTML = langs.available.map(l => `
+      <label class="opt"><input type="radio" name="lang" value="${esc(l.code)}" ${l.code === langs.current ? "checked" : ""}> <span lang="${esc(l.code)}">${esc(l.name)}</span></label>`).join("");
+  }
   const b = await call("browsers");
   if (b) {
     const chosen = b.chosen || b.suggested;
     $("#browser-list").innerHTML = b.browsers.length ? b.browsers.map(x => `
       <label class="opt"><input type="radio" name="br" value="${esc(x.exe)}" ${x.exe === chosen ? "checked" : ""}>
-      <span>${esc(x.name)}${x.default ? ` <span class="muted">(predeterminado)</span>` : ""}</span></label>`).join("")
-      : `<p class="muted">No encontré navegadores instalados.</p>`;
+      <span>${esc(x.name)}${x.default ? ` <span class="muted">${esc(t("settings.default"))}</span>` : ""}</span></label>`).join("")
+      : `<p class="muted">${esc(t("settings.no_browsers"))}</p>`;
   }
   const info = await call("info");
   if (info) {
@@ -467,13 +517,12 @@ async function renderSettings() {
 
 function renderThresholds(st) {
   if (!st) return;
-  const lim = st.limits;
-  $("#th-ok").value = Number(st.score_ok).toFixed(2);
-  $("#th-min").value = Number(st.score_min).toFixed(2);
+  const lim = st.limits, f = x => Number(x).toFixed(2);
+  $("#th-ok").value = f(st.score_ok);
+  $("#th-min").value = f(st.score_min);
   $("#th-ok").min = lim.ok_min; $("#th-ok").max = lim.ok_max; $("#th-min").min = lim.min_min;
-  $("#th-help").textContent = `De fábrica: ${st.defaults.score_ok.toFixed(2)} y ${st.defaults.score_min.toFixed(2)}. `
-    + `Más alto es más estricto (menos temas agregados, menos errores). "Sin dudar" va de ${lim.ok_min.toFixed(2)} a ${lim.ok_max.toFixed(2)} `
-    + `y "para revisar" desde ${lim.min_min.toFixed(2)}: así nunca se agregan solas otras versiones ni canciones de otro artista.`;
+  $("#th-help").textContent = t("settings.th_help", { ok: f(st.defaults.score_ok), min: f(st.defaults.score_min),
+    ok_min: f(lim.ok_min), ok_max: f(lim.ok_max), min_min: f(lim.min_min) });
   $("#th-error").hidden = true;
 }
 async function saveThresholds(ok, min) {
@@ -481,9 +530,9 @@ async function saveThresholds(ok, min) {
   try {
     const r = await api.save_thresholds(ok, min);
     if (r.error) { $("#th-error").textContent = r.error; $("#th-error").hidden = false; return; }
-    toast(`Guardado: sin dudar desde ${r.score_ok.toFixed(2)}, para revisar desde ${r.score_min.toFixed(2)}.`);
+    toast(t("settings.th_saved", { ok: r.score_ok.toFixed(2), min: r.score_min.toFixed(2) }));
     renderThresholds(await call("settings"));
-  } catch (e) { toast(`Algo salió mal: ${e.message || e}`); }
+  } catch (e) { toast(t("common.error", { msg: e.message || e })); }
 }
 $("#th-save").addEventListener("click", () => saveThresholds($("#th-ok").value, $("#th-min").value));
 $("#th-reset").addEventListener("click", async () => {
@@ -491,10 +540,19 @@ $("#th-reset").addEventListener("click", async () => {
   if (st) saveThresholds(st.defaults.score_ok, st.defaults.score_min);
 });
 
+$("#language-list").addEventListener("change", async e => {
+  if (e.target.name !== "lang") return;
+  const r = await call("set_language", e.target.value);
+  if (!r) { renderSettings(); return; }          // no se pudo (por ejemplo, hay una tarea en curso)
+  // Se recarga la ventana: así todo, incluso lo que ya estaba dibujado, sale en el idioma nuevo
+  try { sessionStorage.setItem("pt-screen", "ajustes"); } catch (_) { /* sin almacenamiento: vuelve a Inicio */ }
+  location.reload();
+});
+
 $("#browser-list").addEventListener("change", async e => {
   if (e.target.name !== "br") return;
   const r = await call("choose_browser", e.target.value);
-  if (r) toast(`Las ventanas para iniciar sesión se abren en ${r.name}.`);
+  if (r) toast(t("settings.browser_toast", { name: r.name }));
 });
 
 $("#svc-list").addEventListener("click", async e => {
@@ -502,18 +560,22 @@ $("#svc-list").addEventListener("click", async e => {
   if (c) {
     const key = c.dataset.connect;
     const r = await call("connect", key); if (!r) return;
-    const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = "Abriendo el navegador…";
+    const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = t("settings.opening");
     const done = await follow(r.job, ev => {
-      if (ev.type === "login") wait.textContent = `Se abrió ${ev.browser}. Iniciá sesión en ${ev.service} y volvé acá; se completa solo.`;
+      if (ev.type === "login") wait.textContent = t("settings.login_wait", { browser: ev.browser, service: ev.service });
     });
     wait.hidden = true;
-    if (done.state === "done") toast(`${NAMES[key]} conectado.`); else toast(done.error || "No se pudo conectar.");
+    if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
+    else toast(done.error || t("settings.connect_error"));
     delete state.playlists[key];
     await refreshStatus(); renderSettings();
   }
   if (d) {
     const key = d.dataset.disconnect;
-    if (await call("disconnect", key)) { toast(`Desconectaste ${NAMES[key]}.`); delete state.playlists[key]; await refreshStatus(); renderSettings(); }
+    if (await call("disconnect", key)) {
+      toast(t("settings.disconnected_toast", { service: NAMES[key] }));
+      delete state.playlists[key]; await refreshStatus(); renderSettings();
+    }
   }
 });
 
@@ -523,12 +585,23 @@ $("#open-data").addEventListener("click", () => call("open_data_dir"));
 
 async function start() {
   api = window.pywebview.api;
+  try {
+    const i = await api.ui_strings();
+    LANG = i.language; STR = i.strings;
+  } catch (_) { /* sin textos: quedan los de respaldo del HTML */ }
+  applyI18n();
   ["#go", "#dry", "#remove", "#dup-scan"].forEach(s => { $(s).dataset.needsIdle = ""; });
   setupRoute();
   const info = await call("info");
-  if (info) { $("#version").textContent = `Versión ${info.version}`; $("#about-version").textContent = `PlaylistTransfer ${info.version}, software libre con licencia GPL-3.0.`; }
+  if (info) {
+    $("#version").textContent = t("nav.version", { v: info.version });
+    $("#about-version").textContent = t("settings.about_version", { v: info.version });
+  }
   renderHomeHistory();
   await refreshStatus();
+  let screen = null;
+  try { screen = sessionStorage.getItem("pt-screen"); sessionStorage.removeItem("pt-screen"); } catch (_) { /* nada */ }
+  if (screen) go(screen);
   api.ui_ready();
 }
 

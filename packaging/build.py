@@ -39,7 +39,7 @@ Cómo usarlo
 -----------
 1. Descomprimí esta carpeta donde quieras (por ejemplo, en Documentos).
 2. Abrí PlaylistTransfer.exe.
-3. En Ajustes, conectá Tidal y YouTube Music.
+3. En Ajustes, conectá Tidal y YouTube Music. Ahí también podés cambiar el idioma.
 
 No hace falta instalar Python. Necesita Windows 10 u 11 (usa WebView2, que ya viene en Windows).
 
@@ -56,6 +56,35 @@ Usa librerías de terceros con sus propias licencias: ver THIRD-PARTY-NOTICES.tx
 tidalapi (LGPL-3.0) está en _internal\\tidalapi como archivos .py: podés reemplazarla por otra versión.
 
 No está afiliado a Tidal, Google ni Spotify.
+"""
+
+
+README_USER_EN = """PlaylistTransfer {version}
+======================
+
+Moves playlists between Tidal and YouTube Music, and removes duplicate songs.
+
+How to use it
+-------------
+1. Unzip this folder wherever you like (for example, in Documents).
+2. Open PlaylistTransfer.exe.
+3. In Settings, connect Tidal and YouTube Music. You can switch the language there too.
+
+No need to install Python. Requires Windows 10 or 11 (it uses WebView2, which comes with Windows).
+
+Your data
+---------
+Your sessions, preferences and history are only stored on your computer, in:
+    %LOCALAPPDATA%\\PlaylistTransfer
+To delete everything, close the app and delete that folder.
+
+Licenses
+--------
+PlaylistTransfer is free software (GPL-3.0 or later, see LICENSE.txt).
+It uses third-party libraries with their own licenses: see THIRD-PARTY-NOTICES.txt.
+tidalapi (LGPL-3.0) is in _internal\\tidalapi as .py files: you can replace it with another version.
+
+Not affiliated with Tidal, Google or Spotify.
 """
 
 
@@ -148,6 +177,7 @@ def main() -> Path:
     third_party_notices(app_dir / "THIRD-PARTY-NOTICES.txt")
     # Nombre en ASCII: con tildes, algunos descompresores lo muestran mal ("L+ëEME.txt")
     (app_dir / "LEEME.txt").write_text(README_USER.format(version=__version__), encoding="utf-8-sig")
+    (app_dir / "README.txt").write_text(README_USER_EN.format(version=__version__), encoding="utf-8-sig")
     if not (app_dir / "_internal" / "tidalapi" / "session.py").exists():
         raise SystemExit("tidalapi no quedó como archivos .py sueltos (LGPL): revisá el .spec")
     check_no_personal_data(app_dir)

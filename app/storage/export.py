@@ -11,14 +11,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from app.i18n import t as tr
 from app.storage.history import History, TrackRecord
 
-STATUS_LABELS = {"ok": "Encontrado", "dudoso": "Para revisar", "no_encontrado": "No encontrado",
-                 "ya_estaba": "Ya estaba", "quitado": "Quitado"}
-KIND_LABELS = {"transfer": "Transferencia", "dedupe": "Quitar repetidos", "dry_run": "Prueba (sin cambios)"}
-HEADER = ["Fecha", "Operación", "Servicio de origen", "Playlist de origen", "Servicio de destino",
-          "Playlist de destino", "N°", "Estado", "Tema", "Artista", "Tema en el destino (o el que quedó)",
-          "Artista en el destino", "Puntaje"]
+# Las columnas y los estados salen en el idioma de la app (app/locales, claves "csv.*")
+HEADER_KEYS = ["date", "operation", "source_service", "source_playlist", "target_service", "target_playlist",
+               "n", "status", "title", "artist", "match_title", "match_artist", "score"]
+
+
+def header() -> list[str]:
+    return [tr(f"csv.{k}") for k in HEADER_KEYS]
+
+
+def status_label(status: str) -> str:
+    return tr(f"csv.status.{status}")
+
+
+def kind_label(kind: str) -> str:
+    return tr(f"csv.kind.{kind}")
 
 _FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
@@ -84,15 +94,15 @@ def write_csv(path: Path, operations: Iterable[ReportOperation], service_names: 
     rows = 0
     with tmp.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
-        w.writerow(HEADER)
+        w.writerow(header())
         for op in operations:
             date = excel_date(op.created_at)
             for t in op.tracks:
                 score = "" if t.score is None else f"{t.score:.2f}".replace(".", decimal)
-                w.writerow([date, KIND_LABELS.get(op.kind, op.kind),
+                w.writerow([date, kind_label(op.kind),
                             service_names.get(op.source, op.source), safe_cell(op.source_name),
                             service_names.get(op.target, op.target or ""), safe_cell(op.target_name),
-                            t.n, STATUS_LABELS.get(t.status, t.status), safe_cell(t.title), safe_cell(t.artist),
+                            t.n, status_label(t.status), safe_cell(t.title), safe_cell(t.artist),
                             safe_cell(t.match_title), safe_cell(t.match_artist), score])
                 rows += 1
     tmp.replace(path)

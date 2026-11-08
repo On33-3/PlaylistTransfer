@@ -45,7 +45,7 @@ def test_history_starts_empty_and_reading_does_not_create_it(new_pc):
 
 def test_preferences_start_with_defaults(new_pc):
     p = prefs.load(paths.prefs_file())
-    assert p == {"browser": None, "score_ok": SCORE_OK, "score_min": SCORE_MIN}
+    assert p == {"browser": None, "score_ok": SCORE_OK, "score_min": SCORE_MIN, "language": None}
     assert not paths.prefs_file().exists()
 
 

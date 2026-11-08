@@ -11,7 +11,8 @@ PKG = ROOT / "packaging"
 a = Analysis(
     [str(PKG / "launcher.py")],
     pathex=[str(ROOT)],
-    datas=[(str(ROOT / "app" / "ui"), "app/ui")] + collect_data_files("ytmusicapi"),
+    datas=[(str(ROOT / "app" / "ui"), "app/ui"), (str(ROOT / "app" / "locales"), "app/locales")]
+          + collect_data_files("ytmusicapi"),
     hiddenimports=["app.connectors.tidal", "app.connectors.ytmusic"],
     excludes=["tkinter", "pytest", "playwright", "PyInstaller"],
     # tidalapi es LGPL-3.0: va como archivos .py sueltos (no dentro del ejecutable) para que

@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from app import __version__
+from app import __version__, i18n
 from app.auth import browsers as browsers_mod
 from app.auth.browsers import Browser
 from app.connectors.base import Connector, ConnectorError, Status
@@ -25,6 +25,7 @@ from app.jobs import BusyError, Jobs
 from app.storage import paths, prefs
 from app.storage.export import ReportOperation, from_history, write_csv
 from app.storage.history import History, Operation, TrackRecord
+from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,8 @@ class Api:
                  list_browsers: Callable[[], list[Browser]] = browsers_mod.installed_browsers,
                  open_url: Callable[[str, Browser | None], None] = browsers_mod.open_url,
                  save_dialog: Callable[[str], str | None] | None = None,
-                 open_file: Callable[[Path], None] | None = None):
+                 open_file: Callable[[Path], None] | None = None,
+                 system_language: Callable[[], str] = i18n.system_language):
         self._save_dialog = save_dialog          # main.py pone el diálogo "Guardar como" de la ventana
         self._open_file = open_file or (lambda p: os.startfile(p))  # type: ignore[attr-defined]
         self._last_export: Path | None = None
@@ -66,6 +68,18 @@ class Api:
         self._jobs = Jobs()
         self._transfers: dict[str, TransferResult] = {}
         self._scans: dict[str, dict] = {}
+        i18n.set_language(self._resolve_language(system_language))
+
+    def _resolve_language(self, system_language: Callable[[], str]) -> str:
+        """El elegido en Ajustes. Si nunca se eligió: castellano para quien ya usaba la app (antes
+        solo existía en castellano) y el idioma de Windows para una instalación nueva."""
+        chosen = self._prefs().get("language")
+        if chosen in i18n.LANGUAGES:
+            return chosen
+        if self._prefs_path.exists():
+            return "es"
+        lang = system_language()
+        return lang if lang in i18n.LANGUAGES else "en"
 
     @classmethod
     def create(cls) -> "Api":
@@ -80,7 +94,7 @@ class Api:
     def _connector(self, key: str) -> Connector:
         c = self._connectors.get(key)
         if c is None:
-            raise ConnectorError("Ese servicio todavía no está disponible.")
+            raise ConnectorError(tr("err.service_unavailable"))
         return c
 
     def _start(self, kind: str, fn) -> dict:
@@ -91,6 +105,12 @@ class Api:
 
     def _prefs(self) -> dict:
         return prefs.load(self._prefs_path)
+
+    def _save_prefs(self, p: dict) -> None:
+        """Guarda siempre el idioma en uso: si no, una instalación nueva en inglés volvería a
+        castellano la próxima vez (el archivo ya existiría, sin idioma)."""
+        p["language"] = p.get("language") or i18n.get_language()
+        prefs.save(self._prefs_path, p)
 
     def _browser(self) -> Browser | None:
         b = self._prefs().get("browser")
@@ -106,12 +126,33 @@ class Api:
             return {"error": str(e)}
         except Exception as e:   # nunca dejar a la UI sin respuesta
             log.exception("Error en la API")
-            return {"error": f"Algo salió mal ({type(e).__name__}: {e})."}
+            return {"error": tr("err.unexpected", detail=f"{type(e).__name__}: {e}")}
 
     # ---------------------------------------------------------------- app
 
     def info(self) -> dict:
-        return {"version": __version__, "data_dir": str(self._data_dir), "licenses": LICENSES}
+        return {"version": __version__, "data_dir": str(self._data_dir), "licenses": LICENSES,
+                "language": i18n.get_language()}
+
+    # ---------------------------------------------------------------- idioma
+
+    def ui_strings(self) -> dict:
+        """Los textos de la ventana en el idioma actual (la UI los pide al arrancar)."""
+        return {"language": i18n.get_language(), "strings": i18n.ui_strings()}
+
+    def languages(self) -> dict:
+        return {"current": i18n.get_language(), "available": i18n.language_names()}
+
+    def set_language(self, code: str) -> dict:
+        if code not in i18n.LANGUAGES:
+            return {"error": tr("err.bad_language")}
+        if self._jobs.busy():
+            return {"error": tr("err.busy", kind=tr(f"job.{self._jobs.busy().kind}"))}
+        p = self._prefs()
+        p["language"] = code
+        self._save_prefs(p)
+        i18n.set_language(code)
+        return {"ok": True, "language": code}
 
     # ---------------------------------------------------------------- ajustes
 
@@ -128,7 +169,7 @@ class Api:
             return {"error": str(e)}
         p = self._prefs()
         p["score_ok"], p["score_min"] = ok, mn
-        prefs.save(self._prefs_path, p)
+        self._save_prefs(p)
         return {"ok": True, "score_ok": ok, "score_min": mn}
 
     def ui_ready(self) -> dict:
@@ -145,7 +186,7 @@ class Api:
 
     def open_url(self, url: str) -> dict:
         if not str(url).startswith(("https://tidal.com/", "https://music.youtube.com/", "https://listen.tidal.com/")):
-            return {"error": "Solo se abren links de los servicios de música."}
+            return {"error": tr("err.only_music_links")}
         self._open_url(url, self._browser())
         return {"ok": True}
 
@@ -177,10 +218,10 @@ class Api:
     def choose_browser(self, exe: str) -> dict:
         b = next((b for b in self._list_browsers() if str(b.exe).lower() == str(exe).lower()), None)
         if b is None:
-            return {"error": "No encontré ese navegador."}
+            return {"error": tr("err.browser_not_found")}
         p = self._prefs()
         p["browser"] = {"name": b.name, "kind": b.kind, "exe": str(b.exe)}
-        prefs.save(self._prefs_path, p)
+        self._save_prefs(p)
         return {"ok": True, "name": b.name}
 
     def connect(self, key: str) -> dict:
@@ -190,7 +231,7 @@ class Api:
             if browser is None:
                 suggested = browsers_mod.suggested_browser(self._list_browsers())
                 if suggested is None:
-                    raise ConnectorError("Elegí un navegador en Ajustes para iniciar sesión.")
+                    raise ConnectorError(tr("err.choose_browser_first"))
                 self.choose_browser(str(suggested.exe))
                 browser = suggested
             emit({"type": "login", "service": c.name, "browser": browser.name})
@@ -219,14 +260,14 @@ class Api:
 
     def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False) -> dict:
         if source == target:
-            return {"error": "El origen y el destino tienen que ser servicios distintos."}
+            return {"error": tr("err.same_service")}
         if not targets:
-            return {"error": "Elegí al menos una playlist de destino."}
+            return {"error": tr("err.choose_target")}
         p = self._prefs()
 
         def work(emit, cancel):
             src, dst = self._connector(source), self._connector(target)
-            tgts = [Target(str(t.get("name") or "").strip() or "Nueva playlist", t.get("id") or None) for t in targets]
+            tgts = [Target(str(x.get("name") or "").strip() or tr("playlist.default_name"), x.get("id") or None) for x in targets]
             result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
                                   score_ok=p["score_ok"], score_min=p["score_min"])
             if not result.dry_run:
@@ -245,10 +286,10 @@ class Api:
         """El usuario eligió agregar la versión de otro artista (tema `n`, alternativa `k`)."""
         result = self._transfers.get(transfer)
         if result is None or result.dry_run:
-            return {"error": "Esa transferencia ya no está disponible."}
+            return {"error": tr("err.transfer_gone")}
         track = next((t for t in result.tracks if t.n == int(n)), None)
         if track is None or not (0 <= int(k) < len(track.alternatives)):
-            return {"error": "No encontré esa versión."}
+            return {"error": tr("err.version_not_found")}
         alt = track.alternatives[int(k)]
 
         def work(emit, cancel):
@@ -256,7 +297,7 @@ class Api:
             done = []
             for t in result.targets:
                 if t.target.id is None:      # playlist nueva que no se creó (no había nada para agregar)
-                    t.target.id = dst.create(t.target.name, f"Transferida desde {result.source_name}")
+                    t.target.id = dst.create(t.target.name, tr("playlist.description", service=dict(SERVICES).get(result.source_service, result.source_service), date=f"{datetime.now():%Y-%m-%d}"))
                     t.url = dst.url(t.target.id)
                 dst.add(t.target.id, [alt])
                 done.append(t.target.name)
@@ -297,11 +338,11 @@ class Api:
         Solo si el usuario tildó "Guardar también un reporte para Excel"."""
         result = self._transfers.get(transfer)
         if result is None:
-            return {"error": "Esa transferencia ya no está disponible."}
+            return {"error": tr("err.transfer_gone")}
         ops = [ReportOperation(op.created_at, "dry_run" if result.dry_run else "transfer", op.source,
                                op.source_name, op.target, op.target_name, tracks)
                for op, tracks in self._transfer_operations(result)]
-        prefix = "prueba" if result.dry_run else "reporte"
+        prefix = tr("file.dry_run") if result.dry_run else tr("file.report")
         return self._save_csv(f"{prefix}-{_filename(result.source_name)}-{datetime.now():%Y-%m-%d_%H%M}.csv", ops)
 
     # ---------------------------------------------------------------- quitar repetidos
@@ -323,16 +364,16 @@ class Api:
         """Quita los repetidos elegidos. Solo con `confirmed=True`, que la UI manda después del
         diálogo de confirmación. Antes de quitar, vuelve a leer la playlist: si cambió, no toca nada."""
         if confirmed is not True:
-            return {"error": "Para quitar temas hace falta tu confirmación."}
+            return {"error": tr("err.need_confirmation")}
         scan = self._scans.get(scan_id)
         if scan is None:
-            return {"error": "Buscá los repetidos de nuevo."}
+            return {"error": tr("err.scan_again")}
         try:
             chosen: list[Duplicate] = [scan["dups"][int(i)] for i in dict.fromkeys(selected)]
         except (IndexError, ValueError, TypeError):
-            return {"error": "La selección no es válida. Buscá los repetidos de nuevo."}
+            return {"error": tr("err.bad_selection")}
         if not chosen:
-            return {"error": "No elegiste ningún tema para quitar."}
+            return {"error": tr("err.nothing_selected")}
 
         def work(emit, cancel):
             c = self._connector(scan["key"])
@@ -341,8 +382,7 @@ class Api:
             unchanged = len(now) == len(before) and all(
                 (a.id, a.set_id) == (b.id, b.set_id) for a, b in zip(now, before))
             if not unchanged:
-                raise ConnectorError("La playlist cambió desde que la revisaste. Buscá los repetidos de nuevo; "
-                                     "no se quitó nada.")
+                raise ConnectorError(tr("err.playlist_changed"))
             c.remove(scan["playlist_id"], chosen, confirmed=True)
             self._scans.pop(scan_id, None)
             self._history.record(
@@ -371,14 +411,14 @@ class Api:
         """Todo el historial (o solo transferencias / solo repetidos) en un CSV, a pedido."""
         ops = from_history(self._history, kind=kind or None)
         if not ops:
-            return {"error": "Todavía no hay nada en el historial para exportar."}
-        suffix = {"transfer": "transferencias", "dedupe": "repetidos"}.get(kind or "", "")
-        return self._save_csv(f"historial{'-' + suffix if suffix else ''}-{datetime.now():%Y-%m-%d}.csv", ops)
+            return {"error": tr("err.history_empty")}
+        base = {"transfer": tr("file.history_transfers"), "dedupe": tr("file.history_duplicates")}.get(kind or "", tr("file.history"))
+        return self._save_csv(f"{base}-{datetime.now():%Y-%m-%d}.csv", ops)
 
     def _save_csv(self, default_name: str, ops: list[ReportOperation]) -> dict:
         """Abre "Guardar como" y escribe el CSV. {"cancelled": True} si el usuario cerró el diálogo."""
         if self._save_dialog is None:
-            return {"error": "No pude abrir el diálogo para guardar."}
+            return {"error": tr("err.no_save_dialog")}
         chosen = self._save_dialog(default_name)
         if isinstance(chosen, (list, tuple)):
             chosen = chosen[0] if chosen else None
@@ -390,14 +430,14 @@ class Api:
         try:
             rows = write_csv(path, ops, dict(SERVICES))
         except OSError as e:
-            return {"error": f"No pude guardar el archivo: {e.strerror or e}. ¿Está abierto en Excel?"}
+            return {"error": tr("err.save_failed", detail=e.strerror or e)}
         self._last_export = path
         return {"path": str(path), "name": path.name, "rows": rows}
 
     def open_export(self) -> dict:
         """Abre el último CSV exportado (con Excel, si es el programa para .csv). Solo ese archivo."""
         if self._last_export is None or not self._last_export.exists():
-            return {"error": "Exportá el historial primero."}
+            return {"error": tr("err.export_first")}
         self._open_file(self._last_export)
         return {"ok": True}
 

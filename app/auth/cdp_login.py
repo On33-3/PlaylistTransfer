@@ -18,6 +18,7 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
+from app.i18n import t as tr
 
 
 class LoginError(Exception):
@@ -38,11 +39,11 @@ class CDP:
         while b"\r\n\r\n" not in resp:
             chunk = self.sock.recv(4096)
             if not chunk:
-                raise ConnectionError("el navegador cortó la conexión")
+                raise ConnectionError(tr("err.browser_cut"))
             resp += chunk
         status = resp.split(b"\r\n", 1)[0].decode(errors="replace")
         if " 101 " not in status:
-            raise ConnectionError(f"el navegador rechazó la conexión: {status}")
+            raise ConnectionError(tr("err.browser_refused", status=status))
         self.buf = resp.split(b"\r\n\r\n", 1)[1]
         self.msg_id = 0
 
@@ -50,7 +51,7 @@ class CDP:
         while len(self.buf) < n:
             chunk = self.sock.recv(65536)
             if not chunk:
-                raise ConnectionError("se cerró el navegador")
+                raise ConnectionError(tr("err.browser_closed"))
             self.buf += chunk
         out, self.buf = self.buf[:n], self.buf[n:]
         return out
@@ -72,7 +73,7 @@ class CDP:
             if mask:
                 payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
             if opcode == 0x8:
-                raise ConnectionError("se cerró el navegador")
+                raise ConnectionError(tr("err.browser_closed"))
             if opcode == 0x9:                      # ping -> pong
                 self._send_frame(payload, 0xA)
                 continue
@@ -155,7 +156,7 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
                                  f"--user-data-dir={profile.resolve()}", "--no-first-run",
                                  "--no-default-browser-check", "--new-window", login_url])
     except OSError as e:
-        raise LoginError(f"No pude abrir {browser_name}: {e}") from e
+        raise LoginError(tr("err.browser_open_failed", name=browser_name, detail=e)) from e
 
     cdp, info, last_error = None, {}, None
     deadline = time.time() + 40
@@ -171,9 +172,9 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
             proc.kill()
         except OSError:
             pass
-        raise LoginError(f"{browser_name} no respondió: {last_error}. Probá de nuevo o elegí otro navegador.")
+        raise LoginError(tr("err.browser_no_answer", name=browser_name, detail=last_error))
 
-    say(f"Se abrió una ventana de {browser_name}. Si te lo pide, iniciá sesión. La ventana se cierra sola.")
+    say(tr("msg.browser_opened", name=browser_name))
 
     def jar() -> dict[str, str]:
         return cookies_for_domain(cdp.send("Storage.getCookies").get("cookies", []), domain)
@@ -183,7 +184,7 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
         cookies = jar()
         while not (wanted & cookies.keys()):
             if time.time() > deadline:
-                raise LoginError("Se acabó el tiempo para iniciar sesión.")
+                raise LoginError(tr("err.login_timeout"))
             time.sleep(1.5)
             cookies = jar()
         time.sleep(3)              # deja terminar la redirección
@@ -192,7 +193,7 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
     except LoginError:
         raise
     except Exception as e:         # por ejemplo, si se cerró la ventana antes de terminar
-        raise LoginError(f"Se interrumpió el inicio de sesión: {e}") from e
+        raise LoginError(tr("err.login_interrupted", detail=e)) from e
     finally:
         try:
             cdp.send("Browser.close")   # cierre prolijo: el perfil guarda la sesión para la próxima
