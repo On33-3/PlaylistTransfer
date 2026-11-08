@@ -1,8 +1,16 @@
 """Coincidencias entre servicios y detección de repetidos.
 
-Extraído de `legacy/transfer_playlist.py` (probado con cuentas reales). Única diferencia a
-propósito: `score` exige artista y título (ver su docstring). `tests/test_matching.py` verifica
-que, fuera de eso, ambas versiones den lo mismo.
+Base extraída de `legacy/transfer_playlist.py` (probada con cuentas reales). Lo que cambió a
+propósito, con un escenario de prueba por cada regla (`tests/test_scenarios.py`):
+
+- El artista y el título son requisitos, no solo pesos: un tema homónimo de otro artista, un
+  cover o un karaoke no es "el mismo" aunque el título y la duración coincidan.
+- Una canción puede tener varios artistas, y cada servicio los escribe distinto ("Queen & David
+  Bowie" en un solo texto, o dos artistas, o "feat." en el título): alcanza con que coincida uno.
+- Partes y secuelas son temas distintos (Pt. 1 ≠ Pt. 2, "The Unforgiven" ≠ "The Unforgiven II",
+  "(Reprise)"), y los títulos genéricos ("Intro", "Interlude") solo coinciden en el mismo álbum.
+- Otra versión de la misma canción (en vivo, remix, acústica, sped up...) no se da por OK al
+  transferir (queda dudosa), y en los repetidos se marca como "otra versión".
 """
 from __future__ import annotations
 
@@ -10,13 +18,14 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
-from app.core.models import Duplicate, Song
+from app.core.models import OTHER_VERSION, SAME, Duplicate, Song
 
 SCORE_OK = 0.75      # desde acá se agrega sin dudas
 SCORE_MIN = 0.60     # entre MIN y OK se agrega, pero queda marcado como dudoso
 ARTIST_MIN = 0.60    # parecido mínimo de artista: por debajo, es otro artista
 TITLE_MIN = 0.75     # parecido mínimo de título: por debajo, es otro tema
-NO_MATCH_CAP = 0.50  # tope cuando no se cumple alguno de los dos (queda como no encontrado)
+NO_MATCH_CAP = 0.50  # tope cuando es otra canción (queda como no encontrado)
+VERSION_CAP = 0.70   # tope cuando es otra versión de la misma canción (queda como dudoso)
 
 OK, DOUBTFUL, NOT_FOUND = "ok", "dudoso", "no_encontrado"
 
@@ -39,53 +48,233 @@ def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def norm(text: str) -> str:
-    """Minúsculas, sin acentos, sin puntuación (respeta alfabetos no latinos)."""
-    text = unicodedata.normalize("NFKD", clean(text))
+def plain(text: str) -> str:
+    """Minúsculas, sin acentos ni puntuación, & → and. Sin sacar nada más."""
+    text = unicodedata.normalize("NFKD", text or "")
     text = "".join(c for c in text if not unicodedata.combining(c)).lower()
     text = text.replace("&", " and ")
     text = re.sub(r"[^\w\s]", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-def sim(a: str, b: str) -> float:
-    a, b = norm(a), norm(b)
-    if not a or not b:
-        return 0.0
-    if a == b:
+def norm(text: str) -> str:
+    """Como `plain`, pero antes saca el ruido de los títulos (respeta alfabetos no latinos)."""
+    return plain(clean(text))
+
+
+def _contains_words(short: str, long: str) -> bool:
+    return bool(short) and f" {short} " in f" {long} "
+
+
+def _ratio(a: str, b: str) -> float:
+    return SequenceMatcher(None, a, b).ratio() if a and b else 0.0
+
+
+# ---------------------------------------------------------------- artistas
+
+_ARTIST_SEP = re.compile(r"\s*(?:,|&|\+|/|;|\bx\b|\band\b|\by\b|\bfeat\.?|\bft\.?|\bfeaturing\b|"
+                         r"\bwith\b|\bcon\b|\bvs\.?)\s*", re.I)
+_CHANNEL_SUFFIX = re.compile(r"(?:\s*-?\s*\b(?:topic|official|oficial)\b|vevo)$")
+
+
+def _artist_key(name: str) -> str:
+    """Nombre de artista comparable: sin "VEVO", " - Topic", "Official" de los canales de YouTube."""
+    key = plain(name)
+    for _ in range(2):
+        key = _CHANNEL_SUFFIX.sub("", key).strip()
+    return key
+
+
+def artist_names(song: Song) -> list[tuple[str, set[str]]]:
+    """[(nombre completo, partes)] por artista. "Queen & David Bowie" → partes {queen, david bowie}."""
+    out = []
+    for name in song.artists:
+        whole = _artist_key(name)
+        if not whole:
+            continue
+        parts = {_artist_key(p) for p in _ARTIST_SEP.split(name or "")}
+        out.append((whole, {p for p in parts if len(p) >= 3} - {whole}))
+    return out
+
+
+def _all_artist_tokens(*songs: Song) -> set[str]:
+    return {t for s in songs for whole, parts in artist_names(s) for n in {whole, *parts} for t in n.split()}
+
+
+def _artist_in_title(artist_song: Song, title_song: Song) -> bool:
+    """Videos tipo "Artista - Tema": el artista de uno aparece como palabras en el título del otro."""
+    title = plain(title_song.title)
+    return any(_contains_words(n, title) for whole, parts in artist_names(artist_song)
+               for n in {whole, *parts} if len(n) >= 3)
+
+
+def artist_sim(src: Song, cand: Song) -> float:
+    """0 a 1: el mejor parecido entre algún artista de uno y alguno del otro (una canción puede
+    tener varios, y cada servicio los lista distinto)."""
+    best = 0.0
+    for wa, pa in artist_names(src):
+        for wb, pb in artist_names(cand):
+            if wa == wb:
+                return 1.0
+            s = _ratio(wa, wb)
+            if _contains_words(wa, wb) or _contains_words(wb, wa) or wa in pb or wb in pa or pa & pb:
+                s = max(s, 0.9)
+            best = max(best, s)
+    if _artist_in_title(src, cand):
+        best = max(best, 0.9)
+    return best
+
+
+def _same_artist(a: Song, b: Song) -> bool:
+    if artist_names(a) and artist_names(b) and artist_sim(a, b) >= 0.85:
+        return True
+    if _artist_in_title(a, b) or _artist_in_title(b, a):
+        return True
+    if not artist_names(a) or not artist_names(b):      # sin artista: que la duración sea casi igual
+        return bool(a.duration and b.duration and abs(a.duration - b.duration) <= 5)
+    return False
+
+
+# ---------------------------------------------------------------- títulos
+
+_ANY_BRACKETS = re.compile(r"\s*[\(\[\{][^\)\]\}]*[\)\]\}]")
+_PROD = re.compile(r"\s+(prod\.?|produced by)\s+.*$", re.I)
+_DASH = re.compile(r"\s+[-–—]\s+")
+
+# Palabras que pueden sobrar en el título de un video sin que sea otro tema
+_TITLE_NOISE = {"official", "oficial", "video", "videoclip", "clip", "audio", "lyric", "lyrics", "letra",
+                "mv", "m", "v", "hd", "hq", "4k", "visualizer", "music", "musica", "topic", "vevo", "ft",
+                "feat", "prod", "explicit", "clean", "radio", "edit", "full", "version", "remastered",
+                "remaster"}
+
+
+def title_keys(song: Song) -> set[str]:
+    """Título base, sin lo que cambia entre versiones: (Official Video), [Remastered], (acoustic),
+    feat. X, prod. X, '- Remastered 2011'. En YouTube también prueba sin el 'Artista - ' del principio."""
+    t = song.title or ""
+    variants = [t] + _DASH.split(t, maxsplit=1)
+    keys = set()
+    for v in variants:
+        v = _PROD.sub(" ", _FEAT.sub(" ", _ANY_BRACKETS.sub(" ", v)))
+        # Las partes ("Pt. 2", "II") se comparan aparte, en pieces(): acá no cuentan
+        k = re.sub(r"\s+", " ", _TRAILING_ROMAN.sub("", _PART.sub(" ", norm(v)))).strip()
+        if k:
+            keys.add(k)
+    return keys
+
+
+def title_sim(src: Song, cand: Song) -> float:
+    """0 a 1. Que un título contenga al otro solo cuenta si lo que sobra es ruido o el artista
+    ("BTS 'Dynamite' Official MV" sí; "One Tree Hill" no es "One")."""
+    ka, kb = title_keys(src), title_keys(cand)
+    if ka & kb:
         return 1.0
-    ratio = SequenceMatcher(None, a, b).ratio()
-    if a in b or b in a:
-        ratio = max(ratio, 0.9)
-    return ratio
+    allowed = _TITLE_NOISE | _all_artist_tokens(src, cand)
+    best = 0.0
+    for x in ka:
+        for y in kb:
+            best = max(best, _ratio(x, y))
+            short, long = sorted((x, y), key=len)
+            if _contains_words(short, long):
+                rest = f" {long} ".replace(f" {short} ", " ", 1).split()
+                if all(w in allowed for w in rest):
+                    best = max(best, 0.95)
+    return best
+
+
+# ---------------------------------------------------------------- versiones, covers, partes
+
+_VERSION_TAGS = {
+    "en vivo": r"live|en vivo|ao vivo|en directo|unplugged",
+    "acústica": r"acoustic|acustic[oa]|stripped",
+    "remix": r"remix|rmx|rework|bootleg|club mix|extended mix|dub mix|vip mix",
+    "acelerada": r"sped up|speed up|nightcore",
+    "lenta": r"slowed|reverb",
+    "instrumental": r"instrumental",
+    "demo": r"demo",
+    "orquestal": r"orchestral|symphonic|piano version",
+    "regrabada": r"\w+ s version",          # (Taylor's Version)
+    "8d": r"8d",
+}
+_VERSION_RX = {tag: re.compile(rf"\b(?:{p})\b") for tag, p in _VERSION_TAGS.items()}
+_COVER = re.compile(r"\b(?:cover|covers|karaoke|tribute|in the style of|originally performed|made famous)\b")
+_COVER_ARTIST = re.compile(r"\b(?:karaoke|tribute|cover band|covers)\b")
+_PART = re.compile(r"\b(?:part|pt|parte|vol|volume|chapter|capitulo)\s*(\d+|[ivx]+)\b")
+_TRAILING_ROMAN = re.compile(r"\b(ii|iii|iv|vi|vii|viii|ix)$")
+_ROMAN = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10}
+_GENERIC = {"intro", "outro", "interlude", "interludio", "skit", "prelude", "preludio", "intermission",
+            "overture", "untitled", "bonus track", "hidden track", "introduccion"}
+
+
+def _title_without_artists(song: Song, *others: Song) -> str:
+    """Título sin los nombres de los artistas (la banda "Live" no hace que sea una versión en vivo)."""
+    text = f" {plain(song.title)} "
+    for whole, parts in artist_names(song) + [n for o in others for n in artist_names(o)]:
+        for n in sorted({whole, *parts}, key=len, reverse=True):
+            text = text.replace(f" {n} ", " ")
+    return text.strip()
+
+
+def version_tags(song: Song, *others: Song) -> set[str]:
+    """{'en vivo', 'remix', ...}: lo que hace que sea otra grabación de la misma canción."""
+    text = _title_without_artists(song, *others)
+    return {tag for tag, rx in _VERSION_RX.items() if rx.search(text)}
+
+
+def is_cover(song: Song, *others: Song) -> bool:
+    """Cover, karaoke o tributo: la canta otra persona aunque el título nombre al artista original."""
+    if _COVER.search(_title_without_artists(song, *others)):
+        return True
+    return any(_COVER_ARTIST.search(plain(a)) for a in song.artists)
+
+
+def pieces(song: Song) -> frozenset[str]:
+    """Partes y secuelas: {'parte 2'}, {'reprise'}. Si no coinciden, son temas distintos."""
+    text = plain(song.title)
+    out = {f"parte {_ROMAN.get(n, n)}" for n in _PART.findall(text)}
+    base = plain(_ANY_BRACKETS.sub(" ", _DASH.split(song.title or "")[-1]))
+    m = _TRAILING_ROMAN.search(base)
+    if m and not _PART.search(base):
+        out.add(f"parte {_ROMAN[m.group(1)]}")
+    if re.search(r"\breprise\b", text):
+        out.add("reprise")
+    return frozenset(out)
+
+
+def is_generic(song: Song) -> bool:
+    return bool(title_keys(song) & _GENERIC)
+
+
+def _same_context(a: Song, b: Song) -> bool:
+    """Para títulos genéricos: mismo álbum (si los dos lo tienen) o, si no, duración casi igual."""
+    if a.album and b.album:
+        ka, kb = norm(_ANY_BRACKETS.sub(" ", a.album)), norm(_ANY_BRACKETS.sub(" ", b.album))
+        return ka == kb or _ratio(ka, kb) >= 0.9
+    return bool(a.duration and b.duration and abs(a.duration - b.duration) <= 3)
+
+
+def _different_song(a: Song, b: Song) -> bool:
+    """Reglas que separan canciones aunque título y artista se parezcan."""
+    if is_cover(a, b) != is_cover(b, a):
+        return True
+    if pieces(a) != pieces(b):
+        return True
+    if (is_generic(a) or is_generic(b)) and not _same_context(a, b):
+        return True
+    return False
 
 
 # ---------------------------------------------------------------- coincidencias entre servicios
 
-def artist_sim(src: Song, cand: Song) -> float:
-    """0 a 1: el mejor parecido entre los artistas de uno y otro."""
-    a = 0.0
-    for sa in src.artists or [""]:
-        for ca in cand.artists or [""]:
-            a = max(a, sim(sa, ca))
-    # En YouTube a veces el artista viene en el título del video: "Artista - Tema"
-    if src.artist and norm(src.artist) in norm(cand.title):
-        a = max(a, 0.9)
-    return a
-
-
 def score(src: Song, cand: Song) -> float:
     """0 a 1. Pondera título, artista y duración. ISRC idéntico = 1.
 
-    El artista y el título son requisitos, no solo pesos: si el artista es otro (cuando los dos
-    lo tienen) o el título no se parece lo suficiente, el puntaje queda en NO_MATCH_CAP como
-    máximo, o sea "no encontrado". Así un cover o un tema homónimo de otro artista
-    ("From The Start" de Laufey ≠ de Good Kid), u otro tema del mismo artista
-    ("Sunshine" ≠ "Sunkissed"), no se agregan aunque la duración coincida."""
+    Topes: si es otra canción (otro artista, otro título, cover, otra parte, intro de otro álbum),
+    NO_MATCH_CAP → no encontrado. Si es otra versión (en vivo, remix...), VERSION_CAP → dudoso."""
     if src.isrc and cand.isrc and src.isrc.upper() == cand.isrc.upper():
         return 1.0
 
-    t = sim(src.title, cand.title)
+    t = title_sim(src, cand)
     a = artist_sim(src, cand)
 
     if src.duration and cand.duration:
@@ -95,9 +284,11 @@ def score(src: Song, cand: Song) -> float:
         d = 0.5
 
     total = round(0.5 * t + 0.35 * a + 0.15 * d, 3)
-    other_artist = bool(src.artists and cand.artists) and a < ARTIST_MIN
-    if t < TITLE_MIN or other_artist:
+    other_artist = bool(artist_names(src) and artist_names(cand)) and a < ARTIST_MIN
+    if t < TITLE_MIN or other_artist or _different_song(src, cand):
         return min(total, NO_MATCH_CAP)
+    if version_tags(src, cand) != version_tags(cand, src):
+        return min(total, VERSION_CAP)
     return total
 
 
@@ -108,6 +299,15 @@ def best_match(src: Song, candidates: list[Song]) -> tuple[Song | None, float]:
         if s > best_score:
             best, best_score = c, s
     return best, best_score
+
+
+def alternatives(src: Song, candidates: list[Song], limit: int = 3) -> list[Song]:
+    """La misma canción cantada por otros artistas (no covers caseros ni karaoke), para que la UI
+    la ofrezca cuando no está la versión del artista buscado. Nunca se agregan solas."""
+    out = [c for c in candidates
+           if title_sim(src, c) >= TITLE_MIN and artist_sim(src, c) < ARTIST_MIN
+           and not is_cover(c, src) and pieces(c) == pieces(src) and not version_tags(c, src)]
+    return out[:limit]
 
 
 def classify(sc: float, ok: float = SCORE_OK, minimum: float = SCORE_MIN) -> str:
@@ -127,56 +327,30 @@ def queries_for(src: Song) -> list[str]:
 
 # ---------------------------------------------------------------- misma canción, otra versión
 
-_ANY_BRACKETS = re.compile(r"\s*[\(\[\{][^\)\]\}]*[\)\]\}]")
-_PROD = re.compile(r"\s+(prod\.?|produced by)\s+.*$", re.I)
-_DASH = re.compile(r"\s+[-–—]\s+")
-
-
-def title_keys(song: Song) -> set[str]:
-    """Título base, sin lo que cambia entre versiones: (Official Video), [Remastered], (acoustic),
-    feat. X, prod. X, '- Remastered 2011'. En YouTube también prueba sin el 'Artista - ' del principio."""
-    t = song.title or ""
-    variants = [t] + _DASH.split(t, maxsplit=1)
-    keys = set()
-    for v in variants:
-        v = _PROD.sub(" ", _FEAT.sub(" ", _ANY_BRACKETS.sub(" ", v)))
-        k = norm(v)
-        if k:
-            keys.add(k)
-    return keys
-
-
-def _same_artist(a: Song, b: Song) -> bool:
-    aa = {norm(x) for x in a.artists if norm(x)}
-    bb = {norm(x) for x in b.artists if norm(x)}
-    if aa and bb and any(x == y or SequenceMatcher(None, x, y).ratio() >= 0.85 for x in aa for y in bb):
-        return True
-    ta, tb = norm(a.title), norm(b.title)          # videos tipo "Artista - Tema"
-    if any(x in tb for x in aa) or any(y in ta for y in bb):
-        return True
-    if not aa or not bb:                           # sin artista: que la duración sea casi igual
-        return bool(a.duration and b.duration and abs(a.duration - b.duration) <= 5)
-    return False
-
-
 def same_song(a: Song, b: Song) -> bool:
-    """¿Es la misma canción aunque sea otra versión (otro video, portada, remaster, acústica)?"""
+    """¿Es la misma canción aunque sea otra versión (otro video, portada, remaster, en vivo)?
+    No lo es si la canta otro artista, si es un cover o karaoke, otra parte, o un "Intro" de otro álbum."""
     if a.id and b.id and a.id == b.id:
         return True
-    if not _same_artist(a, b):
+    if a.isrc and b.isrc and a.isrc.upper() == b.isrc.upper():
+        return True
+    if _different_song(a, b) or not _same_artist(a, b):
         return False
     ka, kb = title_keys(a), title_keys(b)
-    return bool(ka & kb) or any(SequenceMatcher(None, x, y).ratio() >= 0.92 for x in ka for y in kb)
+    return bool(ka & kb) or any(_ratio(x, y) >= 0.92 for x in ka for y in kb)
 
 
 def find_duplicates(songs: list[Song]) -> list[Duplicate]:
-    """Copias repetidas de una playlist. Queda siempre la que está primero."""
+    """Copias repetidas de una playlist. Queda siempre la que está primero. Cada copia dice si es
+    la misma grabación (SAME) u otra versión (OTHER_VERSION: en vivo, remix...), para que la UI
+    deje sin tildar estas últimas."""
     kept: list[Song] = []
     dups: list[Duplicate] = []
     for i, s in enumerate(songs):
         twin = next((k for k in kept if same_song(s, k)), None)
         if twin:
-            dups.append(Duplicate(i, s, twin))
+            kind = SAME if version_tags(s, twin) == version_tags(twin, s) else OTHER_VERSION
+            dups.append(Duplicate(i, s, twin, kind))
         else:
             kept.append(s)
     return dups

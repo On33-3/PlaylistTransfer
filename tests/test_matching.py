@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 import pytest
 
-from app.core.matching import (DOUBTFUL, NO_MATCH_CAP, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, best_match,
+from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, best_match,
                                classify, clean,
                                find_duplicates, norm, queries_for, same_song, score, title_keys)
 from app.core.models import Song
@@ -170,14 +170,15 @@ def test_text_helpers():
 
 # ---------------------------------------------------------------- igual que el script de consola
 
-def test_same_results_as_legacy_script(video_playlist):
-    """Igual que el script, salvo el tope a propósito cuando el artista o el título no coinciden."""
+def test_same_duplicates_as_legacy_script_on_the_real_playlist(video_playlist):
+    """En la playlist real (sin covers, partes ni intros) los repetidos son los mismos que con el
+    script de consola. El puntaje cambió a propósito: se valida con tools/check_reports.py."""
     legacy = load_legacy()
     songs = video_playlist + [s for pair in NEGATIVE_PAIRS for s in pair]
-    old = [legacy.Song(**asdict(s)) for s in songs]
+    old = [legacy.Song(**{k: v for k, v in asdict(s).items()}) for s in songs]
     for i, a in enumerate(songs):
         for j, b in enumerate(songs):
-            before = legacy.score(old[i], old[j])
-            assert score(a, b) in (before, min(before, NO_MATCH_CAP)), (a.title, b.title)
             assert same_song(a, b) == legacy.same_song(old[i], old[j]), (a.title, b.title)
+            assert classify(score(a, b)) == classify(legacy.score(old[i], old[j])) or \
+                classify(score(a, b)) == NOT_FOUND, (a.title, b.title)     # solo puede volverse más estricto
     assert [d.index for d in find_duplicates(songs)] == [i for i, _, _ in legacy.find_duplicates(old)]
