@@ -296,3 +296,14 @@
 .licenses a { color: var(--ink); }
 /* Mientras llegan los textos del idioma elegido, la ventana no se muestra (evita ver un idioma y después el otro) */
 html.i18n-pending body { visibility: hidden; }
+
+/* ---------- mosaicos que informan (mejoras 2) ---------- */
+.legend.compact { margin: 0 0 10px; gap: 6px 16px; font-size: 12.5px; }
+.legend.compact i { width: 10px; height: 10px; border-radius: 3px; }
+.mosaic-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.mosaic-wrap .more { font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+.mosaic.small i { cursor: help; }
+.mosaic.big i.jump { cursor: pointer; }
+.mosaic.big i.jump:hover { transform: scale(1.12); }
+.tracks li.flash { animation: pt-flash 1.6s ease-out; }
+@keyframes pt-flash { from { background: var(--sky); } to { background: transparent; } }

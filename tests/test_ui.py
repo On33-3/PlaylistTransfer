@@ -330,3 +330,77 @@ def test_switch_language_from_settings(browser, tmp_path):
     page.check("#language-list input[value=es]")
     page.wait_for_selector("nav [data-go=ajustes]:text-is('Ajustes')")
     assert errors == []
+
+
+# ---------------------------------------------------------------- mosaicos que informan
+
+def test_home_and_history_legends_only_when_there_is_history(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    assert page.is_hidden("#home-legend")
+    page.click("nav [data-go=historial]")
+    assert page.is_hidden("#hist-legend")
+    transfer(page)
+    page.click("nav [data-go=inicio]")
+    page.wait_for_selector("#home-legend:not([hidden])")
+    legend = page.inner_text("#home-legend")
+    for word in ("Encontrado", "Para revisar", "No encontrado", "Ya estaba", "Quitado"):
+        assert word in legend
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist-legend:not([hidden])")
+    assert errors == []
+
+
+def test_each_small_tile_says_which_song_it_is(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    page.click("nav [data-go=inicio]")
+    page.wait_for_selector("#home-history .mosaic i")
+    titles = [i.get_attribute("title") for i in page.query_selector_all("#home-history .mosaic i")]
+    assert "Hallelujah — Jeff Buckley: No encontrado" in titles
+    assert "Mr. Blue Sky — Electric Light Orchestra: Ya estaba" in titles
+    label = page.get_attribute("#home-history .mosaic", "aria-label")
+    assert label == "2 agregados, 1 ya estaba, 1 para revisar, 1 no encontrado"
+    shot(page, "11-inicio-leyenda")
+    assert errors == []
+
+
+def test_small_tiles_in_english(browser, tmp_path):
+    api, *_ = english_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist .mosaic i")
+    titles = [i.get_attribute("title") for i in page.query_selector_all("#hist .mosaic i")]
+    assert "Hallelujah — Jeff Buckley: Not found" in titles
+    assert "To review" in page.inner_text("#hist-legend")
+    assert errors == []
+
+
+def test_more_tiles_than_fit_show_plus_n(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    tidal.add_playlist("big", "Grande", [S(f"Tema {i}", "Alguien", id=f"b{i}") for i in range(65)])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.check("input[name=src][value=big]")
+    page.check("input[name=dst][value=dst]")
+    page.click("#go")
+    page.wait_for_selector("#done.show")
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist .mosaic i")
+    assert page.locator("#hist li[data-op] >> nth=0").locator(".mosaic i").count() == 60
+    assert page.inner_text("#hist li[data-op] >> nth=0 >> .more") == "+5 más"
+    assert errors == []
+
+
+def test_clicking_a_big_tile_jumps_to_that_song(browser, tmp_path):
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    tile = page.locator("#mosaic i >> nth=2")                         # Hallelujah
+    assert tile.get_attribute("title").startswith("Hallelujah — Jeff Buckley: No encontrado. Tocá")
+    tile.click()
+    row = page.locator("#tracks li", has_text="Hallelujah")
+    assert "flash" in row.get_attribute("class")
+    assert errors == []

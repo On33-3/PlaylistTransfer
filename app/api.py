@@ -397,13 +397,16 @@ class Api:
     def history(self, limit: int | None = None, kind: str | None = None) -> list[dict]:
         names = dict(SERVICES)
         ops = [op for op in self._history.list() if kind in (None, "", op.kind)][:limit or None]
-        tiles = self._history.statuses([op.id for op in ops])
+        tiles = self._history.tiles([op.id for op in ops], limit=60)
         out = []
         for op in ops:
             d = op.__dict__.copy()
             d["source_label"] = names.get(op.source, op.source)
             d["target_label"] = names.get(op.target, op.target) if op.target else None
-            d["tiles"] = tiles.get(op.id, [])[:60]       # el mosaico de colores de cada fila
+            # El mosaico de cada fila: un cuadrado por tema (hasta 60) con su estado, y qué tema es
+            # (para mostrarlo al pasar el mouse); "tiles_total" permite mostrar "+N" si hay más.
+            info = tiles.get(op.id, {"statuses": [], "songs": [], "total": 0})
+            d["tiles"], d["tile_songs"], d["tiles_total"] = info["statuses"], info["songs"], info["total"]
             out.append(d)
         return out
 
