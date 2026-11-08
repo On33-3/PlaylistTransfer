@@ -123,6 +123,9 @@ class TidalConnector(Connector):
         self._loaded = True
         self._save()
 
+    def login_steps(self, browser: Browser | None) -> list[str]:
+        return [f"login.tidal.{i}" for i in range(1, 5)]
+
     def disconnect(self) -> None:
         self.session_file.unlink(missing_ok=True)
         self._s, self._loaded = None, False

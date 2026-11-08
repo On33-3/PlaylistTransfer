@@ -30,7 +30,13 @@ ICONS = """(screen) => {
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const out = [];
   document.querySelectorAll('#' + screen + ' button').forEach(b => {
-    if (!vis(b) || b.textContent.trim() && !b.querySelector('svg')) return;      // botón con texto: no aplica
+    if (!vis(b)) return;
+    // Ningún botón con el texto partido en dos renglones o cortado (pasa si algo al lado lo aplasta)
+    if (b.textContent.trim() && !b.matches('.hist button.row') &&
+        (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1 ||
+         Array.from(b.getClientRects()).length > 1 || b.getBoundingClientRect().height > 44))
+      out.push((b.id || b.className) + ': texto partido o cortado «' + b.textContent.trim().slice(0, 20) + '»');
+    if (b.textContent.trim() && !b.querySelector('svg')) return;      // botón con texto: lo que sigue no aplica
     const name = b.id || b.className;
     if (!b.matches('.icon-btn')) { out.push(name + ': botón sin texto que no usa .icon-btn'); return; }
     if (b.textContent.trim()) { out.push(name + ': el ícono tiene que ser un SVG, no texto'); return; }

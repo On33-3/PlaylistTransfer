@@ -712,12 +712,19 @@ $("#browser-list").addEventListener("change", async e => {
   if (r) toast(t("settings.browser_toast", { name: r.name }));
 });
 
+/** Texto del diccionario con los nombres entre «» (o “”) en negrita: campos y botones que hay que encontrar. */
+const richText = (key, vars) => esc(t(key, vars)).replace(/([«“])([^»”]+)([»”])/g, "$1<b>$2</b>$3");
+
+/** Pasos numerados (1, 2, 3...) con el mismo formato que los de configuración. */
+const stepsHTML = (keys, vars) => `<ol class="setup-steps">${keys.map((k, i) =>
+  `<li><span class="step-n num">${i + 1}</span><div class="step-body"><p>${richText(k, vars)}</p></div></li>`).join("")}</ol>`;
+
 /** Los pasos de configuración, tal como los define el conector (setup_info): uno por acción, numerados
  *  2.1, 2.2..., con lo que hay que pegar al lado del paso donde va y los botones con el mismo nombre
  *  que usa el texto. Los nombres entre «» (campos y botones) van en negrita para encontrarlos rápido. */
 function setupPanelHTML(k) {
   const s = SETUP[k];
-  const fmt = (key, vars) => esc(t(key, vars)).replace(/([«“])([^»”]+)([»”])/g, "$1<b>$2</b>$3");
+  const fmt = richText;
   const step = (st, n) => {
     const label = st.button ? t(st.button) : "";
     const value = st.copy_key ? t(st.copy_key) : st.copy;
@@ -770,7 +777,10 @@ async function connectService(key) {
   stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
   $(".actions-inline", c.closest(".svc")).append(stop);
   const done = await follow(r.job, ev => {
-    if (ev.type === "login") wait.textContent = t("settings.login_wait", { browser: ev.browser, service: ev.service });
+    if (ev.type !== "login") return;
+    // Lo que hay que hacer, paso por paso, en el momento en que hace falta (lo define cada conector)
+    wait.innerHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser })
+      : esc(t("settings.login_wait", { browser: ev.browser, service: ev.service }));
   });
   wait.hidden = true; stop.remove();
   if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));

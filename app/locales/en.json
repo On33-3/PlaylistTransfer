@@ -267,7 +267,21 @@
     "settings.sp.client_id": "In the “Basic Information” tab, copy the “Client ID” value (32 letters and numbers). Don't copy the “Client secret”.",
     "settings.sp.paste": "Paste the Client ID in this field and click “{button}”:",
     "settings.sp.save_btn": "Save and connect",
-    "settings.sp.agree": "Spotify opens asking whether PlaylistTransfer may use your account: click “Agree” and come back to this window. When it's done, “Spotify ✓” shows up at the top."
+    "settings.sp.agree": "Spotify opens asking whether PlaylistTransfer may use your account: click “Agree” and come back to this window. When it's done, “Spotify ✓” shows up at the top.",
+    "login.tidal.1": "The Tidal page opened in {browser}. If you can't see it, look for {browser} in the taskbar.",
+    "login.tidal.2": "If Tidal asks you to log in, use your Tidal account. If you were already logged in, go on to the next step.",
+    "login.tidal.3": "Tidal asks whether you want to connect this device: accept.",
+    "login.tidal.4": "Come back to this window. When it's done, “Tidal ✓” shows up at the top.",
+    "login.ytmusic.1": "A new {browser} window opened, separate from yours and without your sessions: that's normal.",
+    "login.ytmusic.2": "In that window, sign in with the Google account you use on YouTube Music. If it doesn't ask next time, it's because the window remembers the session.",
+    "login.ytmusic.3": "When YouTube Music shows up, don't touch anything: the window closes by itself in a few seconds.",
+    "login.ytmusic.4": "Come back to this window. When it's done, “YouTube Music ✓” shows up at the top.",
+    "login.ytmusic_firefox.1": "If YouTube Music was already open in Firefox, you don't need to do anything: that session is used.",
+    "login.ytmusic_firefox.2": "If not, YouTube Music opened in Firefox: sign in with your Google account.",
+    "login.ytmusic_firefox.3": "Come back to this window. When it's done, “YouTube Music ✓” shows up at the top.",
+    "login.spotify.1": "Spotify opened in {browser}. If it asks you to log in, use your Spotify account.",
+    "login.spotify.2": "Spotify asks whether PlaylistTransfer may use your account: click “Agree”.",
+    "login.spotify.3": "Come back to this window. When it's done, “Spotify ✓” shows up at the top."
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",

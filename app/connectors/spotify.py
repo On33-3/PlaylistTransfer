@@ -118,6 +118,9 @@ class SpotifyConnector(Connector):
         self._write_json(self.app_file, {"client_id": cid})
         return cid
 
+    def login_steps(self, browser) -> list[str]:
+        return [f"login.spotify.{i}" for i in range(1, 4)]
+
     def setup_info(self) -> dict:
         """Los pasos para configurar Spotify, uno por acción y en el orden del formulario de Spotify.
         La UI solo los dibuja. Cada paso: `text` (clave del diccionario), y si hace falta `button` (el botón

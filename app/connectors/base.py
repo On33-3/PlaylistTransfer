@@ -52,6 +52,11 @@ class Connector(ABC):
         """Inicia sesión (puede abrir el navegador y bloquear hasta que el usuario termine).
         Si `cancel` se activa mientras espera, corta y lanza `Cancelled`."""
 
+    def login_steps(self, browser: Browser | None) -> list[str]:
+        """Lo que la persona hace mientras se conecta, una acción por paso: claves de la sección "ui" del
+        diccionario (pueden usar {browser}). La UI las numera debajo del servicio mientras espera."""
+        return []
+
     @abstractmethod
     def disconnect(self) -> None:
         """Borra la sesión guardada."""

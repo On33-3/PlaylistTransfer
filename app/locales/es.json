@@ -267,7 +267,21 @@
     "settings.sp.client_id": "En la pestaña «Basic Information», copiá el valor de «Client ID» (32 letras y números). No copies el «Client secret».",
     "settings.sp.paste": "Pegá el Client ID en este campo y tocá «{button}»:",
     "settings.sp.save_btn": "Guardar y conectar",
-    "settings.sp.agree": "Se abre Spotify preguntando si PlaylistTransfer puede usar tu cuenta: tocá «Agree» y volvé a esta ventana. Cuando termina, arriba aparece «Spotify ✓»."
+    "settings.sp.agree": "Se abre Spotify preguntando si PlaylistTransfer puede usar tu cuenta: tocá «Agree» y volvé a esta ventana. Cuando termina, arriba aparece «Spotify ✓».",
+    "login.tidal.1": "Se abrió la página de Tidal en {browser}. Si no la ves, buscá {browser} en la barra de tareas.",
+    "login.tidal.2": "Si Tidal te pide iniciar sesión, entrá con tu cuenta de Tidal. Si ya estabas adentro, seguí con el paso siguiente.",
+    "login.tidal.3": "Tidal pregunta si querés conectar este dispositivo: aceptá.",
+    "login.tidal.4": "Volvé a esta ventana. Cuando termina, arriba aparece «Tidal ✓».",
+    "login.ytmusic.1": "Se abrió una ventana nueva de {browser}, aparte de la tuya y sin tus sesiones: es normal.",
+    "login.ytmusic.2": "En esa ventana, iniciá sesión con la cuenta de Google que usás en YouTube Music. Si la próxima vez ya no te lo pide, es porque la ventana recuerda la sesión.",
+    "login.ytmusic.3": "Cuando aparezca YouTube Music, no toques nada: la ventana se cierra sola en unos segundos.",
+    "login.ytmusic.4": "Volvé a esta ventana. Cuando termina, arriba aparece «YouTube Music ✓».",
+    "login.ytmusic_firefox.1": "Si ya tenías YouTube Music abierto en Firefox, no tenés que hacer nada: se usa esa sesión.",
+    "login.ytmusic_firefox.2": "Si no, se abrió YouTube Music en Firefox: iniciá sesión con tu cuenta de Google.",
+    "login.ytmusic_firefox.3": "Volvé a esta ventana. Cuando termina, arriba aparece «YouTube Music ✓».",
+    "login.spotify.1": "Se abrió Spotify en {browser}. Si te pide iniciar sesión, entrá con tu cuenta de Spotify.",
+    "login.spotify.2": "Spotify pregunta si PlaylistTransfer puede usar tu cuenta: tocá «Agree».",
+    "login.spotify.3": "Volvé a esta ventana. Cuando termina, arriba aparece «Spotify ✓»."
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",
