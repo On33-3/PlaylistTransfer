@@ -6,8 +6,6 @@ import os
 import socket
 import sqlite3
 import struct
-import subprocess
-import sys
 from pathlib import Path
 
 from app.auth.browsers import Browser, exe_from_command, kind_of, sort_browsers, suggested_browser
@@ -119,15 +117,7 @@ def test_data_dir_is_outside_the_repo(tmp_path, monkeypatch):
     assert ROOT not in paths.tidal_session_file().parents
 
 
-def test_legacy_script_still_starts():
-    out = subprocess.run([sys.executable, str(ROOT / "legacy" / "transfer_playlist.py"), "--help"],
-                         capture_output=True, text=True, encoding="utf-8", timeout=60,
-                         env={**os.environ, "PYTHONIOENCODING": "utf-8"})
-    assert out.returncode == 0, out.stderr
-    assert "tidal2yt" in out.stdout
-
-
 def test_no_shebang_in_python_files():
     """El launcher `py` respeta el shebang y abre otro Python sin las librerías (ver CLAUDE.md)."""
-    for f in list((ROOT / "app").rglob("*.py")) + list((ROOT / "legacy").glob("*.py")):
+    for f in [*(ROOT / "app").rglob("*.py"), *(ROOT / "tools").glob("*.py"), *(ROOT / "packaging").glob("*.py")]:
         assert not f.read_text(encoding="utf-8").startswith("#!"), f

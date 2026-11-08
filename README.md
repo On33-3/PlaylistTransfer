@@ -1,6 +1,6 @@
 # PlaylistTransfer
 
-Una app de escritorio para Windows que **pasa tus playlists entre Tidal y YouTube Music** y **quita temas repetidos**. Gratis, open source y sin cuentas propias: todo pasa en tu compu.
+Una app de escritorio para Windows que **pasa tus playlists entre Tidal, YouTube Music y Spotify** y **quita temas repetidos**. Gratis, open source y sin cuentas propias: todo pasa en tu compu.
 
 ![Inicio](docs/img/inicio.png)
 
@@ -28,6 +28,15 @@ Funciona en Windows 10 y 11.
 
 ![Historial](docs/img/historial.png)
 
+## Spotify
+
+Spotify es opcional y pide dos cosas (las exige Spotify desde 2026, no la app):
+
+1. **Spotify Premium.**
+2. **Tu propia app de Spotify**, gratis: en **Ajustes › Spotify › Configurar** la app te guía en 3 pasos (crearla en el [panel de Spotify](https://developer.spotify.com/dashboard), pegar la dirección `http://127.0.0.1/callback` y copiar su *Client ID*). La usan solo vos y hasta 5 personas que agregues.
+
+Detalles: Spotify solo deja leer tus playlists y las colaborativas; cada 6 meses pide volver a conectar. Para quitar un repetido exacto, Spotify saca todas las copias, así que la app vuelve a poner la que queda en su lugar (aparece como agregada de nuevo) y lo verifica. Entre Tidal y Spotify las coincidencias suelen ser exactas (las dos usan el código ISRC de cada grabación).
+
 ## Cómo decide si es "la misma canción"
 
 - Tiene que coincidir **el artista**. Una canción puede tenerla más de un artista: si buscás el *Hallelujah* de Jeff Buckley y solo está el de Leonard Cohen, no se agrega solo; la app te lo ofrece y decidís vos.
@@ -42,8 +51,8 @@ La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez us
 ## Privacidad
 
 - Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, cerrá la app y borrá esa carpeta.
-- La app no tiene servidores ni estadísticas: solo habla con Tidal y YouTube Music.
-- Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen.
+- La app no tiene servidores ni estadísticas: solo habla con Tidal, YouTube Music y Spotify.
+- Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen. Spotify usa su API oficial, con la app que creás vos.
 
 No está afiliado a Tidal, Google ni Spotify.
 
@@ -59,12 +68,10 @@ py packaging/build.py           # arma dist/PlaylistTransfer-<versión>-windows.
 ```
 
 - `app/core/`: el motor (coincidencias, repetidos, transferencias). Cada regla tiene su escenario en `tests/test_scenarios.py`.
-- `app/connectors/`: un conector por servicio, con la misma interfaz. Spotify viene después.
+- `app/connectors/`: un conector por servicio, con la misma interfaz. Todos se declaran en `registry.py`: de ahí salen la API y la ventana.
 - `app/ui/`: la interfaz (HTML, CSS y JS, sin frameworks), dentro de una ventana de [pywebview](https://pywebview.flowrl.com/).
 - [`SPEC.md`](SPEC.md): el plan, las fases y por qué se decidió cada cosa.
 - Publicar una versión: subí el número en `app/__init__.py` y creá el tag `vX.Y.Z`. GitHub Actions corre los tests, compila el `.exe`, prueba que abra y lo publica en Releases.
-
-La versión de consola original sigue en [`legacy/`](legacy/).
 
 ## Licencia
 

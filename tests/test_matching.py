@@ -1,12 +1,10 @@
-from dataclasses import asdict
-
 import pytest
 
 from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, best_match,
                                classify, clean,
                                find_duplicates, norm, queries_for, same_song, score, title_keys)
 from app.core.models import Song
-from tests.conftest import COPIES, KEPT, NEGATIVE_PAIRS, OTHERS, load_legacy
+from tests.conftest import COPIES, KEPT, NEGATIVE_PAIRS, OTHERS, ROOT
 
 
 # ---------------------------------------------------------------- repetidos del video
@@ -172,13 +170,14 @@ def test_text_helpers():
 
 def test_same_duplicates_as_legacy_script_on_the_real_playlist(video_playlist):
     """En la playlist real (sin covers, partes ni intros) los repetidos son los mismos que con el
-    script de consola. El puntaje cambió a propósito: se valida con tools/check_reports.py."""
-    legacy = load_legacy()
+    script de consola (ya borrado: lo que decidía quedó en tests/data/legacy_parity.json).
+    El puntaje cambió a propósito: se valida con tools/check_reports.py."""
+    import json
+    old = json.loads((ROOT / "tests" / "data" / "legacy_parity.json").read_text(encoding="utf-8"))
     songs = video_playlist + [s for pair in NEGATIVE_PAIRS for s in pair]
-    old = [legacy.Song(**{k: v for k, v in asdict(s).items()}) for s in songs]
+    assert [s.title for s in songs] == old["titles"]                   # la misma playlist de prueba
     for i, a in enumerate(songs):
         for j, b in enumerate(songs):
-            assert same_song(a, b) == legacy.same_song(old[i], old[j]), (a.title, b.title)
-            assert classify(score(a, b)) == classify(legacy.score(old[i], old[j])) or \
-                classify(score(a, b)) == NOT_FOUND, (a.title, b.title)     # solo puede volverse más estricto
-    assert [d.index for d in find_duplicates(songs)] == [i for i, _, _ in legacy.find_duplicates(old)]
+            assert same_song(a, b) == (old["same_song"][i][j] == "1"), (a.title, b.title)
+            assert classify(score(a, b)) in (old["classify"][i][j], NOT_FOUND), (a.title, b.title)  # solo más estricto
+    assert [d.index for d in find_duplicates(songs)] == old["duplicates"]
