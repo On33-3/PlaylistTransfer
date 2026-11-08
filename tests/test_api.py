@@ -215,7 +215,27 @@ def test_open_url_only_for_music_services(app):
     assert api.open_url("https://music.youtube.com/playlist?list=x") == {"ok": True}
     assert "error" in api.open_url("file:///C:/Windows/System32/calc.exe")
     assert "error" in api.open_url("https://evil.example.com")
+    assert "error" in api.open_url("https://tidal.com.evil.example/")         # el prefijo incluye la barra
     assert len(api.opened) == 1
+
+
+def test_services_come_from_the_registry(app):
+    """Un solo lugar define los servicios: la API y la ventana los toman de ahí."""
+    from app.connectors import registry
+    api, *_ = app
+    assert api.services() == [{"key": "tidal", "name": "Tidal", "available": True},
+                              {"key": "ytmusic", "name": "YouTube Music", "available": True},
+                              {"key": "spotify", "name": "Spotify", "available": False}]
+    assert [s["key"] for s in api.status()] == [s.key for s in registry.SERVICES]
+    assert registry.name("ytmusic") == "YouTube Music" and registry.name(None) is None
+    assert all(s.links and all(p.startswith("https://") and p.endswith("/") for p in s.links)
+               for s in registry.SERVICES)
+
+
+def test_ui_has_no_service_list_of_its_own():
+    from pathlib import Path
+    js = (Path(__file__).parents[1] / "app" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert "YouTube Music" not in js and '"tidal"' not in js and '"ytmusic"' not in js
 
 
 def test_unexpected_errors_become_messages(app):

@@ -4,8 +4,9 @@
 
 const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", now: "…", removed: "−" };
 const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrado: "miss", ya_estaba: "dup", quitado: "removed" };
-const NAMES = { tidal: "Tidal", ytmusic: "YouTube Music", spotify: "Spotify" };
-const USABLE = ["tidal", "ytmusic"];
+// Los servicios salen de api.services() (app/connectors/registry.py) al arrancar
+let NAMES = {};          // {tidal: "Tidal", ...} en el orden en que se muestran
+let USABLE = [];         // los que ya se pueden usar
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -42,7 +43,7 @@ function applyI18n(root = document) {
 let api = null;
 const state = {
   status: {},            // tidal: "connected" | "expired" | "disconnected"
-  from: "tidal", to: "ytmusic",
+  from: null, to: null,  // los dos primeros servicios disponibles
   playlists: {},         // cache por servicio
   busy: false,
   transfer: null,        // {job, total, result, ...}
@@ -137,9 +138,10 @@ function setupRoute() {
   const opts = sel => Object.entries(NAMES).map(([k, n]) => `<option value="${k}" ${k === sel ? "selected" : ""} ${USABLE.includes(k) ? "" : "disabled"}>${n}</option>`).join("");
   $("#from").innerHTML = opts(state.from); $("#to").innerHTML = opts(state.to);
   const onChange = which => () => {
+    const other = which === "from" ? "to" : "from", prev = state[which];
     state[which] = $("#" + which).value;
-    const other = which === "from" ? "to" : "from";
-    if (state.from === state.to) { state[other] = USABLE.find(k => k !== state[which]); $("#" + other).value = state[other]; }
+    // Si quedan iguales, se dan vuelta (con más de dos servicios, el otro toma el que había)
+    if (state.from === state.to) { state[other] = prev; $("#" + other).value = state[other]; }
     fitSelect($("#from")); fitSelect($("#to"));
     state.transfer = null; resetTransferView();
   };
@@ -615,7 +617,8 @@ async function renderSettings() {
       ? `<button class="btn ghost" data-disconnect="${k}" data-needs-idle>${esc(t("settings.disconnect"))}</button>`
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
     return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`;
-  }).join("") + `<div class="svc"><span><b>Spotify</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`;
+  }).join("") + Object.keys(NAMES).filter(k => !USABLE.includes(k)).map(k =>
+    `<div class="svc"><span><b>${esc(NAMES[k])}</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`).join("");
   setBusy(state.busy);
 
   const langs = await call("languages");
@@ -714,6 +717,10 @@ async function start() {
     LANG = i.language; STR = i.strings;
   } catch (_) { /* sin textos: quedan los de respaldo del HTML */ }
   applyI18n();
+  const services = await call("services") || [];
+  NAMES = Object.fromEntries(services.map(s => [s.key, s.name]));
+  USABLE = services.filter(s => s.available).map(s => s.key);
+  [state.from, state.to] = USABLE;
   ["#go", "#dry", "#remove", "#dup-scan"].forEach(s => { $(s).dataset.needsIdle = ""; });
   setupRoute();
   const info = await call("info");
