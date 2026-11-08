@@ -28,6 +28,14 @@ def test_icon_is_a_valid_ico_with_all_sizes():
     assert ico[first_offset:first_offset + 8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_the_window_and_the_exe_use_the_same_icon():
+    """El ícono va con la UI: lo usan la ventana (también con `py -m app`) y el .exe, y está al día."""
+    ico = ROOT / "app" / "ui" / "icon.ico"
+    assert ico.read_bytes() == load("make_icon").ico()
+    assert 'icon=str(ui_dir() / "icon.ico")' in (ROOT / "app" / "main.py").read_text(encoding="utf-8")
+    assert 'icon=str(ROOT / "app" / "ui" / "icon.ico")' in (ROOT / "packaging" / "PlaylistTransfer.spec").read_text(encoding="utf-8")
+
+
 def test_version_info_matches_the_app(tmp_path, monkeypatch):
     build = load("build")
     monkeypatch.setattr(build, "PKG", tmp_path)

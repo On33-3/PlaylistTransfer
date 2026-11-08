@@ -28,7 +28,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="PlaylistTransfer",
-    icon=str(PKG / "icon.ico"),
+    icon=str(ROOT / "app" / "ui" / "icon.ico"),
     version=str(PKG / "version_info.txt"),
     console=False,
     upx=False,

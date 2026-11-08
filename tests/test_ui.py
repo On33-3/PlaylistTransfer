@@ -343,6 +343,13 @@ def test_home_explains_the_app_and_the_route_is_chosen_in_transfer(browser, tmp_
     assert round(page.locator("#from").bounding_box()["height"]) == 36
     assert "Spotify" in page.inner_text("#src-title")
     shot(page, "transferir-ruta")
+    # La lista desplegada usa el estilo de la app (no la de Windows) y se elige con el mouse
+    assert page.evaluate("getComputedStyle(document.querySelector('#to')).appearance") == "base-select"
+    page.click("#to")
+    page.wait_for_timeout(250)
+    shot(page, "transferir-ruta-lista")
+    page.locator("#to option[value=tidal]").click()
+    assert (page.input_value("#from"), page.input_value("#to")) == ("spotify", "tidal")
     assert errors == []
 
 

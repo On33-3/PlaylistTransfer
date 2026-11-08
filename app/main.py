@@ -18,6 +18,16 @@ def ui_dir() -> Path:
     return base / "app" / "ui"
 
 
+def own_taskbar_icon() -> None:
+    """Windows agrupa la ventana con el proceso que la abrió: con `py -m app`, la barra de tareas mostraba
+    el ícono de Python. Con un id propio, la app aparece como ella misma (con su ícono)."""
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PlaylistTransfer.App")
+    except (AttributeError, OSError):    # no es Windows
+        pass
+
+
 def setup_logging() -> Path:
     log_file = paths.data_dir() / "app.log"
     logging.basicConfig(filename=log_file, level=logging.INFO, encoding="utf-8",
@@ -29,6 +39,7 @@ def main() -> None:
     import webview
 
     setup_logging()
+    own_taskbar_icon()
     api = Api.create()
     from app import i18n
     logging.getLogger(__name__).info("Arranca PlaylistTransfer; idioma: %s", i18n.get_language())
@@ -56,7 +67,7 @@ def main() -> None:
         window.destroy()
 
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
-                  storage_path=str(paths.data_dir() / "webview"))
+                  storage_path=str(paths.data_dir() / "webview"), icon=str(ui_dir() / "icon.ico"))
     if smoke:   # el .exe no tiene consola: el resultado sale como código de salida
         sys.exit(0 if ready.is_set() else 1)
 

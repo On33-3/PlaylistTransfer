@@ -408,6 +408,30 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .route-pick select:hover { background-color: #FBFAFE; }
 .route-pick .icon-btn { border-radius: 50%; }
 
+/* La lista que se despliega, con el estilo de la app en vez del de Windows (Chromium 135+: el WebView2
+   de Windows 11 se actualiza solo). Si el motor no lo soporta, queda la lista común: no se rompe nada */
+@supports (appearance: base-select) {
+  .route-pick select, .route-pick select::picker(select) { appearance: base-select; }
+  .route-pick select { display: inline-flex; align-items: center; }
+  .route-pick select::picker-icon { display: none; }               /* ya tiene su flecha ▾ */
+  .route-pick select::picker(select) {
+    margin-top: 6px; padding: 6px; min-width: 200px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+    box-shadow: 0 14px 34px rgba(46, 42, 61, .14);
+    opacity: 0; translate: 0 -4px; transition: opacity .12s, translate .12s, display .12s allow-discrete, overlay .12s allow-discrete;
+  }
+  .route-pick select:open::picker(select) { opacity: 1; translate: 0 0; }
+  @starting-style { .route-pick select:open::picker(select) { opacity: 0; translate: 0 -4px; } }
+  .route-pick option {
+    display: flex; align-items: center; gap: 10px; min-height: var(--h-md); padding: 0 12px;
+    border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
+  }
+  .route-pick option:hover, .route-pick option:focus-visible { background: var(--bg); outline: none; }
+  .route-pick option:checked { background: rgba(207, 196, 242, .45); }
+  .route-pick option::checkmark { content: "✓"; order: 1; margin-left: auto; color: var(--lav-strong); }
+  .route-pick option:disabled { color: var(--ink-soft); opacity: .55; cursor: not-allowed; background: none; }
+}
+
 /* Botones de solo ícono: el ícono es un SVG (no un carácter de texto, que cada fuente ubica distinto)
    y se centra con grid. Norma: todo botón de ícono usa .icon-btn; test_ui_design.py mide que quede centrado */
 .icon-btn { width: var(--h-md); height: var(--h-md); padding: 0; display: inline-grid; place-items: center; }

@@ -1,4 +1,4 @@
-"""Genera packaging/icon.ico: el mosaico de 3×3 de la marca, con los colores pastel de la app.
+"""Genera app/ui/icon.ico (el de la ventana, la barra de tareas y el .exe): el mosaico de 3×3 de la marca, con los colores pastel de la app.
 
 Sin dependencias (PNG con zlib dentro de un .ico). Uso: py packaging/make_icon.py
 """
@@ -68,9 +68,10 @@ def ico(sizes=SIZES) -> bytes:
 
 
 def main() -> Path:
-    out = Path(__file__).resolve().parent / "icon.ico"
+    here = Path(__file__).resolve().parent
+    out = here.parent / "app" / "ui" / "icon.ico"
     out.write_bytes(ico())
-    (out.parent / "icon-256.png").write_bytes(png(256))
+    (here / "icon-256.png").write_bytes(png(256))
     return out
 
 
