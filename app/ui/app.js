@@ -133,7 +133,9 @@ function fitSelect(sel) {
   probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
   probe.textContent = sel.options[sel.selectedIndex]?.text || "";
   document.body.appendChild(probe);
-  sel.style.width = `calc(${probe.getBoundingClientRect().width}px + .7em)`;
+  // Ancho del nombre + los rellenos (el de la derecha deja lugar a la flecha ▾)
+  const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  sel.style.width = `${Math.ceil(probe.getBoundingClientRect().width + pad + 2)}px`;
   probe.remove();
 }
 
@@ -150,7 +152,22 @@ function setupRoute() {
   };
   $("#from").addEventListener("change", onChange("from"));
   $("#to").addEventListener("change", onChange("to"));
+  // ⇅ da vuelta la dirección (el destino pasa a ser el origen)
+  $("#swap").addEventListener("click", () => {
+    [state.from, state.to] = [state.to, state.from];
+    $("#from").value = state.from; $("#to").value = state.to;
+    updateSwapTitle();
+    fitSelect($("#from")); fitSelect($("#to"));
+    state.transfer = null; resetTransferView();
+  });
+  $("#from").addEventListener("change", updateSwapTitle);
+  $("#to").addEventListener("change", updateSwapTitle);
+  updateSwapTitle();
   fitSelect($("#from")); fitSelect($("#to"));
+}
+
+function updateSwapTitle() {
+  $("#swap").title = t("home.swap_title", { src: NAMES[state.to], dst: NAMES[state.from] });
 }
 
 function opTitle(op) {

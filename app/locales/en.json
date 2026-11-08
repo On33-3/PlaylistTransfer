@@ -25,7 +25,7 @@
     "home.to": "to",
     "home.from_aria": "Source service",
     "home.to_aria": "Destination service",
-    "home.lede": "Pick a source playlist and one or more destinations. Songs that are already there, even in another version, aren't added twice.",
+    "home.lede": "Click the names to choose from where and to where, or ⇅ to swap them. Songs already in the destination, even in another version, aren't added twice.",
     "home.pick": "Choose playlists",
     "home.dedupe": "Remove duplicates",
     "home.recent": "Recent activity",
@@ -236,7 +236,9 @@
     "settings.sp_save": "Save and connect",
     "settings.sp_note": "The app is yours and free: only you and up to 5 people you add in “User Management” can use it. Every 6 months Spotify asks you to connect again.",
     "dedupe.confirm_readd_one": "{service} can't remove a single copy: it removes both and puts the one that stays back in its place. It will show as added today.",
-    "dedupe.confirm_readd_other": "{service} can't remove a single copy: for {n} songs it removes all copies and puts the one that stays back in its place. They will show as added today."
+    "dedupe.confirm_readd_other": "{service} can't remove a single copy: for {n} songs it removes all copies and puts the one that stays back in its place. They will show as added today.",
+    "home.swap_aria": "Swap source and destination",
+    "home.swap_title": "Swap: from {src} to {dst}"
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",
