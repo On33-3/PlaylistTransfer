@@ -4,7 +4,7 @@ App de escritorio (Windows) para pasar playlists entre servicios de música: hoy
 Proyecto open source pensado para GitHub. El plan completo, con decisiones y fases, está en `SPEC.md`: leelo antes de cambiar algo grande.
 
 ## Estado actual
-- F0 aprobada (`prototype/index.html` es la referencia visual). **F1 hecha**: motor en `app/core/`, conectores en `app/connectors/`, login en `app/auth/`. **F2 terminada** (probada por el usuario con cuentas reales el 2026-11-08): ventana con pywebview (`app/main.py`, `app/api.py`, `app/jobs.py`, `app/core/transfer.py`, `app/ui/`). **F3 construida** (`app/storage/export.py`, umbrales en `app/storage/prefs.py`); falta que el usuario pruebe "Exportar a CSV" desde la ventana. Los reportes CSV nunca se generan solos: solo a pedido (casilla en Transferir o botón en Historial).
+- F0 aprobada (`prototype/index.html` es la referencia visual). **F1 hecha**: motor en `app/core/`, conectores en `app/connectors/`, login en `app/auth/`. **F2 terminada** (probada por el usuario con cuentas reales el 2026-11-08): ventana con pywebview (`app/main.py`, `app/api.py`, `app/jobs.py`, `app/core/transfer.py`, `app/ui/`). **F3 terminada** (`app/storage/export.py`, umbrales en `app/storage/prefs.py`). **F4 construida** (`packaging/`, `.github/workflows/build.yml`, README para usuarios); publicar en GitHub y VirusTotal solo con el OK explícito del usuario. Los reportes CSV nunca se generan solos: solo a pedido (casilla en Transferir o botón en Historial).
 - CSV para Excel: no cambies el formato de la fecha (`2026-11-08 · 01:00`) ni el separador por región sin volver a probar en Excel (SPEC, "Formato del CSV").
 - `legacy/transfer_playlist.py` es la **versión de consola que ya funciona** (probada con cuentas reales, también en dry-run el 2026-11-08) y la referencia del motor. Ya no hace falta para usar la app; se conserva como referencia hasta que el usuario decida borrarla. Se corre desde la raíz, así sigue usando las sesiones guardadas ahí. La app nueva **no** usa esas sesiones: guarda las suyas en `%LOCALAPPDATA%\PlaylistTransfer\`.
 - UI: sin frameworks ni recursos externos (sin Google Fonts: funciona sin internet y no avisa a nadie). pywebview publica a la página todo atributo público de `Api`: el estado va siempre con `_` (hay un test).
@@ -22,6 +22,7 @@ Proyecto open source pensado para GitHub. El plan completo, con decisiones y fas
 ## Comandos
 - Dependencias de desarrollo: `py -m pip install -r requirements-dev.txt`
 - Tests: `py -m pytest -q` (incluye la UI en Edge headless; capturas con `PT_SCREENSHOTS=<carpeta>`)
+- Paquete: `py -m pip install -r requirements-build.txt` y `py packaging/build.py` → `dist/PlaylistTransfer-<versión>-windows.zip`. Probar el `.exe`: `PT_SMOKE=1` y código de salida 0. Capturas del README: `py tools/readme_screenshots.py` (datos falsos).
 - App: `py -m app` (o doble clic en `Abrir PlaylistTransfer.bat`). `PT_DEBUG=1` abre las herramientas de desarrollo; `PT_SMOKE=1` abre, espera la UI y cierra. Log en `%LOCALAPPDATA%\PlaylistTransfer\app.log`.
 - Matching contra tus reportes reales: `py tools/check_reports.py`
 - Script de consola (referencia): `py legacy/transfer_playlist.py` (o doble clic en `Transferir playlists.bat`)
