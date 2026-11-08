@@ -17,6 +17,7 @@ from typing import Callable
 from app import __version__, i18n
 from app.auth import browsers as browsers_mod
 from app.auth.browsers import Browser
+from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError, Status
 from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
@@ -29,8 +30,6 @@ from app.storage.history import History, Operation, TrackRecord
 from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
-
-SERVICES = [("tidal", "Tidal"), ("ytmusic", "YouTube Music"), ("spotify", "Spotify")]
 
 # Lo que se muestra en Ajustes › Acerca de (verificar al actualizar requirements.txt)
 LICENSES = [
@@ -79,11 +78,7 @@ class Api:
 
     @classmethod
     def create(cls) -> "Api":
-        from app.connectors.tidal import TidalConnector
-        from app.connectors.ytmusic import YTMusicConnector
-        return cls({"tidal": TidalConnector(paths.tidal_session_file()),
-                    "ytmusic": YTMusicConnector(paths.yt_browser_file(), paths.browser_profiles_dir())},
-                   History(paths.history_file()), paths.prefs_file(), paths.data_dir())
+        return cls(registry.build_connectors(), History(paths.history_file()), paths.prefs_file(), paths.data_dir())
 
     # ---------------------------------------------------------------- utilidades
 
@@ -181,26 +176,31 @@ class Api:
         return {"ok": True}
 
     def open_url(self, url: str) -> dict:
-        if not str(url).startswith(("https://tidal.com/", "https://music.youtube.com/", "https://listen.tidal.com/")):
+        if not registry.is_allowed_link(url):
             return {"error": tr("err.only_music_links")}
         self._open_url(url, self._browser())
         return {"ok": True}
 
     # ---------------------------------------------------------------- servicios y navegador
 
+    def services(self) -> list[dict]:
+        """Los servicios en el orden en que se muestran, y cuáles se pueden usar. Es inmediato (no
+        consulta a nadie): la UI lo pide al arrancar, antes de `status()`."""
+        return [{"key": s.key, "name": s.name, "available": s.key in self._connectors} for s in registry.SERVICES]
+
     def status(self) -> list[dict]:
         out = []
-        for key, name in SERVICES:
-            c = self._connectors.get(key)
+        for s in registry.SERVICES:
+            c = self._connectors.get(s.key)
             if c is None:
-                out.append({"key": key, "name": name, "status": "soon"})
+                out.append({"key": s.key, "name": s.name, "status": "soon"})
                 continue
             try:
                 st = c.status().value
             except Exception as e:
-                log.warning("No pude ver el estado de %s: %s", name, e)
+                log.warning("No pude ver el estado de %s: %s", s.name, e)
                 st = Status.EXPIRED.value
-            out.append({"key": key, "name": name, "status": st})
+            out.append({"key": s.key, "name": s.name, "status": st})
         return out
 
     def browsers(self) -> dict:
@@ -295,7 +295,7 @@ class Api:
             done = []
             for t in result.targets:
                 if t.target.id is None:      # playlist nueva que no se creó (no había nada para agregar)
-                    t.target.id = dst.create(t.target.name, tr("playlist.description", service=dict(SERVICES).get(result.source_service, result.source_service), date=f"{datetime.now():%Y-%m-%d}"))
+                    t.target.id = dst.create(t.target.name, tr("playlist.description", service=registry.name(result.source_service), date=f"{datetime.now():%Y-%m-%d}"))
                     t.url = dst.url(t.target.id)
                 dst.add(t.target.id, [alt])
                 done.append(t.target.name)
@@ -319,7 +319,7 @@ class Api:
 
         def work(emit, cancel):
             dst = self._connector(result.target_service)
-            service = dict(SERVICES).get(result.source_service, result.source_service)
+            service = registry.name(result.source_service)
             added_total = already_total = 0
             added_ns: set[int] = set()
             for t in result.targets:
@@ -427,14 +427,13 @@ class Api:
     # ---------------------------------------------------------------- historial
 
     def history(self, limit: int | None = None, kind: str | None = None) -> list[dict]:
-        names = dict(SERVICES)
         ops = [op for op in self._history.list() if kind in (None, "", op.kind)][:limit or None]
         tiles = self._history.tiles([op.id for op in ops], limit=60)
         out = []
         for op in ops:
             d = op.__dict__.copy()
-            d["source_label"] = names.get(op.source, op.source)
-            d["target_label"] = names.get(op.target, op.target) if op.target else None
+            d["source_label"] = registry.name(op.source)
+            d["target_label"] = registry.name(op.target)
             # El mosaico de cada fila: un cuadrado por tema (hasta 60) con su estado, y qué tema es
             # (para mostrarlo al pasar el mouse); "tiles_total" permite mostrar "+N" si hay más.
             info = tiles.get(op.id, {"statuses": [], "songs": [], "total": 0})
@@ -463,7 +462,7 @@ class Api:
         if path.suffix.lower() != ".txt":
             path = path.with_name(path.name + ".txt")
         try:
-            count = write_report(path, ops, dict(SERVICES))
+            count = write_report(path, ops, registry.names())
         except OSError as e:
             return {"error": tr("err.save_failed", detail=e.strerror or e)}
         self._last_export = path
