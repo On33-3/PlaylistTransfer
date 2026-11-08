@@ -184,7 +184,17 @@
     "settings.about": "About",
     "settings.about_version": "PlaylistTransfer {v}, open source under the MIT license.",
     "settings.not_affiliated": "Not affiliated with Tidal, Google or Spotify.",
-    "settings.libraries": "Built with these open source libraries:"
+    "settings.libraries": "Built with these open source libraries:",
+    "legend.aria": "What each color means",
+    "legend.ok": "Found",
+    "legend.doubt": "To review",
+    "legend.miss": "Not found",
+    "legend.dup": "Already there",
+    "legend.removed": "Removed",
+    "tile.tooltip": "{title} — {artist}: {status}",
+    "tiles.more": "+{n} more",
+    "tiles.more_title": "And {n} more songs: click the row to see them all",
+    "tile.jump": "Click to see this song in the list"
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",

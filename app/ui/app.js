@@ -168,13 +168,43 @@ function opDate(op) {
   return isNaN(d) ? op.created_at : d.toLocaleString(dateLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 const emptyHistory = () => `<li class="empty"><b>${esc(t("history.empty_title"))}</b> ${esc(t("history.empty_text"))} <button class="btn ghost" data-go="transferir">${esc(t("history.empty_btn"))}</button></li>`;
-const tilesHTML = tiles => (tiles || []).map(s => `<i class="${CLASS[s] || "ok"}"></i>`).join("");
+/* ---- mosaicos: un cuadrado por tema, con su color; al pasar el mouse dice qué tema es ---- */
+
+const LEGEND = [["ok", "ok", "--mint"], ["doubt", "doubt", "--peach"], ["miss", "miss", "--rose"],
+                ["dup", "dup", "--sage"], ["removed", "removed", "--lav"]];
+const statusLabel = s => t(`legend.${CLASS[s] || "ok"}`);
+
+/** Qué significa cada color (una sola vez por pantalla, arriba de la lista). */
+function legendHTML() {
+  return LEGEND.map(([key, cls, color]) =>
+    `<span><i style="background:var(${color})"></i>${SYMBOL[cls]} ${esc(t(`legend.${key}`))}</span>`).join("");
+}
+
+function tileTitle(status, song) {
+  return song?.[0] ? t("tile.tooltip", { title: song[0], artist: song[1] || "?", status: statusLabel(status) }) : statusLabel(status);
+}
+
+/** El mosaico chico de una operación del historial (con "+N" si tiene más temas de los que se dibujan). */
+function mosaicHTML(op) {
+  const statuses = op.tiles || [], songsOf = op.tile_songs || [];
+  const tiles = statuses.map((s, i) => `<i class="${CLASS[s] || "ok"}" title="${esc(tileTitle(s, songsOf[i]))}"></i>`).join("");
+  const extra = (op.tiles_total || 0) - statuses.length;
+  const more = extra > 0 ? `<span class="more" title="${esc(t("tiles.more_title", { n: extra }))}">${esc(t("tiles.more", { n: extra }))}</span>` : "";
+  return `<span class="mosaic-wrap"><span class="mosaic small" role="img" aria-label="${esc(opSub(op))}">${tiles}</span>${more}</span>`;
+}
+
+function showLegend(id, visible) {
+  const el = $(id);
+  el.hidden = !visible;
+  if (visible) el.innerHTML = legendHTML();
+}
 
 async function renderHomeHistory() {
   const ops = await call("history", 3) || [];
+  showLegend("#home-legend", ops.length > 0);
   $("#home-history").innerHTML = ops.length ? ops.map(op => `
     <li><div><div class="what">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
-    <div class="mosaic small" aria-hidden="true" title="${esc(opSub(op))}">${tilesHTML(op.tiles)}</div></li>`).join("") : emptyHistory();
+    ${mosaicHTML(op)}</li>`).join("") : emptyHistory();
 }
 
 /* ---------------------------------------------------------------- transferir: elegir */
@@ -286,7 +316,7 @@ async function startTransfer(dryRun) {
 function onTransferEvent(tr, e) {
   if (e.type === "source") {
     tr.total = e.total; $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
-    $("#mosaic").innerHTML = Array.from({ length: e.total }, () => "<i></i>").join("");
+    $("#mosaic").innerHTML = Array.from({ length: e.total }, (_, i) => `<i data-n="${i + 1}"></i>`).join("");
   } else if (e.type === "searching") {
     const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = "now";
     const li = document.createElement("li");
@@ -295,7 +325,7 @@ function onTransferEvent(tr, e) {
   } else if (e.type === "track") {
     tr.tracks[e.n] = e;
     const cls = CLASS[e.status]; tr.n[cls]++;
-    const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = cls;
+    setBigTile(e.n, e.status, e.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);
     $("#count").textContent = e.n; for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
   } else if (e.type === "already") {
@@ -303,11 +333,25 @@ function onTransferEvent(tr, e) {
     tr.n[CLASS[prev.status]]--; tr.n.dup++;
     const upd = { ...prev, status: "ya_estaba", as: e.as };
     tr.tracks[e.n] = upd;
-    const tile = $("#mosaic").children[e.n - 1]; if (tile) tile.className = "dup";
+    setBigTile(e.n, "ya_estaba", prev.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(upd);
     for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
   }
 }
+
+/** Un cuadrado del mosaico grande: color, qué tema es, y se puede tocar para ir a ese tema en la lista. */
+function setBigTile(n, status, song) {
+  const tile = $("#mosaic").children[n - 1]; if (!tile) return;
+  tile.className = `${CLASS[status]} jump`;
+  tile.title = `${tileTitle(status, [song.title, song.artist])}. ${t("tile.jump")}`;
+}
+
+$("#mosaic").addEventListener("click", e => {
+  const tile = e.target.closest("i.jump"); if (!tile || !state.transfer) return;
+  const row = state.transfer.rows[Number(tile.dataset.n)]; if (!row) return;
+  row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");   // reinicia el resaltado
+});
 
 function showTransferResult(tr, res) {
   tr.result = res;
@@ -444,11 +488,12 @@ async function renderHistory() {
   const kind = state.histKind || "";
   const ops = await call("history", null, kind || null) || [];
   $("#hist-actions").hidden = ops.length === 0;
+  showLegend("#hist-legend", ops.length > 0);
   $("#hist").innerHTML = ops.length ? ops.map(op => `
     <li data-op="${op.id}"><button class="row" aria-expanded="false">
       <span class="date">${esc(opDate(op))}</span>
       <span><div class="what">${esc(opTitle(op))}</div><div class="sub">${esc(opRoute(op))}. ${esc(opSub(op))}</div></span>
-      <span class="mosaic small" aria-hidden="true">${tilesHTML(op.tiles)}</span></button>
+      ${mosaicHTML(op)}</button>
       <div class="detail"><ul><li class="muted">${esc(t("common.loading"))}</li></ul></div></li>`).join("")
     : (kind ? `<li class="empty">${esc(t(kind === "dedupe" ? "history.empty_dedupe" : "history.empty_transfer"))}</li>` : emptyHistory());
 }

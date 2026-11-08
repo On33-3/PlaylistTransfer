@@ -349,3 +349,11 @@ def test_licenses_listed(app):
     api, *_ = app
     names = {l["name"]: l["license"] for l in api.info()["licenses"]}
     assert names == {"tidalapi": "LGPL-3.0", "ytmusicapi": "MIT", "pywebview": "BSD-3-Clause"}
+
+
+def test_history_tiles_say_which_song_each_one_is(app):
+    api, tidal, yt = app
+    wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
+    [op] = api.history()
+    assert [list(x) for x in op["tile_songs"]] == [["Take On Me", "a-ha"], ["Hallelujah", "Jeff Buckley"]]
+    assert op["tiles_total"] == 2

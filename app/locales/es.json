@@ -184,7 +184,17 @@
     "settings.about": "Acerca de",
     "settings.about_version": "PlaylistTransfer {v}, open source con licencia MIT.",
     "settings.not_affiliated": "No está afiliado a Tidal, Google ni Spotify.",
-    "settings.libraries": "Usa estas librerías de código abierto:"
+    "settings.libraries": "Usa estas librerías de código abierto:",
+    "legend.aria": "Qué significa cada color",
+    "legend.ok": "Encontrado",
+    "legend.doubt": "Para revisar",
+    "legend.miss": "No encontrado",
+    "legend.dup": "Ya estaba",
+    "legend.removed": "Quitado",
+    "tile.tooltip": "{title} — {artist}: {status}",
+    "tiles.more": "+{n} más",
+    "tiles.more_title": "Y {n} temas más: tocá la fila para ver todo",
+    "tile.jump": "Tocá para ver este tema en la lista"
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",

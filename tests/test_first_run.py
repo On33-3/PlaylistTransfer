@@ -125,3 +125,13 @@ def test_repo_tracks_no_personal_files():
         pytest.skip("no es un repo de git")
     leaked = [f for f in out.stdout.splitlines() if any(p in f for p in PERSONAL)]
     assert leaked == []
+
+
+def test_history_tiles_have_the_song_and_cap_with_total(new_pc):
+    h = History(paths.history_file())
+    op, tracks = sample_transfer()
+    op_id = h.record(op, tracks)
+    info = h.tiles([op_id], limit=3)[op_id]
+    assert info["statuses"] == ["ok", "ok", "ya_estaba"] and info["total"] == 4
+    assert info["songs"][0] == ("Luna de papel", "Los Faroles")
+    assert h.tiles([]) == {} and History(new_pc / "no-existe.sqlite").tiles([1]) == {}
