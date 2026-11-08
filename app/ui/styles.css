@@ -116,6 +116,7 @@
   .features li { padding-left: 16px; border-left: 3px solid var(--lav); color: var(--ink-soft); }
   .features li:nth-child(2) { border-left-color: var(--sky); }
   .features li:nth-child(3) { border-left-color: var(--mint); }
+  .features li:nth-child(4) { border-left-color: var(--peach); }
   .features b { color: var(--ink); }
 
 

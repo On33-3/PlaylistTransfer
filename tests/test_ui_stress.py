@@ -99,6 +99,11 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
     problems["inicio"] = overflow(page)
     shot(page, f"stress-{size}-5-inicio")
 
+    page.click("nav [data-go=conexiones]")
+    page.wait_for_selector("#svc-list .svc")
+    problems["conexiones"] = overflow(page)
+    shot(page, f"stress-{size}-6-conexiones")
+
     page.click("nav [data-go=ajustes]")
     page.wait_for_selector("#th-ok")
     problems["ajustes"] = overflow(page)

@@ -90,16 +90,19 @@ def test_first_run_everything_empty(browser, tmp_path):
     api, *_ = make_api(tmp_path, connected=False)
     page, errors = open_page(browser, api)
     assert page.is_visible("#home-connect")
+    page.click("#home-connect >> text=Ir a Conexiones")                # el aviso lleva a Conexiones
+    assert page.is_visible("#conexiones")
+    page.click("nav [data-go=inicio]")
     assert "sin conectar" in page.inner_text("#chips")
     shot(page, "1-inicio-primer-uso")
     page.click("nav [data-go=transferir]")
     assert "conectá Tidal y YouTube Music" in page.inner_text("#pick-connect-text")
     page.click("nav [data-go=historial]")
     assert "Todavía no hiciste transferencias" in page.inner_text("#hist")
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.wait_for_selector("#browser-list input")
     assert page.is_checked("#browser-list input[value='C:\\\\vivaldi.exe']")
-    shot(page, "2-ajustes-primer-uso")
+    shot(page, "2-conexiones-primer-uso")
     assert errors == []
 
 
@@ -204,7 +207,7 @@ def test_remove_duplicates_needs_the_dialog(browser, tmp_path):
 def test_connect_from_settings(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path, connected=False)
     page, errors = open_page(browser, api)
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.click("[data-connect=tidal]")
     page.wait_for_selector("text=Tidal conectado.")
     assert tidal.calls == [("connect", "Vivaldi")]
@@ -247,7 +250,7 @@ def test_each_service_shows_its_steps_before_connecting(browser, tmp_path):
     tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
     yt.login_steps = lambda b: YTMusicConnector.login_steps(None, b)
     page, errors = open_page(browser, api)
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.wait_for_selector(".svc-steps")
     first = page.eval_on_selector_all(".svc-steps li:first-child p", "ps => ps.map(p => p.textContent)")
     assert first == ["Tocá «Conectar»: se abre la página de Tidal en Vivaldi. Si no la ves, buscá Vivaldi en la barra de tareas.",
@@ -255,13 +258,13 @@ def test_each_service_shows_its_steps_before_connecting(browser, tmp_path):
     assert page.eval_on_selector_all(".svc-steps", "s => s.map(x => x.querySelectorAll('li').length)") == [4, 4]
     assert page.inner_text(".svc-hint") == "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los pasos."
     from tests.test_ui_design import check
-    assert check(page, "ajustes") == []
+    assert check(page, "conexiones") == []
     shot(page, "ajustes-pasos-antes")
     page.click("[data-connect=tidal]")
     page.wait_for_selector("text=Tidal conectado.")
     page.wait_for_function("document.querySelectorAll('.svc-steps').length === 1")     # quedan los de YouTube Music
     page.locator("input[name=br]").nth(1).check()                  # cambia a Brave: los pasos lo nombran
-    page.click("nav [data-go=inicio]"); page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=inicio]"); page.click("nav [data-go=conexiones]")
     page.wait_for_selector(".svc-steps >> text=ventana nueva de Brave")
     assert errors == []
 
@@ -290,7 +293,7 @@ def test_spotify_setup_from_settings(browser, tmp_path):
     shot(page, "inicio-spotify-sin-configurar")
     assert "Spotify sin configurar" in " ".join(page.inner_text("#chips").split())
     assert page.is_hidden("#home-connect")              # no se reclama: Spotify es opcional
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.click("[data-setup=spotify]")
     page.wait_for_selector("#setup-spotify:not([hidden])")
     panel = page.inner_text("#setup-spotify")
@@ -302,7 +305,7 @@ def test_spotify_setup_from_settings(browser, tmp_path):
     numbers = page.eval_on_selector_all("#setup-spotify .step-n", "ns => ns.map(n => n.textContent)")
     assert numbers == ["1.1", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "3.1", "3.2", "3.3", "3.4"]
     from tests.test_ui_design import check
-    assert check(page, "ajustes") == []                 # el panel respeta el sistema de tamaños
+    assert check(page, "conexiones") == []                 # el panel respeta el sistema de tamaños
     shot(page, "ajustes-spotify-configurar")
     page.fill("#client-spotify", "no-es-un-id")
     page.click("[data-save-client=spotify]")
@@ -367,7 +370,10 @@ def test_home_explains_the_app_and_the_route_is_chosen_in_transfer(browser, tmp_
     # Inicio: un texto sobre la app (con los servicios del registro), sin desplegables
     assert page.inner_text("#home-lede").startswith("PlaylistTransfer pasa tu música entre Tidal, YouTube Music y Spotify")
     assert page.locator("#inicio select").count() == 0
-    assert page.locator("#inicio .features li").count() == 3
+    assert page.locator("#inicio .features li").count() == 4
+    assert page.inner_text("#inicio .features li:first-child").startswith("Conexiones. El primer paso: en Conexiones")
+    assert page.eval_on_selector_all("nav button", "bs => bs.map(b => b.dataset.go)") == [
+        "inicio", "conexiones", "transferir", "repetidos", "historial", "ajustes"]
     shot(page, "inicio-texto")
     page.click("#inicio .actions >> text=Transferir música")
     # Transferir, paso 1: de dónde y a dónde
@@ -400,7 +406,7 @@ def test_copy_redirect_uri(browser, tmp_path):
     with_spotify(api, tmp_path)
     page, errors = open_page(browser, api)
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.click("[data-setup=spotify]")
     # cada valor para pegar tiene su botón Copiar, al lado del paso donde va
     copies = page.eval_on_selector_all("#setup-spotify [data-copy]", "bs => bs.map(b => b.dataset.copy)")
@@ -436,7 +442,7 @@ def test_while_connecting_the_steps_show_up_numbered(browser, tmp_path):
     tidal.login_hangs = True
     tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
     page, errors = open_page(browser, api)
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.wait_for_selector(".svc:has(#wait-tidal) .svc-steps li")    # ya antes de tocar nada
     page.click("[data-connect=tidal]")
     page.wait_for_selector("#cancel-login")
@@ -445,9 +451,9 @@ def test_while_connecting_the_steps_show_up_numbered(browser, tmp_path):
     text = page.inner_text(steps)
     assert "se abre la página de Tidal en Vivaldi" in text and "«Tidal ✓»" in text
     from tests.test_ui_design import check
-    assert check(page, "ajustes") == []                 # con los pasos abiertos, los botones no se aplastan
+    assert check(page, "conexiones") == []                 # con los pasos abiertos, los botones no se aplastan
     page.set_viewport_size({"width": 860, "height": 620})
-    assert check(page, "ajustes") == []
+    assert check(page, "conexiones") == []
     page.set_viewport_size({"width": 1120, "height": 780})
     shot(page, "ajustes-conectando-pasos")
     page.click("#cancel-login")
@@ -459,7 +465,7 @@ def test_login_can_be_cancelled_from_settings(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path, connected=False)
     tidal.login_hangs = True
     page, errors = open_page(browser, api)
-    page.click("nav [data-go=ajustes]")
+    page.click("nav [data-go=conexiones]")
     page.click("[data-connect=tidal]")
     page.wait_for_selector("#cancel-login")
     assert round(page.locator("#cancel-login").bounding_box()["height"]) == 36   # sistema de tamaños
@@ -588,7 +594,7 @@ def test_every_screen_in_english_has_no_spanish_left(browser, tmp_path):
     assert page.inner_text("#c-title") == "Remove 1 song from “Classics”?"
     page.click("#confirm-yes")
     page.wait_for_selector("text=Removed 1 song")
-    for screen in ("historial", "ajustes", "inicio"):
+    for screen in ("historial", "conexiones", "ajustes", "inicio"):
         page.click(f"nav [data-go={screen}]")
         page.wait_for_timeout(250)
         assert visible_spanish(page) == [], screen
