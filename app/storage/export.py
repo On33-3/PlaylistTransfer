@@ -23,7 +23,10 @@ def header() -> list[str]:
     return [tr(f"csv.{k}") for k in HEADER_KEYS]
 
 
-def status_label(status: str) -> str:
+def status_label(status: str, dry_run: bool = False) -> str:
+    """En una prueba sin cambios, lo encontrado "se agregaría": no se agregó nada."""
+    if dry_run and status in ("ok", "dudoso"):
+        return tr(f"csv.status_dry.{status}")
     return tr(f"csv.status.{status}")
 
 
@@ -102,7 +105,7 @@ def write_csv(path: Path, operations: Iterable[ReportOperation], service_names: 
                 w.writerow([date, kind_label(op.kind),
                             service_names.get(op.source, op.source), safe_cell(op.source_name),
                             service_names.get(op.target, op.target or ""), safe_cell(op.target_name),
-                            t.n, status_label(t.status), safe_cell(t.title), safe_cell(t.artist),
+                            t.n, status_label(t.status, op.kind == "dry_run"), safe_cell(t.title), safe_cell(t.artist),
                             safe_cell(t.match_title), safe_cell(t.match_artist), score])
                 rows += 1
     tmp.replace(path)

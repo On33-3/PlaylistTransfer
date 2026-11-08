@@ -38,9 +38,9 @@ def test_english_windows_uses_comma_and_point(history, tmp_path):
     rows = read(out, ",")
     assert rows[0] == header() and rows[0][0] == "Fecha"
     assert rows[1] == ["2026-11-08 · 01:00", "Transferencia", "Tidal", "Clásicos", "YouTube Music", "Clásicos",
-                       "1", "Encontrado", "Corazón Espinado", "Santana, Maná", "Corazón Espinado", "Santana", "0.97"]
+                       "1", "Agregado", "Corazón Espinado", "Santana, Maná", "Corazón Espinado", "Santana", "0.97"]
     assert rows[2][7] == "Ya estaba" and rows[3][7] == "No encontrado" and rows[3][10] == ""
-    assert rows[4][:2] == ["2026-11-08 · 01:02", "Quitar repetidos"] and rows[4][7] == "Quitado"
+    assert rows[4][:2] == ["2026-11-08 · 01:02", "Quitar repetidos"] and rows[4][7] == "Quitado (repetido)"
     assert all(len(r) == len(header()) for r in rows)
 
 
@@ -87,3 +87,12 @@ def test_an_error_does_not_leave_a_half_written_file(history, tmp_path, monkeypa
     with pytest.raises(RuntimeError):
         write_csv(out, broken(), NAMES, sep=",", decimal=".")
     assert out.read_text(encoding="utf-8") == "versión anterior"
+
+
+def test_preview_report_says_would_be_added(tmp_path):
+    op = ReportOperation("2026-01-01T00:00:00", "dry_run", "tidal", "a", "ytmusic", "b",
+                         [TrackRecord(1, "ok", "x", "y"), TrackRecord(2, "dudoso", "z", "w"),
+                          TrackRecord(3, "ya_estaba", "q", "r")])
+    out = tmp_path / "p.csv"
+    write_csv(out, [op], NAMES, sep=",", decimal=".")
+    assert [r[7] for r in read(out, ",")[1:]] == ["Se agregaría", "Se agregaría, puede ser otra versión", "Ya estaba"]
