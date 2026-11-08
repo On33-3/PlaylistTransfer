@@ -13,11 +13,13 @@ import re
 import socket
 import struct
 import subprocess
+import threading
 import time
 import urllib.request
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
+from app.core.models import Cancelled
 from app.i18n import t as tr
 
 
@@ -144,7 +146,8 @@ def cookies_for_domain(cookies: list[dict], domain: str) -> dict[str, str]:
 
 def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, login_url: str,
                            domain: str, wanted: set[str], timeout: float = 600,
-                           on_status: Callable[[str], None] | None = None) -> tuple[dict[str, str], str]:
+                           on_status: Callable[[str], None] | None = None,
+                           cancel: threading.Event | None = None) -> tuple[dict[str, str], str]:
     """Abre el navegador en `login_url` y espera hasta que aparezca alguna cookie de `wanted` en
     `domain`. Devuelve (cookies de ese dominio, user-agent). Cierra el navegador al terminar."""
     say = on_status or (lambda _msg: None)
@@ -183,6 +186,8 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
         deadline = time.time() + timeout
         cookies = jar()
         while not (wanted & cookies.keys()):
+            if cancel is not None and cancel.is_set():
+                raise Cancelled()
             if time.time() > deadline:
                 raise LoginError(tr("err.login_timeout"))
             time.sleep(1.5)
@@ -190,7 +195,7 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
         time.sleep(3)              # deja terminar la redirección
         cookies = jar()
         user_agent = cdp.send("Browser.getVersion").get("userAgent") or info.get("User-Agent", "")
-    except LoginError:
+    except (LoginError, Cancelled):
         raise
     except Exception as e:         # por ejemplo, si se cerró la ventana antes de terminar
         raise LoginError(tr("err.login_interrupted", detail=e)) from e

@@ -231,7 +231,7 @@ class Api:
                 self.choose_browser(str(suggested.exe))
                 browser = suggested
             emit({"type": "login", "service": c.name, "browser": browser.name})
-            c.connect(browser)
+            c.connect(browser, cancel=cancel)
             return {"status": c.status().value}
         return self._start("login", work)
 

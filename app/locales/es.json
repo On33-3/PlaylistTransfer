@@ -147,6 +147,8 @@
     "settings.login_wait": "Se abrió {browser}. Iniciá sesión en {service} y volvé acá; se completa solo.",
     "settings.connected_toast": "{service} conectado.",
     "settings.connect_error": "No se pudo conectar.",
+    "settings.cancel_login": "Cancelar",
+    "settings.login_cancelled": "Cancelaste el inicio de sesión.",
     "settings.disconnected_toast": "Desconectaste {service}.",
     "settings.browser": "Navegador",
     "settings.browser_text": "Dónde se abren las ventanas para iniciar sesión.",

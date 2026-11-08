@@ -5,11 +5,13 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import threading
 import time
 import webbrowser
 from pathlib import Path
 
 from app.auth.cdp_login import LoginError
+from app.core.models import Cancelled
 from app.i18n import t as tr
 
 FIREFOX_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
@@ -48,8 +50,8 @@ def read_cookies(domain: str, wanted: set[str], dbs: list[Path] | None = None) -
     return {}
 
 
-def login_and_read_cookies(login_url: str, domain: str, wanted: set[str],
-                           timeout: float = 600) -> tuple[dict[str, str], str]:
+def login_and_read_cookies(login_url: str, domain: str, wanted: set[str], timeout: float = 600,
+                           cancel: threading.Event | None = None) -> tuple[dict[str, str], str]:
     """Usa la sesión ya abierta en Firefox; si no hay, abre el login y espera a que aparezca."""
     jar = read_cookies(domain, wanted)
     if jar:
@@ -57,7 +59,8 @@ def login_and_read_cookies(login_url: str, domain: str, wanted: set[str],
     webbrowser.open(login_url)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        time.sleep(3)
+        if (cancel or threading.Event()).wait(3):       # espera 3 s, o corta si se canceló
+            raise Cancelled()
         jar = read_cookies(domain, wanted)
         if jar:
             return jar, FIREFOX_UA

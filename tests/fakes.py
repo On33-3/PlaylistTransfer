@@ -7,7 +7,7 @@ from dataclasses import replace
 from app.connectors.base import (Connector, ConnectorError, NotConnectedError, Status,
                                  require_confirmation)
 from app.core.matching import norm
-from app.core.models import Duplicate, PlaylistInfo, Song
+from app.core.models import Cancelled, Duplicate, PlaylistInfo, Song
 
 
 class FakeService(Connector):
@@ -20,6 +20,7 @@ class FakeService(Connector):
         self._ids = itertools.count(1)
         self._set_ids = itertools.count(1)
         self.search_pause = 0
+        self.login_hangs = False                # True: el login espera hasta que se cancele
 
     # ---- armado de datos para los tests
     def add_playlist(self, pid: str, name: str, songs: list[Song]) -> None:
@@ -32,8 +33,12 @@ class FakeService(Connector):
     def status(self) -> Status:
         return Status.CONNECTED if self.connected else Status.DISCONNECTED
 
-    def connect(self, browser=None) -> None:
+    def connect(self, browser=None, cancel=None) -> None:
         self.calls.append(("connect", browser.name if browser else None))
+        while self.login_hangs and not (cancel and cancel.wait(0.05)):
+            pass
+        if self.login_hangs:
+            raise Cancelled()
         self.connected = True
 
     def disconnect(self) -> None:

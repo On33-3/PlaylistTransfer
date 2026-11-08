@@ -147,6 +147,8 @@
     "settings.login_wait": "{browser} opened. Sign in to {service} and come back here; it finishes on its own.",
     "settings.connected_toast": "{service} connected.",
     "settings.connect_error": "Couldn't connect.",
+    "settings.cancel_login": "Cancel",
+    "settings.login_cancelled": "Sign-in cancelled.",
     "settings.disconnected_toast": "{service} disconnected.",
     "settings.browser": "Browser",
     "settings.browser_text": "Where the sign-in windows open.",

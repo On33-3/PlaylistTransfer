@@ -5,6 +5,10 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 
+class Cancelled(Exception):
+    """El usuario canceló una tarea en curso (una transferencia, un inicio de sesión...)."""
+
+
 @dataclass
 class Song:
     title: str
