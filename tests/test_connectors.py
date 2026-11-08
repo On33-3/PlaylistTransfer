@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from pathlib import Path
 from types import SimpleNamespace as NS
 
 import pytest
@@ -208,6 +210,19 @@ def test_firefox_login_can_be_cancelled(monkeypatch):
         firefox.login_and_read_cookies("https://example.com", "youtube.com", {"SID"}, cancel=cancel)
     assert time.monotonic() - start < 2       # no espera los 3 segundos enteros
 
+
+
+def test_firefox_login_opens_in_firefox_not_the_default_browser(monkeypatch):
+    """Si eligió Firefox pero su predeterminado es otro, el login se abre en Firefox (ahí se leen las cookies)."""
+    from app.auth import firefox
+    calls, seen = [], iter([{}, {"SID": "x"}])
+    monkeypatch.setattr(firefox, "read_cookies", lambda domain, wanted: next(seen))
+    monkeypatch.setattr(firefox.webbrowser, "open", lambda url: calls.append(("default", url)))
+    monkeypatch.setattr(firefox.subprocess, "Popen", lambda args: calls.append(("exe", *args)))
+    monkeypatch.setattr(threading.Event, "wait", lambda self, t=None: False)
+    jar, _ = firefox.login_and_read_cookies("https://music.youtube.com", "youtube.com", {"SID"},
+                                            exe=Path(r"C:irefox.exe"))
+    assert jar == {"SID": "x"} and calls == [("exe", r"C:irefox.exe", "https://music.youtube.com")]
 
 def test_tidal_status_without_network(tmp_path):
     f = tmp_path / "tidal_session.json"

@@ -209,6 +209,44 @@ def with_spotify(api, tmp_path):
     return c, fake
 
 
+def test_each_service_says_what_happens_before_connecting(browser, tmp_path):
+    """Debajo de cada servicio sin conectar, una línea dice qué pasa al tocar Conectar; al conectar, desaparece."""
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    with_spotify(api, tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=ajustes]")
+    page.wait_for_selector(".svc-hint")
+    hints = page.eval_on_selector_all(".svc-hint", "hs => hs.map(h => h.textContent)")
+    assert hints == ["Se abre Vivaldi en la página de Tidal: iniciá sesión con tu cuenta y aprobá el acceso.",
+                     "Se abre una ventana de Vivaldi solo para esto: iniciá sesión con tu cuenta de Google y se cierra sola.",
+                     "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los 3 pasos."]
+    shot(page, "ajustes-ayuda-servicios")
+    page.click("[data-connect=tidal]")
+    page.wait_for_selector("text=Tidal conectado.")
+    page.wait_for_function("document.querySelectorAll('.svc-hint').length === 2")
+    page.locator("input[name=br]").nth(1).check()                  # cambia a Brave: la ayuda lo nombra
+    page.click("nav [data-go=inicio]"); page.click("nav [data-go=ajustes]")
+    page.wait_for_selector(".svc-hint >> text=ventana de Brave")
+    assert errors == []
+
+
+def test_home_only_asks_to_connect_when_fewer_than_two(browser, tmp_path):
+    """Quien usa YouTube Music y Spotify no ve "falta Tidal" para siempre."""
+    api, tidal, yt = make_api(tmp_path)
+    tidal.connected = False
+    sp, _ = with_spotify(api, tmp_path)
+    sp.set_client_id("0123456789abcdef0123456789abcdef")
+    sp.connect()
+    page, errors = open_page(browser, api)
+    page.wait_for_selector("#chips .chip.ok >> text=Spotify")
+    assert page.is_hidden("#home-connect")
+    yt.connected = False
+    page.reload(); page.wait_for_selector("#chips .chip.ok >> text=Spotify")
+    page.wait_for_selector("#home-connect:not([hidden])")
+    assert "Hacen falta dos" in page.inner_text("#home-connect")
+    assert errors == []
+
+
 def test_spotify_setup_from_settings(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path)
     sp, fake = with_spotify(api, tmp_path)

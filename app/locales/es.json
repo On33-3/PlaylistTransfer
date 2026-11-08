@@ -19,7 +19,6 @@
     "status.disconnected": "sin conectar",
     "status.soon": "próximamente",
     "home.connect_title": "Para empezar, conectá tus servicios.",
-    "home.connect_missing": "Falta {services}.",
     "home.connect_btn": "Conectar",
     "home.lede": "PlaylistTransfer pasa tu música entre {services}, en cualquier dirección. Sin cuentas nuevas: todo pasa en tu compu.",
     "home.dedupe": "Quitar repetidos",
@@ -247,7 +246,14 @@
     "home.f_history": "Cada transferencia y cada limpieza quedan guardadas, tema por tema.",
     "home.transfer": "Transferir música",
     "transfer.from": "De",
-    "transfer.to": "a"
+    "transfer.to": "a",
+    "home.connect_text": "Hacen falta dos para pasar música; uno para quitar repetidos.",
+    "settings.your_browser": "tu navegador",
+    "settings.hint.tidal": "Se abre {browser} en la página de Tidal: iniciá sesión con tu cuenta y aprobá el acceso.",
+    "settings.hint.ytmusic": "Se abre una ventana de {browser} solo para esto: iniciá sesión con tu cuenta de Google y se cierra sola.",
+    "settings.hint.ytmusic_firefox": "Si ya tenés YouTube Music abierto en Firefox, se usa esa sesión; si no, se abre Firefox para que inicies sesión.",
+    "settings.hint.spotify": "Se abre {browser} para que aceptes el permiso de tu app.",
+    "settings.hint.spotify_setup": "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los 3 pasos."
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",

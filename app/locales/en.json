@@ -19,7 +19,6 @@
     "status.disconnected": "not connected",
     "status.soon": "coming soon",
     "home.connect_title": "To get started, connect your services.",
-    "home.connect_missing": "Missing: {services}.",
     "home.connect_btn": "Connect",
     "home.lede": "PlaylistTransfer moves your music between {services}, in any direction. No new accounts: everything happens on your computer.",
     "home.dedupe": "Remove duplicates",
@@ -247,7 +246,14 @@
     "home.f_history": "Every transfer and every cleanup is saved, song by song.",
     "home.transfer": "Transfer music",
     "transfer.from": "From",
-    "transfer.to": "to"
+    "transfer.to": "to",
+    "home.connect_text": "Two are needed to move music; one to remove duplicates.",
+    "settings.your_browser": "your browser",
+    "settings.hint.tidal": "{browser} opens on the Tidal page: sign in with your account and approve access.",
+    "settings.hint.ytmusic": "A {browser} window opens just for this: sign in with your Google account and it closes by itself.",
+    "settings.hint.ytmusic_firefox": "If YouTube Music is already open in Firefox, that session is used; if not, Firefox opens so you can sign in.",
+    "settings.hint.spotify": "{browser} opens so you can accept your app's permission.",
+    "settings.hint.spotify_setup": "Needs Spotify Premium and your own app on Spotify: click “Set up” and follow the 3 steps."
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",

@@ -76,6 +76,18 @@ def test_every_key_used_in_python_exists():
         assert f"report.status.{status}" in py
 
 
+def test_every_service_explains_what_happens_when_connecting():
+    """La ayuda de Ajustes sale de settings.hint.<servicio>: cada servicio del registro tiene la suya,
+    y los que piden configurar algo antes, también la de _setup."""
+    from app.connectors import registry
+    for lang in ("es", "en"):
+        ui = load(lang)["ui"]
+        for s in registry.SERVICES:
+            assert f"settings.hint.{s.key}" in ui, (lang, s.key)
+            if getattr(s.make(), "needs_setup", False):
+                assert f"settings.hint.{s.key}_setup" in ui, (lang, s.key)
+
+
 def test_no_hardcoded_spanish_left_in_app_js():
     """Fuera de los comentarios, app.js no tiene texto en castellano: todo pasa por t()."""
     src = (UI / "app.js").read_text(encoding="utf-8")

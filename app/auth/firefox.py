@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import shutil
 import sqlite3
+import subprocess
 import tempfile
 import threading
 import time
@@ -51,12 +52,21 @@ def read_cookies(domain: str, wanted: set[str], dbs: list[Path] | None = None) -
 
 
 def login_and_read_cookies(login_url: str, domain: str, wanted: set[str], timeout: float = 600,
-                           cancel: threading.Event | None = None) -> tuple[dict[str, str], str]:
-    """Usa la sesión ya abierta en Firefox; si no hay, abre el login y espera a que aparezca."""
+                           cancel: threading.Event | None = None, exe: Path | None = None) -> tuple[dict[str, str], str]:
+    """Usa la sesión ya abierta en Firefox; si no hay, abre el login *en Firefox* y espera a que aparezca.
+    (Con `webbrowser.open` se abría en el predeterminado: si era otro, la sesión nunca llegaba a Firefox.)"""
     jar = read_cookies(domain, wanted)
     if jar:
         return jar, FIREFOX_UA
-    webbrowser.open(login_url)
+    opened = False
+    if exe is not None:
+        try:
+            subprocess.Popen([str(exe), login_url])
+            opened = True
+        except OSError:
+            pass
+    if not opened:
+        webbrowser.open(login_url)
     deadline = time.time() + timeout
     while time.time() < deadline:
         if (cancel or threading.Event()).wait(3):       # espera 3 s, o corta si se canceló

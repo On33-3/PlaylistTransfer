@@ -119,10 +119,9 @@ async function refreshStatus() {
     const target = s.status === "soon" ? "" : `data-go="ajustes"`;
     return `<button class="chip ${cls}" ${target} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
   }).join("");
-  // Lo que nunca se configuró (Spotify pide Premium y una app propia) no se reclama en Inicio
-  const missing = USABLE.filter(k => !connected(k) && state.status[k] !== "setup").map(k => NAMES[k]);
-  $("#home-connect").hidden = missing.length === 0;
-  $("#home-connect-text").textContent = missing.length ? t("home.connect_missing", { services: listAnd(missing) }) : "";
+  // Para pasar música hacen falta dos servicios. Con dos o más no se reclama nada: cada uno usa los que
+  // quiere, y quien no usa uno de ellos no tiene por qué verlo reclamado para siempre
+  $("#home-connect").hidden = USABLE.filter(connected).length >= 2;
 }
 
 /* ---------------------------------------------------------------- transferir: de dónde y a dónde */
@@ -623,7 +622,20 @@ $("#open-export").addEventListener("click", () => call("open_export"));
 
 /* ---------------------------------------------------------------- ajustes */
 
+// La ayuda de cada servicio sale del diccionario por su clave (settings.hint.<servicio>), con variantes
+// opcionales _setup (antes de configurarlo) y _firefox (si el navegador es Firefox): un servicio nuevo
+// solo suma textos, nunca código acá. test_i18n.py exige la clave para cada servicio del registro.
+function serviceHint(k, st, browser) {
+  const base = `settings.hint.${k}`;
+  const key = [st === "setup" && `${base}_setup`, browser?.kind === "firefox" && `${base}_firefox`, base]
+    .find(x => x && STR[x] !== undefined) || base;
+  return t(key, { browser: browser?.name || t("settings.your_browser") });
+}
+
 async function renderSettings() {
+  const b = await call("browsers");
+  const chosenExe = b && (b.chosen || b.suggested);
+  const browser = b && b.browsers.find(x => x.exe === chosenExe);
   $("#svc-list").innerHTML = USABLE.map(k => {
     const st = state.status[k];
     const label = { connected: t("settings.connected"), expired: t("settings.expired"), disconnected: t("settings.disconnected"),
@@ -633,7 +645,8 @@ async function renderSettings() {
       : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
     if (SETUP[k] && st !== "setup") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
-    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span><div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`
+    const hint = st === "connected" ? "" : `<div class="svc-hint muted">${esc(serviceHint(k, st, browser))}</div>`;
+    return `<div class="svc"><span><b>${NAMES[k]}</b> <span class="muted">${esc(label)}</span>${hint}<div class="login-wait" id="wait-${k}" hidden></div></span><span class="actions-inline">${btns}</span></div>`
       + (SETUP[k] ? setupPanelHTML(k) : "");
   }).join("") + Object.keys(NAMES).filter(k => !USABLE.includes(k)).map(k =>
     `<div class="svc"><span><b>${esc(NAMES[k])}</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`).join("");
@@ -644,9 +657,8 @@ async function renderSettings() {
     $("#language-list").innerHTML = langs.available.map(l => `
       <label class="opt"><input type="radio" name="lang" value="${esc(l.code)}" ${l.code === langs.current ? "checked" : ""}> <span lang="${esc(l.code)}">${esc(l.name)}</span></label>`).join("");
   }
-  const b = await call("browsers");
   if (b) {
-    const chosen = b.chosen || b.suggested;
+    const chosen = chosenExe;
     $("#browser-list").innerHTML = b.browsers.length ? b.browsers.map(x => `
       <label class="opt"><input type="radio" name="br" value="${esc(x.exe)}" ${x.exe === chosen ? "checked" : ""}>
       <span>${esc(x.name)}${x.default ? ` <span class="muted">${esc(t("settings.default"))}</span>` : ""}</span></label>`).join("")
