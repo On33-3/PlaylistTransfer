@@ -24,12 +24,13 @@ CREATE TABLE IF NOT EXISTS operations (
     already       INTEGER NOT NULL DEFAULT 0, -- ya estaban (incluye otra versión)
     doubtful      INTEGER NOT NULL DEFAULT 0,
     not_found     INTEGER NOT NULL DEFAULT 0,
-    removed       INTEGER NOT NULL DEFAULT 0
+    removed       INTEGER NOT NULL DEFAULT 0,
+    skipped       INTEGER NOT NULL DEFAULT 0  -- "?" que no se agregaron (el usuario eligió no agregarlos solos)
 );
 CREATE TABLE IF NOT EXISTS operation_tracks (
     operation_id  INTEGER NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
     n             INTEGER NOT NULL,
-    status        TEXT NOT NULL,              -- 'ok' | 'dudoso' | 'no_encontrado' | 'ya_estaba' | 'quitado'
+    status        TEXT NOT NULL,              -- 'ok' | 'dudoso' | 'dudoso_omitido' | 'no_encontrado' | 'ya_estaba' | 'quitado'
     title         TEXT NOT NULL,
     artist        TEXT NOT NULL,              -- el artista queda siempre como referencia
     match_title   TEXT,
@@ -64,6 +65,7 @@ class Operation:
     doubtful: int = 0
     not_found: int = 0
     removed: int = 0
+    skipped: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     id: int | None = None
 
@@ -82,11 +84,20 @@ class History:
         con.execute("PRAGMA foreign_keys = ON")
         try:
             con.executescript(SCHEMA)
+            self._migrate(con)
         except sqlite3.DatabaseError:
             con.close()
             self._set_aside()
             return self._connect(create)
         return con
+
+    @staticmethod
+    def _migrate(con: sqlite3.Connection) -> None:
+        """Historiales de versiones anteriores: agrega las columnas nuevas sin tocar lo que hay."""
+        cols = {r["name"] for r in con.execute("PRAGMA table_info(operations)")}
+        if "skipped" not in cols:
+            con.execute("ALTER TABLE operations ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0")
+            con.commit()
 
     def _set_aside(self) -> None:
         """Archivo dañado: se aparta (nunca se borra) y se empieza un historial nuevo."""

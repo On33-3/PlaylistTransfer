@@ -344,7 +344,7 @@ def test_home_and_history_legends_only_when_there_is_history(browser, tmp_path):
     page.click("nav [data-go=inicio]")
     page.wait_for_selector("#home-legend:not([hidden])")
     legend = page.inner_text("#home-legend")
-    for word in ("Agregado", "Agregado, puede ser otra versión", "No encontrado", "Ya estaba", "Quitado (repetido)"):
+    for word in ("Agregado", "Puede ser otra versión", "No encontrado", "Ya estaba", "Quitado (repetido)"):
         assert word in legend
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist-legend:not([hidden])")
@@ -374,7 +374,7 @@ def test_small_tiles_in_english(browser, tmp_path):
     page.wait_for_selector("#hist .mosaic i")
     titles = [i.get_attribute("title") for i in page.query_selector_all("#hist .mosaic i")]
     assert "Hallelujah — Jeff Buckley: Not found" in titles
-    assert "Added, may be another version" in page.inner_text("#hist-legend")
+    assert "May be another version" in page.inner_text("#hist-legend")
     assert errors == []
 
 
@@ -476,4 +476,64 @@ def test_history_summary_counts_doubtful_inside_added(browser, tmp_path):
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist li[data-op]")
     assert "2 added (1 may be another version), 1 already there, 1 not found" in page.inner_text("#hist")
+    assert errors == []
+
+
+# ---------------------------------------------------------------- "?" a criterio del usuario
+
+def doubtful_setup(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    tidal.add_playlist("live", "En vivo", [S("Bohemian Rhapsody", "Queen", dur=354, id="q1"),
+                                           S("Take On Me", "a-ha", dur=225, id="q2"),
+                                           S("Layla", "Eric Clapton", dur=424, id="q3")])
+    yt.catalog.append(S("Layla (Unplugged)", "Eric Clapton", dur=286, id="ylayla"))
+    return api, tidal, yt
+
+
+def run_live(page, dry=False, add_doubtful=False):
+    page.click("nav [data-go=transferir]")
+    if page.is_visible("#again"):
+        page.click("#again")
+    page.wait_for_selector("input[name=src][value=live]")
+    page.check("input[name=src][value=live]")
+    page.check("input[name=dst][value=dst]")
+    page.set_checked("#add-doubtful", add_doubtful)
+    page.click("#dry" if dry else "#go")
+    page.wait_for_selector("#done.show")
+
+
+def test_unticked_doubtful_are_offered_one_by_one(browser, tmp_path):
+    api, tidal, yt = doubtful_setup(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("input[name=src][value=live]")
+    assert page.is_checked("#add-doubtful")                            # como hasta ahora: tildada
+    run_live(page)
+    assert "? No agregado, puede ser otra versión" in page.inner_text("#run .legend")
+    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "2 temas no se agregaron porque pueden ser otra versión" in page.inner_text("#done")
+    assert sorted(s.id for s in yt.songs("dst")) == ["y1", "y2old"]          # solo Take On Me
+    assert page.inner_text("#add-all") == "Agregar los 2 que pueden ser otra versión"
+    shot(page, "13-agregar-igual")
+    page.click("#tracks button[data-add-doubtful='1']")                 # uno solo
+    page.wait_for_selector("#tracks button[data-add-doubtful='1'].done")
+    assert page.inner_text("#tracks button[data-add-doubtful='1']") == "✓ Agregado"
+    assert "y4" in [s.id for s in yt.songs("dst")]
+    assert page.inner_text("#add-all") == "Agregar el que puede ser otra versión"
+    page.click("#add-all")                                              # el resto, de una
+    page.wait_for_selector("#add-all[hidden]", state="attached")
+    assert "ylayla" in [s.id for s in yt.songs("dst")]
+    page.click("nav [data-go=transferir]")                             # la elección se recuerda
+    page.click("#again")
+    page.wait_for_selector("input[name=src][value=live]")
+    assert not page.is_checked("#add-doubtful")
+    assert errors == []
+
+
+def test_preview_with_unticked_doubtful_has_no_buttons(browser, tmp_path):
+    api, *_ = doubtful_setup(tmp_path)
+    page, errors = open_page(browser, api)
+    run_live(page, dry=True)
+    assert "? No se agregaría, puede ser otra versión" in page.inner_text("#run .legend")
+    assert page.locator("#tracks [data-add-doubtful]").count() == 0 and page.is_hidden("#add-all")
     assert errors == []
