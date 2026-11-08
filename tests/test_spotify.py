@@ -421,3 +421,27 @@ def test_transfer_from_tidal_to_spotify_matches_by_isrc(tmp_path, api):
     assert (s["ok"], s["not_found"]) == (1, 1)
     pid = result.targets[0].target.id
     assert api.uris(pid) == [f"spotify:track:{1:0>22}"]
+
+
+# ---------------------------------------------------------------- revisión de bugs
+
+def test_account_without_api_access_does_not_look_expired(tmp_path, api):
+    """Login bien, pero Spotify no deja usar la API (sin Premium o fuera de la lista): no se guarda
+    la sesión y queda "sin conectar" (no "venció"), con el motivo explicado."""
+    def browser_opens(url, browser):
+        q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
+        threading.Thread(target=lambda: urllib.request.urlopen(f"{q['redirect_uri']}?code=C&state={q['state']}").read()).start()
+    c = make(tmp_path, api, logged=False, open_browser=browser_opens)
+    api.forced = [Resp(403, {"error": {"status": 403, "message": "Active premium subscription required for the owner of the app."}})]
+    with pytest.raises(ConnectorError, match="Premium"):
+        c.connect(None)
+    assert not c.session_file.exists() and c.status() is Status.DISCONNECTED
+
+
+def test_rate_limit_during_search_stops_instead_of_saying_not_found(tmp_path, api, monkeypatch):
+    monkeypatch.setattr(sp.time, "sleep", lambda s: None)
+    c = make(tmp_path, api)
+    c._me = "yo"
+    api.forced = [Resp(429, {}, {"Retry-After": "600"})]
+    with pytest.raises(sp.RateLimited):
+        c.search(Song("Take On Me", ["a-ha"], duration=226))

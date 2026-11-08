@@ -50,6 +50,10 @@ class TokenExpired(ConnectorError):
     """El permiso venció (a los 6 meses) o se revocó: hay que volver a conectar."""
 
 
+class RateLimited(ConnectorError):
+    """Spotify pidió esperar más de lo razonable: se corta todo (no es "no encontrado")."""
+
+
 class Forbidden(ConnectorError):
     """403: Premium vencido, fuera de la lista de usuarios de la app o una playlist ajena."""
 
@@ -177,7 +181,7 @@ class SpotifyConnector(Connector):
             if code == 429:
                 wait = int(r.headers.get("Retry-After", "1") or 1)
                 if wait > MAX_WAIT or attempt == 3:
-                    raise ConnectorError(tr("err.spotify_wait", seconds=wait))
+                    raise RateLimited(tr("err.spotify_wait", seconds=wait))
                 time.sleep(wait)
                 continue
             if code >= 500 and attempt < 2:
@@ -241,8 +245,13 @@ class SpotifyConnector(Connector):
         self._store(self._token_request({"grant_type": "authorization_code", "code": code, "redirect_uri": redirect,
                                          "client_id": cid, "code_verifier": verifier}), first=True)
         self._me = None
-        if self.status() is not Status.CONNECTED:
-            raise ConnectorError(tr("err.spotify_forbidden"))
+        try:
+            self._me = str(self._call("GET", "/me").get("id") or "")
+        except ConnectorError:
+            # Spotify dio el permiso pero no deja usar la API (sin Premium, fuera de la lista de
+            # usuarios...): no se guarda una sesión que no sirve (si no, diría "venció")
+            self.disconnect()
+            raise
 
     def disconnect(self) -> None:
         """Borra la sesión (los tokens). El Client ID queda: es la app del usuario, no un secreto."""
@@ -306,8 +315,8 @@ class SpotifyConnector(Connector):
         for q in queries:
             try:
                 res = self._call("GET", "/search", params={"q": q, "type": "track", "limit": SEARCH_LIMIT})
-            except (TokenExpired, NotConnectedError):
-                raise
+            except (TokenExpired, NotConnectedError, RateLimited, Forbidden):
+                raise                              # si no, todos los temas saldrían "no encontrado"
             except ConnectorError as e:
                 log.warning("Spotify: falló la búsqueda %r: %s", q, e)
                 continue

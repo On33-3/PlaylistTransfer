@@ -130,10 +130,11 @@ class FakeTidalLogin:
     """La parte de tidalapi que usa el login por link: aprueba después de `pending` consultas."""
     def __init__(self, pending=2):
         self.pending, self.asked = pending, 0
+        self.interval = 0          # la falsa contesta enseguida: sin intervalo, no parece vencida
         self.token_type, self.access_token, self.refresh_token, self.expiry_time = "Bearer", "a", "r", None
 
     def get_link_login(self):
-        return NS(verification_uri_complete="link.tidal.com/ABCDE", expires_in=300)
+        return NS(verification_uri_complete="link.tidal.com/ABCDE", expires_in=300, interval=self.interval)
 
     def process_link_login(self, link, until_expiry=True):
         assert until_expiry is False          # una consulta por vez: así se puede cancelar
@@ -177,6 +178,19 @@ def test_tidal_login_can_be_cancelled(tmp_path, monkeypatch):
     with pytest.raises(Cancelled):
         c.connect(None, cancel=cancel)
     assert fake.asked == 4 and not (tmp_path / "tidal_session.json").exists()
+
+
+def test_tidal_login_with_an_expired_link_stops_instead_of_hammering(tmp_path, monkeypatch):
+    """Con el link vencido, tidalapi contesta enseguida: no hay que seguir consultando sin pausa."""
+    import app.connectors.tidal as tidal_mod
+    monkeypatch.setattr(tidal_mod, "open_url", lambda url, browser: None)
+    fake = FakeTidalLogin(pending=10 ** 6)
+    fake.interval = 2                         # Tidal pide esperar 2 s, pero contesta al instante: venció
+    c = TidalConnector(tmp_path / "tidal_session.json")
+    c._s = fake
+    with pytest.raises(ConnectorError, match="tiempo"):
+        c.connect(None)
+    assert fake.asked == 1
 
 
 def test_firefox_login_can_be_cancelled(monkeypatch):
