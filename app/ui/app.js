@@ -145,8 +145,10 @@ async function renderHomeHistory() {
   const ops = await call("history", 3) || [];
   $("#home-history").innerHTML = ops.length ? ops.map(op => `
     <li><div><div class="what">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
-    <div class="when">${esc(opSub(op))}</div></li>`).join("") : EMPTY_HISTORY;
+    <div class="mosaic small" aria-hidden="true" title="${esc(opSub(op))}">${tilesHTML(op.tiles)}</div></li>`).join("") : EMPTY_HISTORY;
 }
+
+const tilesHTML = tiles => (tiles || []).map(s => `<i class="${CLASS[s] || "ok"}"></i>`).join("");
 
 /* ---------------------------------------------------------------- transferir: elegir */
 
@@ -243,7 +245,10 @@ async function startTransfer(dryRun) {
 
   const done = await follow(t.job, e => onTransferEvent(t, e));
   $("#run-actions").hidden = true; setStep(2);
-  if (done.state === "done") showTransferResult(t, done.result);
+  if (done.state === "done") {
+    showTransferResult(t, done.result);
+    if ($("#want-report").checked) await saveTransferReport(done.result.transfer);
+  }
   else if (done.state === "cancelled") { $("#done-title").textContent = "Cancelaste la transferencia."; $("#done-detail").textContent = "No se modificó ninguna playlist."; $("#open-dest").hidden = true; $("#done").classList.add("show"); }
   else { $("#done-title").textContent = "No se pudo terminar."; $("#done-detail").textContent = done.error || ""; $("#open-dest").hidden = true; $("#done").classList.add("show"); }
   renderHomeHistory();
@@ -311,7 +316,15 @@ $("#tracks").addEventListener("click", async e => {
 $("#go").addEventListener("click", () => startTransfer(false));
 $("#dry").addEventListener("click", () => startTransfer(true));
 $("#cancel").addEventListener("click", () => { if (state.transfer) { api.cancel(state.transfer.job); $("#cancel").disabled = true; $("#cancel").textContent = "Cancelando…"; } });
-$("#again").addEventListener("click", () => { state.transfer = null; $("#cancel").disabled = false; $("#cancel").textContent = "Cancelar"; delete state.playlists[state.to]; resetTransferView(); });
+async function saveTransferReport(transfer) {
+  const r = await call("export_transfer", transfer);
+  if (!r || r.cancelled) return;
+  $("#open-report").hidden = false;
+  toast(`Guardé el reporte: ${r.name}`);
+}
+$("#open-report").addEventListener("click", () => call("open_export"));
+
+$("#again").addEventListener("click", () => { $("#open-report").hidden = true; state.transfer = null; $("#cancel").disabled = false; $("#cancel").textContent = "Cancelar"; delete state.playlists[state.to]; resetTransferView(); });
 
 /* ---------------------------------------------------------------- quitar repetidos */
 
@@ -383,13 +396,16 @@ $("#confirm-yes").addEventListener("click", async () => {
 /* ---------------------------------------------------------------- historial */
 
 async function renderHistory() {
-  const ops = await call("history") || [];
+  const kind = state.histKind || "";
+  const ops = await call("history", null, kind || null) || [];
+  $("#hist-actions").hidden = ops.length === 0;
   $("#hist").innerHTML = ops.length ? ops.map(op => `
     <li data-op="${op.id}"><button class="row" aria-expanded="false">
       <span class="date">${esc(opDate(op))}</span>
       <span><div class="what">${esc(opTitle(op))}</div><div class="sub">${esc(opRoute(op))}. ${esc(opSub(op))}</div></span>
-      <span></span></button>
-      <div class="detail"><ul><li class="muted">Cargando…</li></ul></div></li>`).join("") : EMPTY_HISTORY;
+      <span class="mosaic small" aria-hidden="true">${tilesHTML(op.tiles)}</span></button>
+      <div class="detail"><ul><li class="muted">Cargando…</li></ul></div></li>`).join("")
+    : (kind ? `<li class="empty">No hay ${kind === "dedupe" ? "limpiezas de repetidos" : "transferencias"} en el historial.</li>` : EMPTY_HISTORY);
 }
 $("#hist").addEventListener("click", async e => {
   const b = e.target.closest("button.row"); if (!b) return;
@@ -403,6 +419,22 @@ $("#hist").addEventListener("click", async e => {
     return `<li><span class="badge ${cls}">${SYMBOL[cls]}</span><span><b>${esc(t.title)}</b> <span class="muted">${esc(t.artist)}</span>${to}</span></li>`;
   }).join("") : `<li class="muted">Sin detalle.</li>`;
 });
+
+$("#hist-filter").addEventListener("click", e => {
+  const b = e.target.closest("[data-kind]"); if (!b) return;
+  state.histKind = b.dataset.kind;
+  $$("#hist-filter button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  renderHistory();
+});
+$("#export").addEventListener("click", async () => {
+  const r = await call("export_history", state.histKind || null);
+  if (!r || r.cancelled) return;
+  $("#open-export").hidden = false;
+  $("#export-note").hidden = false;
+  $("#export-note").textContent = `Guardé ${r.rows === 1 ? "1 fila" : `${r.rows} filas`} en ${r.path}`;
+  toast(`Exportaste el historial: ${r.name}`);
+});
+$("#open-export").addEventListener("click", () => call("open_export"));
 
 /* ---------------------------------------------------------------- ajustes */
 
@@ -426,8 +458,38 @@ async function renderSettings() {
       : `<p class="muted">No encontré navegadores instalados.</p>`;
   }
   const info = await call("info");
-  if (info) { $("#data-path").textContent = info.data_dir; }
+  if (info) {
+    $("#data-path").textContent = info.data_dir;
+    $("#licenses").innerHTML = info.licenses.map(l => `<li>${esc(l.name)} <span class="muted">(${esc(l.license)})</span></li>`).join("");
+  }
+  renderThresholds(await call("settings"));
 }
+
+function renderThresholds(st) {
+  if (!st) return;
+  const lim = st.limits;
+  $("#th-ok").value = Number(st.score_ok).toFixed(2);
+  $("#th-min").value = Number(st.score_min).toFixed(2);
+  $("#th-ok").min = lim.ok_min; $("#th-ok").max = lim.ok_max; $("#th-min").min = lim.min_min;
+  $("#th-help").textContent = `De fábrica: ${st.defaults.score_ok.toFixed(2)} y ${st.defaults.score_min.toFixed(2)}. `
+    + `Más alto es más estricto (menos temas agregados, menos errores). "Sin dudar" va de ${lim.ok_min.toFixed(2)} a ${lim.ok_max.toFixed(2)} `
+    + `y "para revisar" desde ${lim.min_min.toFixed(2)}: así nunca se agregan solas otras versiones ni canciones de otro artista.`;
+  $("#th-error").hidden = true;
+}
+async function saveThresholds(ok, min) {
+  $("#th-error").hidden = true;
+  try {
+    const r = await api.save_thresholds(ok, min);
+    if (r.error) { $("#th-error").textContent = r.error; $("#th-error").hidden = false; return; }
+    toast(`Guardado: sin dudar desde ${r.score_ok.toFixed(2)}, para revisar desde ${r.score_min.toFixed(2)}.`);
+    renderThresholds(await call("settings"));
+  } catch (e) { toast(`Algo salió mal: ${e.message || e}`); }
+}
+$("#th-save").addEventListener("click", () => saveThresholds($("#th-ok").value, $("#th-min").value));
+$("#th-reset").addEventListener("click", async () => {
+  const st = await call("settings");
+  if (st) saveThresholds(st.defaults.score_ok, st.defaults.score_min);
+});
 
 $("#browser-list").addEventListener("change", async e => {
   if (e.target.name !== "br") return;

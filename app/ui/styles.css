@@ -286,3 +286,11 @@
 .path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
 .history-mini li.empty, .hist li.empty { display: block; }
 .empty .btn { margin-left: 10px; height: 32px; padding: 0 14px; font-size: 14px; }
+.report-opt { margin-top: 18px; font-size: 14.5px; }
+.report-opt .muted { font-size: 13.5px; }
+.hist-controls { margin-bottom: 16px; }
+.export-note { font-size: 13.5px; margin-top: 10px; word-break: break-all; }
+.th-help { font-size: 13.5px; margin: 10px 0 0; max-width: 52ch; }
+.licenses { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13.5px; }
+.licenses li { padding: 2px 0; }
+.licenses a { color: var(--ink); }

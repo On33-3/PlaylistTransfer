@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -22,21 +23,40 @@ from app.core.models import Duplicate
 from app.core.transfer import ALREADY, Target, TransferResult, run_transfer, song_dict, summary
 from app.jobs import BusyError, Jobs
 from app.storage import paths, prefs
+from app.storage.export import ReportOperation, from_history, write_csv
 from app.storage.history import History, Operation, TrackRecord
 
 log = logging.getLogger(__name__)
 
 SERVICES = [("tidal", "Tidal"), ("ytmusic", "YouTube Music"), ("spotify", "Spotify")]
 
+# Lo que se muestra en Ajustes › Acerca de (verificar al actualizar requirements.txt)
+LICENSES = [
+    {"name": "tidalapi", "license": "LGPL-3.0", "url": "https://github.com/tamland/python-tidal"},
+    {"name": "ytmusicapi", "license": "MIT", "url": "https://github.com/sigma67/ytmusicapi"},
+    {"name": "pywebview", "license": "BSD-3-Clause", "url": "https://github.com/r0x0r/pywebview"},
+]
+
 
 def _artist(s) -> str:
     return ", ".join(s.artists) if s is not None else ""
 
 
+def _filename(text: str) -> str:
+    """Un nombre de playlist apto para nombre de archivo de Windows."""
+    import re
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", text).strip(" .")[:60] or "playlist"
+
+
 class Api:
     def __init__(self, connectors: dict[str, Connector], history: History, prefs_path: Path, data_dir: Path,
                  list_browsers: Callable[[], list[Browser]] = browsers_mod.installed_browsers,
-                 open_url: Callable[[str, Browser | None], None] = browsers_mod.open_url):
+                 open_url: Callable[[str, Browser | None], None] = browsers_mod.open_url,
+                 save_dialog: Callable[[str], str | None] | None = None,
+                 open_file: Callable[[Path], None] | None = None):
+        self._save_dialog = save_dialog          # main.py pone el diálogo "Guardar como" de la ventana
+        self._open_file = open_file or (lambda p: os.startfile(p))  # type: ignore[attr-defined]
+        self._last_export: Path | None = None
         self._connectors = connectors
         self._history = history
         self._prefs_path = Path(prefs_path)
@@ -91,7 +111,25 @@ class Api:
     # ---------------------------------------------------------------- app
 
     def info(self) -> dict:
-        return {"version": __version__, "data_dir": str(self._data_dir)}
+        return {"version": __version__, "data_dir": str(self._data_dir), "licenses": LICENSES}
+
+    # ---------------------------------------------------------------- ajustes
+
+    def settings(self) -> dict:
+        p = self._prefs()
+        return {"score_ok": p["score_ok"], "score_min": p["score_min"],
+                "defaults": {"score_ok": prefs.DEFAULTS["score_ok"], "score_min": prefs.DEFAULTS["score_min"]},
+                "limits": prefs.threshold_limits()}
+
+    def save_thresholds(self, score_ok, score_min) -> dict:
+        try:
+            ok, mn = prefs.validate_thresholds(score_ok, score_min)
+        except ValueError as e:
+            return {"error": str(e)}
+        p = self._prefs()
+        p["score_ok"], p["score_min"] = ok, mn
+        prefs.save(self._prefs_path, p)
+        return {"ok": True, "score_ok": ok, "score_min": mn}
 
     def ui_ready(self) -> dict:
         """La UI avisa que cargó (lo usa la prueba automática de arranque)."""
@@ -229,7 +267,12 @@ class Api:
             return {"added": song_dict(alt), "targets": done}
         return self._start("alternative", work)
 
-    def _record_transfer(self, result: TransferResult, src: Connector, dst: Connector) -> None:
+    @staticmethod
+    def _transfer_operations(result: TransferResult) -> list[tuple[Operation, list[TrackRecord]]]:
+        """Una operación por playlist de destino, con el estado de cada tema respecto de esa playlist.
+        La usan el historial y el reporte, así los dos dicen exactamente lo mismo."""
+        s = summary(result)
+        out = []
         for t in result.targets:
             already_ids = {id(m) for m in t.already} | {id(m) for m, _, _ in t.versions}
             tracks = []
@@ -238,11 +281,28 @@ class Api:
                 tracks.append(TrackRecord(tr.n, status, tr.source.title, _artist(tr.source),
                                           tr.match.title if tr.match else None, _artist(tr.match) or None,
                                           round(tr.score, 3)))
-            s = summary(result)
-            self._history.record(Operation(
-                kind="transfer", source=src.key, source_name=result.source_name, target=dst.key,
-                target_name=t.target.name, target_url=t.url, added=len(t.added),
-                already=len(t.already) + len(t.versions), doubtful=s["doubtful"], not_found=s["not_found"]), tracks)
+            op = Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
+                           target=result.target_service, target_name=t.target.name, target_url=t.url,
+                           added=len(t.added), already=len(t.already) + len(t.versions),
+                           doubtful=s["doubtful"], not_found=s["not_found"])
+            out.append((op, tracks))
+        return out
+
+    def _record_transfer(self, result: TransferResult, src: Connector, dst: Connector) -> None:
+        for op, tracks in self._transfer_operations(result):
+            self._history.record(op, tracks)
+
+    def export_transfer(self, transfer: str) -> dict:
+        """El reporte de una transferencia recién hecha (o de una prueba, que no queda en el historial).
+        Solo si el usuario tildó "Guardar también un reporte para Excel"."""
+        result = self._transfers.get(transfer)
+        if result is None:
+            return {"error": "Esa transferencia ya no está disponible."}
+        ops = [ReportOperation(op.created_at, "dry_run" if result.dry_run else "transfer", op.source,
+                               op.source_name, op.target, op.target_name, tracks)
+               for op, tracks in self._transfer_operations(result)]
+        prefix = "prueba" if result.dry_run else "reporte"
+        return self._save_csv(f"{prefix}-{_filename(result.source_name)}-{datetime.now():%Y-%m-%d_%H%M}.csv", ops)
 
     # ---------------------------------------------------------------- quitar repetidos
 
@@ -294,15 +354,52 @@ class Api:
 
     # ---------------------------------------------------------------- historial
 
-    def history(self, limit: int | None = None) -> list[dict]:
+    def history(self, limit: int | None = None, kind: str | None = None) -> list[dict]:
         names = dict(SERVICES)
+        ops = [op for op in self._history.list() if kind in (None, "", op.kind)][:limit or None]
+        tiles = self._history.statuses([op.id for op in ops])
         out = []
-        for op in self._history.list(limit=limit):
+        for op in ops:
             d = op.__dict__.copy()
             d["source_label"] = names.get(op.source, op.source)
             d["target_label"] = names.get(op.target, op.target) if op.target else None
+            d["tiles"] = tiles.get(op.id, [])[:60]       # el mosaico de colores de cada fila
             out.append(d)
         return out
+
+    def export_history(self, kind: str | None = None) -> dict:
+        """Todo el historial (o solo transferencias / solo repetidos) en un CSV, a pedido."""
+        ops = from_history(self._history, kind=kind or None)
+        if not ops:
+            return {"error": "Todavía no hay nada en el historial para exportar."}
+        suffix = {"transfer": "transferencias", "dedupe": "repetidos"}.get(kind or "", "")
+        return self._save_csv(f"historial{'-' + suffix if suffix else ''}-{datetime.now():%Y-%m-%d}.csv", ops)
+
+    def _save_csv(self, default_name: str, ops: list[ReportOperation]) -> dict:
+        """Abre "Guardar como" y escribe el CSV. {"cancelled": True} si el usuario cerró el diálogo."""
+        if self._save_dialog is None:
+            return {"error": "No pude abrir el diálogo para guardar."}
+        chosen = self._save_dialog(default_name)
+        if isinstance(chosen, (list, tuple)):
+            chosen = chosen[0] if chosen else None
+        if not chosen:
+            return {"cancelled": True}
+        path = Path(chosen)
+        if path.suffix.lower() != ".csv":
+            path = path.with_name(path.name + ".csv")
+        try:
+            rows = write_csv(path, ops, dict(SERVICES))
+        except OSError as e:
+            return {"error": f"No pude guardar el archivo: {e.strerror or e}. ¿Está abierto en Excel?"}
+        self._last_export = path
+        return {"path": str(path), "name": path.name, "rows": rows}
+
+    def open_export(self) -> dict:
+        """Abre el último CSV exportado (con Excel, si es el programa para .csv). Solo ese archivo."""
+        if self._last_export is None or not self._last_export.exists():
+            return {"error": "Exportá el historial primero."}
+        self._open_file(self._last_export)
+        return {"ok": True}
 
     def history_detail(self, op_id: int) -> list[dict]:
         return [t.__dict__ for t in self._history.tracks(int(op_id))]
