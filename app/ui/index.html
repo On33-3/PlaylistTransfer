@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlaylistTransfer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="window" role="application" aria-label="PlaylistTransfer">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>PlaylistTransfer</div>
+    <div class="status" id="chips" aria-label="Estado de las conexiones"></div>
+  </header>
+
+  <nav aria-label="Secciones">
+    <button data-go="inicio" aria-current="page">Inicio</button>
+    <button data-go="transferir">Transferir</button>
+    <button data-go="repetidos">Quitar repetidos</button>
+    <button data-go="historial">Historial</button>
+    <button data-go="ajustes">Ajustes</button>
+    <span class="spacer"></span>
+    <span class="version" id="version"></span>
+  </nav>
+
+  <main>
+    <!-- ================= INICIO ================= -->
+    <section class="screen active" id="inicio" aria-labelledby="t-inicio">
+      <div class="notice" id="home-connect" hidden>
+        <p><b>Para empezar, conectá tus servicios.</b> <span class="muted" id="home-connect-text"></span></p>
+        <button class="btn primary" data-go="ajustes">Conectar</button>
+      </div>
+      <h1 id="t-inicio" class="sentence">
+        Pasar de
+        <select aria-label="Servicio de origen" id="from"></select><br>
+        a
+        <select aria-label="Servicio de destino" class="to" id="to"></select>
+      </h1>
+      <p class="lede">Elegís una playlist de origen y una o varias de destino. Los temas que ya están, aunque sea en otra versión, no se repiten.</p>
+      <div class="actions">
+        <button class="btn primary" data-go="transferir">Elegir playlists</button>
+        <button class="btn ghost" data-go="repetidos">Quitar repetidos</button>
+      </div>
+
+      <h2>Lo último que pasaste</h2>
+      <ul class="history-mini" id="home-history"></ul>
+    </section>
+
+    <!-- ================= TRANSFERIR ================= -->
+    <section class="screen" id="transferir" aria-labelledby="t-transferir">
+      <h1 id="t-transferir">Transferir</h1>
+      <p class="lede" id="route-lede"></p>
+      <ol class="steps" id="steps">
+        <li class="current"><b>1</b>Origen y destino</li>
+        <li><b>2</b>Transferencia</li>
+        <li><b>3</b>Resultado</li>
+      </ol>
+
+      <div id="pick">
+        <div class="notice" id="pick-connect" hidden>
+          <p id="pick-connect-text"></p>
+          <button class="btn primary" data-go="ajustes">Ir a conectar</button>
+        </div>
+        <div class="pickers" id="pickers">
+          <div class="picker">
+            <h3 id="src-title">Origen</h3>
+            <ul id="src-list"></ul>
+          </div>
+          <div class="picker">
+            <h3 id="dst-title">Destino</h3>
+            <ul id="dst-list"></ul>
+          </div>
+        </div>
+        <p class="error" id="pick-error" hidden></p>
+        <div class="actions">
+          <button class="btn primary" id="go" disabled>Transferir</button>
+          <button class="btn ghost" id="dry" disabled>Probar sin cambiar nada</button>
+        </div>
+      </div>
+
+      <div id="run" hidden>
+        <div class="progress-head">
+          <div class="counter num"><span id="count">0</span> <small id="count-of">temas</small></div>
+          <div class="route" id="run-route"></div>
+        </div>
+        <div class="mosaic big" id="mosaic" role="img" aria-label="Progreso de la transferencia"></div>
+        <div class="legend">
+          <span><i style="background:var(--mint)"></i>✓ Encontrado <b class="num" id="n-ok">0</b></span>
+          <span><i style="background:var(--peach)"></i>? Revisar <b class="num" id="n-doubt">0</b></span>
+          <span><i style="background:var(--rose)"></i>✗ No encontrado <b class="num" id="n-miss">0</b></span>
+          <span><i style="background:var(--sage)"></i>≈ Ya estaba <b class="num" id="n-dup">0</b></span>
+        </div>
+        <div class="actions" id="run-actions"><button class="btn ghost" id="cancel">Cancelar</button></div>
+        <div class="done-box" id="done" role="status">
+          <p><b id="done-title"></b></p>
+          <p class="muted" id="done-detail"></p>
+          <div class="actions" style="margin-top:14px">
+            <button class="btn primary" id="open-dest" hidden>Abrir</button>
+            <button class="btn ghost" id="again">Hacer otra transferencia</button>
+          </div>
+        </div>
+        <ul class="tracks" id="tracks" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <!-- ================= REPETIDOS ================= -->
+    <section class="screen" id="repetidos" aria-labelledby="t-rep">
+      <h1 id="t-rep">Quitar repetidos</h1>
+      <p class="lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero. Las versiones de otros artistas no cuentan como repetidas.</p>
+      <div class="notice" id="dup-connect" hidden>
+        <p>Conectá Tidal o YouTube Music para revisar tus playlists.</p>
+        <button class="btn primary" data-go="ajustes">Ir a conectar</button>
+      </div>
+      <div class="row-controls" id="dup-controls">
+        <div class="seg" role="group" aria-label="Servicio" id="dup-svc"></div>
+        <select class="select" aria-label="Playlist" id="dup-playlist"></select>
+        <button class="btn ghost" id="dup-scan" disabled>Buscar repetidos</button>
+      </div>
+      <p style="margin:22px 0 0" id="dup-summary" hidden></p>
+      <ul class="dups" id="dups"></ul>
+      <div class="actions" id="dup-actions" hidden>
+        <button class="btn danger" id="remove" disabled>Quitar</button>
+      </div>
+    </section>
+
+    <!-- ================= HISTORIAL ================= -->
+    <section class="screen" id="historial" aria-labelledby="t-hist">
+      <h1 id="t-hist">Historial</h1>
+      <p class="lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
+      <ul class="hist" id="hist"></ul>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section class="screen settings" id="ajustes" aria-labelledby="t-aj">
+      <h1 id="t-aj">Ajustes</h1>
+      <p class="lede">Conexiones, navegador y datos.</p>
+
+      <section>
+        <div><h3>Servicios</h3><p>Tus sesiones se guardan solo en esta compu.</p></div>
+        <div id="svc-list"></div>
+      </section>
+
+      <section>
+        <div><h3>Navegador</h3><p>Dónde se abren las ventanas para iniciar sesión.</p></div>
+        <div role="radiogroup" aria-label="Navegador" id="browser-list"></div>
+      </section>
+
+      <section>
+        <div><h3>Datos</h3><p>Historial, sesiones y preferencias. No salen de tu compu.</p></div>
+        <div><button class="btn ghost" id="open-data">Abrir carpeta de datos</button><div class="path" id="data-path"></div></div>
+      </section>
+
+      <section class="about">
+        <div><h3>Acerca de</h3></div>
+        <div>
+          <p id="about-version">PlaylistTransfer, open source con licencia MIT.</p>
+          <p class="muted">No está afiliado a Tidal, Google ni Spotify.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<dialog id="confirm" aria-labelledby="c-title">
+  <h3 id="c-title"></h3>
+  <p>Queda la versión que estaba primero en la playlist. Lo quitado queda anotado en el historial.</p>
+  <div class="actions">
+    <button class="btn danger" id="confirm-yes"></button>
+    <button class="btn ghost" id="confirm-no" autofocus>Cancelar</button>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

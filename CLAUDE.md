@@ -4,8 +4,9 @@ App de escritorio (Windows) para pasar playlists entre servicios de música: hoy
 Proyecto open source pensado para GitHub. El plan completo, con decisiones y fases, está en `SPEC.md`: leelo antes de cambiar algo grande.
 
 ## Estado actual
-- F0 aprobada (`prototype/index.html` es la referencia visual). **F1 hecha**: motor en `app/core/`, conectores en `app/connectors/`, login en `app/auth/`, tests en `tests/`.
-- `legacy/transfer_playlist.py` es la **versión de consola que ya funciona** (probada con cuentas reales) y la referencia del motor. No la rompas hasta que la app la reemplace (F2). Se corre desde la raíz, así sigue usando las sesiones guardadas ahí.
+- F0 aprobada (`prototype/index.html` es la referencia visual). **F1 hecha**: motor en `app/core/`, conectores en `app/connectors/`, login en `app/auth/`. **F2 terminada** (probada por el usuario con cuentas reales el 2026-11-08): ventana con pywebview (`app/main.py`, `app/api.py`, `app/jobs.py`, `app/core/transfer.py`, `app/ui/`). Sigue F3 (exportar historial a CSV, umbrales en Ajustes).
+- `legacy/transfer_playlist.py` es la **versión de consola que ya funciona** (probada con cuentas reales, también en dry-run el 2026-11-08) y la referencia del motor. Ya no hace falta para usar la app; se conserva como referencia hasta que el usuario decida borrarla. Se corre desde la raíz, así sigue usando las sesiones guardadas ahí. La app nueva **no** usa esas sesiones: guarda las suyas en `%LOCALAPPDATA%\PlaylistTransfer\`.
+- UI: sin frameworks ni recursos externos (sin Google Fonts: funciona sin internet y no avisa a nadie). pywebview publica a la página todo atributo público de `Api`: el estado va siempre con `_` (hay un test).
 - `app/core/matching.py` parte de la lógica del script, con reglas nuevas (SPEC, "Reglas del matching"). Cada regla tiene su escenario en `tests/test_scenarios.py`: si encontrás un caso nuevo, agregalo ahí primero. Al cambiar el matching, corré también `py tools/check_reports.py` (compara contra tus reportes reales, locales): ninguna coincidencia real debería empeorar.
 - Una misma canción puede tenerla varios artistas: nunca se reemplaza la versión de un artista por la de otro sin preguntar (`alternatives()`).
 - Primer uso: nada viene con el repo ni con la app; historial, sesiones y preferencias se crean en `%LOCALAPPDATA%\PlaylistTransfer\` recién cuando hacen falta (SPEC, "Primer uso"). Los datos de ejemplo (prototipo, tests) son inventados o canciones conocidas, nunca el historial del usuario.
@@ -19,7 +20,9 @@ Proyecto open source pensado para GitHub. El plan completo, con decisiones y fas
 
 ## Comandos
 - Dependencias de desarrollo: `py -m pip install -r requirements-dev.txt`
-- Tests: `py -m pytest -q`
+- Tests: `py -m pytest -q` (incluye la UI en Edge headless; capturas con `PT_SCREENSHOTS=<carpeta>`)
+- App: `py -m app` (o doble clic en `Abrir PlaylistTransfer.bat`). `PT_DEBUG=1` abre las herramientas de desarrollo; `PT_SMOKE=1` abre, espera la UI y cierra. Log en `%LOCALAPPDATA%\PlaylistTransfer\app.log`.
+- Matching contra tus reportes reales: `py tools/check_reports.py`
 - Script de consola (referencia): `py legacy/transfer_playlist.py` (o doble clic en `Transferir playlists.bat`)
 
 ## Cosas que no se deducen leyendo el código (aprendidas a los golpes)
