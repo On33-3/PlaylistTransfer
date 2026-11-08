@@ -24,7 +24,7 @@ from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TransferResult
                                 run_transfer, song_dict, summary)
 from app.jobs import BusyError, Jobs
 from app.storage import paths, prefs
-from app.storage.export import ReportOperation, from_history, write_csv
+from app.storage.export import ReportOperation, from_history, write_report
 from app.storage.history import History, Operation, TrackRecord
 from app.i18n import t as tr
 
@@ -43,11 +43,6 @@ LICENSES = [
 def _artist(s) -> str:
     return ", ".join(s.artists) if s is not None else ""
 
-
-def _filename(text: str) -> str:
-    """Un nombre de playlist apto para nombre de archivo de Windows."""
-    import re
-    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", text).strip(" .")[:60] or "playlist"
 
 
 class Api:
@@ -161,7 +156,7 @@ class Api:
         p = self._prefs()
         return {"score_ok": p["score_ok"], "score_min": p["score_min"],
                 "defaults": {"score_ok": prefs.DEFAULTS["score_ok"], "score_min": prefs.DEFAULTS["score_min"]},
-                "limits": prefs.threshold_limits(), "add_doubtful": p["add_doubtful"]}
+                "limits": prefs.threshold_limits()}
 
     def save_thresholds(self, score_ok, score_min) -> dict:
         try:
@@ -259,27 +254,20 @@ class Api:
 
     # ---------------------------------------------------------------- transferir
 
-    def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False,
-                       include_doubtful: bool | None = None) -> dict:
-        """`include_doubtful`: agregar también los "?" (pueden ser otra versión). Si no se pasa, se usa
-        lo último que eligió el usuario; si se pasa, se recuerda para la próxima."""
+    def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False) -> dict:
+        """Los "?" (pueden ser otra versión) no se agregan solos: el usuario decide al final con
+        `add_doubtful`."""
         if source == target:
             return {"error": tr("err.same_service")}
         if not targets:
             return {"error": tr("err.choose_target")}
         p = self._prefs()
-        if include_doubtful is None:
-            include_doubtful = p["add_doubtful"]
-        elif bool(include_doubtful) != p["add_doubtful"]:
-            p["add_doubtful"] = bool(include_doubtful)
-            self._save_prefs(p)
 
         def work(emit, cancel):
             src, dst = self._connector(source), self._connector(target)
             tgts = [Target(str(x.get("name") or "").strip() or tr("playlist.default_name"), x.get("id") or None) for x in targets]
             result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
-                                  score_ok=p["score_ok"], score_min=p["score_min"],
-                                  include_doubtful=bool(include_doubtful))
+                                  score_ok=p["score_ok"], score_min=p["score_min"])
             if not result.dry_run:
                 self._record_transfer(result, src, dst)
             key = f"transfer-{len(self._transfers) + 1}"
@@ -389,18 +377,6 @@ class Api:
         for op, tracks in self._transfer_operations(result):
             self._history.record(op, tracks)
 
-    def export_transfer(self, transfer: str) -> dict:
-        """El reporte de una transferencia recién hecha (o de una prueba, que no queda en el historial).
-        Solo si el usuario tildó "Guardar también un reporte para Excel"."""
-        result = self._transfers.get(transfer)
-        if result is None:
-            return {"error": tr("err.transfer_gone")}
-        ops = [ReportOperation(op.created_at, "dry_run" if result.dry_run else "transfer", op.source,
-                               op.source_name, op.target, op.target_name, tracks)
-               for op, tracks in self._transfer_operations(result)]
-        prefix = tr("file.dry_run") if result.dry_run else tr("file.report")
-        return self._save_csv(f"{prefix}-{_filename(result.source_name)}-{datetime.now():%Y-%m-%d_%H%M}.csv", ops)
-
     # ---------------------------------------------------------------- quitar repetidos
 
     def scan_duplicates(self, key: str, playlist_id: str) -> dict:
@@ -467,15 +443,15 @@ class Api:
         return out
 
     def export_history(self, kind: str | None = None) -> dict:
-        """Todo el historial (o solo transferencias / solo repetidos) en un CSV, a pedido."""
+        """Todo el historial (o solo transferencias / solo repetidos) en un .txt liviano, a pedido."""
         ops = from_history(self._history, kind=kind or None)
         if not ops:
             return {"error": tr("err.history_empty")}
         base = {"transfer": tr("file.history_transfers"), "dedupe": tr("file.history_duplicates")}.get(kind or "", tr("file.history"))
-        return self._save_csv(f"{base}-{datetime.now():%Y-%m-%d}.csv", ops)
+        return self._save_report(f"{base}-{datetime.now():%Y-%m-%d}.txt", ops)
 
-    def _save_csv(self, default_name: str, ops: list[ReportOperation]) -> dict:
-        """Abre "Guardar como" y escribe el CSV. {"cancelled": True} si el usuario cerró el diálogo."""
+    def _save_report(self, default_name: str, ops: list[ReportOperation]) -> dict:
+        """Abre "Guardar como" y escribe el .txt. {"cancelled": True} si el usuario cerró el diálogo."""
         if self._save_dialog is None:
             return {"error": tr("err.no_save_dialog")}
         chosen = self._save_dialog(default_name)
@@ -484,17 +460,17 @@ class Api:
         if not chosen:
             return {"cancelled": True}
         path = Path(chosen)
-        if path.suffix.lower() != ".csv":
-            path = path.with_name(path.name + ".csv")
+        if path.suffix.lower() != ".txt":
+            path = path.with_name(path.name + ".txt")
         try:
-            rows = write_csv(path, ops, dict(SERVICES))
+            count = write_report(path, ops, dict(SERVICES))
         except OSError as e:
             return {"error": tr("err.save_failed", detail=e.strerror or e)}
         self._last_export = path
-        return {"path": str(path), "name": path.name, "rows": rows}
+        return {"path": str(path), "name": path.name, "operations": count}
 
     def open_export(self) -> dict:
-        """Abre el último CSV exportado (con Excel, si es el programa para .csv). Solo ese archivo."""
+        """Abre el último historial descargado (con el Bloc de notas u otro editor). Solo ese archivo."""
         if self._last_export is None or not self._last_export.exists():
             return {"error": tr("err.export_first")}
         self._open_file(self._last_export)

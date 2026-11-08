@@ -178,7 +178,7 @@ const LEGEND = [["ok", "ok", "--mint"], ["doubt", "doubt", "--peach"], ["miss", 
 const statusLabel = (s, dry = false) => {
   if (s === "dudoso_omitido") return t(dry ? "legend.skipped_dry" : "legend.skipped");
   const key = CLASS[s] || "ok";
-  return t(dry && (key === "ok" || key === "doubt") ? `legend.${key}_dry` : `legend.${key}`);
+  return t(dry && key === "ok" ? "legend.ok_dry" : `legend.${key}`);
 };
 
 /** Qué significa cada color (una sola vez por pantalla, arriba de la lista). En el historial el "?"
@@ -237,8 +237,6 @@ async function loadPickers() {
     $("#pick-connect-text").textContent = t("transfer.connect_needed", { services: listAnd(missing.map(k => NAMES[k])) });
     updateGo(); return;
   }
-  const prefs = await call("settings");                 // la casilla de los "?" recuerda la última elección
-  if (prefs) $("#add-doubtful").checked = !!prefs.add_doubtful;
   $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">${esc(t("transfer.loading"))}</li>`;
   const [src, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
   const count = c => (c == null ? "" : songs(c));
@@ -315,9 +313,6 @@ function trackHTML(e) {
   const cls = CLASS[e.status] || "now";
   const s = e.song, m = e.match;
   let note = "";
-  if (e.status === "dudoso" && m) {
-    note = t(state.transfer?.dryRun ? "transfer.note_doubt_dry" : "transfer.note_doubt", { title: m.title, artist: m.artist || "?" });
-  }
   if (e.status === "dudoso_omitido" && m) {
     note = t(state.transfer?.dryRun ? "transfer.note_skipped_dry" : "transfer.note_skipped", { title: m.title, artist: m.artist || "?" });
   }
@@ -336,26 +331,24 @@ function trackHTML(e) {
 async function startTransfer(dryRun) {
   const { src, targets } = selection();
   if (!src || !targets.length) return;
-  const include = $("#add-doubtful").checked;
-  const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun, include);
+  const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
-  const tr = state.transfer = { job: r.job, dryRun, include, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0 }, rows: {}, tracks: {} };
+  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0 }, rows: {}, tracks: {} };
   $("#add-all").hidden = true;
   $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#count").textContent = "0";
   $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
   $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${esc(targets.map(x => x.name).join(", "))}`;
   for (const k in tr.n) $("#n-" + k).textContent = 0;
-  // La leyenda dice lo que va a pasar: "Agregado" / "Se agregaría" (prueba), y el "?" según la casilla
+  // La leyenda dice lo que va a pasar: "Agregado" / "Se agregaría" (prueba). Los "?" nunca se agregan solos
   const dry = dryRun ? "_dry" : "";
   $('#run .legend [data-i18n="transfer.legend_ok"]').textContent = t(`transfer.legend_ok${dry}`);
-  $('#run .legend [data-i18n="transfer.legend_doubt"]').textContent = t(`transfer.legend_${include ? "doubt" : "skipped"}${dry}`);
+  $('#run .legend [data-i18n="transfer.legend_skipped"]').textContent = t(`transfer.legend_skipped${dry}`);
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
   $("#run-actions").hidden = true; setStep(2);
   if (done.state === "done") {
     showTransferResult(tr, done.result);
-    if ($("#want-report").checked) await saveTransferReport(done.result.transfer);
   } else {
     const cancelled = done.state === "cancelled";
     $("#done-title").textContent = t(cancelled ? "transfer.cancelled_title" : "transfer.failed_title");
@@ -421,7 +414,6 @@ function showTransferResult(tr, res) {
   });
   $("#done-title").textContent = t(res.dry_run ? "transfer.dry_title" : "transfer.done_title");
   const s = res.summary, notes = [];
-  if (s.doubtful) notes.push(t(res.dry_run ? "transfer.notes_doubtful_dry" : "transfer.notes_doubtful", { n: s.doubtful }));
   if (s.skipped) notes.push(t(res.dry_run ? "transfer.notes_skipped_dry" : "transfer.notes_skipped", { n: s.skipped }));
   if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
@@ -490,16 +482,9 @@ $("#dry").addEventListener("click", () => startTransfer(true));
 $("#cancel").addEventListener("click", () => {
   if (state.transfer) { api.cancel(state.transfer.job); $("#cancel").disabled = true; $("#cancel").textContent = t("transfer.cancelling"); }
 });
-async function saveTransferReport(transfer) {
-  const r = await call("export_transfer", transfer);
-  if (!r || r.cancelled) return;
-  $("#open-report").hidden = false;
-  toast(t("transfer.report_toast", { name: r.name }));
-}
-$("#open-report").addEventListener("click", () => call("open_export"));
 
 $("#again").addEventListener("click", () => {
-  $("#open-report").hidden = true; state.transfer = null;
+  state.transfer = null;
   $("#cancel").disabled = false; $("#cancel").textContent = t("transfer.cancel");
   delete state.playlists[state.to]; resetTransferView();
 });
@@ -581,6 +566,7 @@ async function renderHistory() {
   const kind = state.histKind || "";
   const ops = await call("history", null, kind || null) || [];
   $("#hist-actions").hidden = ops.length === 0;
+  $("#export").title = t("history.download_title");
   showLegend("#hist-legend", ops.length > 0);
   $("#hist").innerHTML = ops.length ? ops.map(op => `
     <li data-op="${op.id}"><button class="row" aria-expanded="false">
@@ -614,8 +600,8 @@ $("#export").addEventListener("click", async () => {
   if (!r || r.cancelled) return;
   $("#open-export").hidden = false;
   $("#export-note").hidden = false;
-  $("#export-note").textContent = t("history.export_note", { n: r.rows, path: r.path });
-  toast(t("history.export_toast", { name: r.name }));
+  $("#export-note").textContent = t("history.download_note", { n: r.operations, path: r.path });
+  toast(t("history.download_toast", { name: r.name }));
 });
 $("#open-export").addEventListener("click", () => call("open_export"));
 

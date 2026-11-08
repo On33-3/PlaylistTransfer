@@ -9,7 +9,8 @@ import pytest
 
 from app import i18n
 from app.api import Api
-from app.storage.export import header
+from app.storage.export import ReportOperation, render
+from app.storage.history import Operation, TrackRecord
 from app.storage.history import History
 from tests.conftest import ROOT
 from tests.fakes import FakeService, S
@@ -71,10 +72,8 @@ def test_every_key_used_in_python_exists():
     # claves armadas con f-strings: job.<tipo>, csv.status.<estado>, csv.kind.<tipo>, csv.<columna>
     for kind in ("transfer", "login", "scan", "remove", "alternative"):
         assert f"job.{kind}" in py
-    for status in ("ok", "dudoso", "no_encontrado", "ya_estaba", "quitado"):
-        assert f"csv.status.{status}" in py
-    for kind in ("transfer", "dedupe", "dry_run"):
-        assert f"csv.kind.{kind}" in py
+    for status in ("ok", "dudoso", "dudoso_omitido", "no_encontrado", "ya_estaba", "quitado"):
+        assert f"report.status.{status}" in py
 
 
 def test_no_hardcoded_spanish_left_in_app_js():
@@ -119,10 +118,12 @@ def test_t_switches_language_and_handles_plurals():
         i18n.set_language("fr")
 
 
-def test_csv_header_follows_the_language():
-    assert header()[0] == "Fecha"
+def test_history_file_follows_the_language():
+    op = ReportOperation(Operation(kind="transfer", source="tidal", source_name="A", target="ytmusic", target_name="B",
+                                   added=1, created_at="2026-11-08T01:00:00"), [TrackRecord(1, "ok", "x", "y")])
+    assert "- Agregado: x — y" in render([op], {"tidal": "Tidal", "ytmusic": "YouTube Music"})
     i18n.set_language("en")
-    assert header()[:3] == ["Date", "Operation", "Source service"]
+    assert "- Added: x — y" in render([op], {"tidal": "Tidal", "ytmusic": "YouTube Music"})
 
 
 def test_connector_errors_follow_the_language():

@@ -39,7 +39,7 @@ def main() -> None:
         documents = Path.home() / "Documents"
         return window.create_file_dialog(webview.FileDialog.SAVE, save_filename=default_name,
                                          directory=str(documents if documents.is_dir() else Path.home()),
-                                         file_types=(i18n.t("file.csv_type"),))
+                                         file_types=(i18n.t("file.txt_type"),))
 
     api._save_dialog = save_dialog
 
