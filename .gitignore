@@ -1,0 +1,31 @@
+# Credenciales y datos personales: nunca subirlos (en cualquier carpeta, también legacy/)
+tidal_session*.json
+browser.json
+oauth.json
+preferencias.json
+.env
+.env.*
+.yt-login/
+browser-profiles/
+*.sqlite
+*.db
+
+# Reportes generados (tienen tus playlists)
+reporte_*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Empaquetado
+build/
+dist/
+
+# Editor y herramientas locales
+.vscode/
+.idea/
+.claude/settings.local.json

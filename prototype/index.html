@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlaylistTransfer · prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F3F1FA;        /* lila neblina */
+    --surface: #FFFFFF;
+    --ink: #2E2A3D;       /* tinta ciruela */
+    --ink-soft: #6B6580;
+    --line: #E4E0F0;
+    --lav: #CFC4F2;       /* primario */
+    --lav-strong: #7E6BC2;/* foco y selección */
+    --sky: #BFE3F5;       /* en curso */
+    --mint: #BDEBD3;      /* ✓ encontrado */
+    --peach: #FFD9B8;     /* ? dudoso */
+    --rose: #FFC2C7;      /* ✗ no encontrado */
+    --sage: #DCE5E0;      /* ≈ ya estaba */
+    --pending: #EAE6F4;
+    --font: "Bricolage Grotesque", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: #E9E5F5;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    font-optical-sizing: auto;
+  }
+  button, select, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--lav-strong); outline-offset: 2px; border-radius: 8px; }
+
+  /* ---------- ventana ---------- */
+  .window {
+    width: min(1080px, 100%);
+    height: min(720px, calc(100vh - 48px));
+    background: var(--bg);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px -20px rgba(73, 57, 140, .35), 0 0 0 1px rgba(126, 107, 194, .12);
+    display: grid;
+    grid-template-columns: 196px 1fr;
+    grid-template-rows: 60px 1fr;
+    overflow: hidden;
+  }
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+  .brand-mark { width: 26px; height: 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .brand-mark i { border-radius: 3px; }
+  .brand-mark i:nth-child(1), .brand-mark i:nth-child(5), .brand-mark i:nth-child(9) { background: var(--mint); }
+  .brand-mark i:nth-child(2), .brand-mark i:nth-child(6) { background: var(--lav); }
+  .brand-mark i:nth-child(3), .brand-mark i:nth-child(7) { background: var(--sky); }
+  .brand-mark i:nth-child(4) { background: var(--peach); }
+  .brand-mark i:nth-child(8) { background: var(--rose); }
+
+  .status { display: flex; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 12px 0 10px;
+    border-radius: 999px; font-size: 13.5px; font-weight: 500;
+    background: var(--surface); border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .chip.ok .dot { background: #5BBF8A; }
+  .chip.warn .dot { background: #F2A15F; }
+  .chip.off { color: var(--ink-soft); background: transparent; border-style: dashed; }
+  .chip.off .dot { background: transparent; border: 1.5px solid #B9B3CC; }
+  .chip .state { color: var(--ink-soft); font-weight: 400; }
+
+  /* ---------- navegación ---------- */
+  nav {
+    padding: 18px 12px;
+    display: flex; flex-direction: column; gap: 2px;
+    border-right: 1px solid var(--line);
+  }
+  nav button {
+    text-align: left; border: 0; background: transparent;
+    padding: 9px 14px; border-radius: 12px; cursor: pointer;
+    font-size: 15px; font-weight: 500; color: var(--ink-soft);
+  }
+  nav button:hover { color: var(--ink); background: rgba(207, 196, 242, .35); }
+  nav button[aria-current="page"] { color: var(--ink); background: var(--surface); box-shadow: inset 3px 0 0 var(--lav-strong); }
+  nav .spacer { flex: 1; }
+  nav .version { padding: 0 14px; font-size: 12.5px; color: var(--ink-soft); }
+
+  main { overflow-y: auto; padding: 34px 40px 40px; }
+  .screen { display: none; max-width: 760px; }
+  .screen.active { display: block; }
+  h1 { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.01em; }
+  .lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 60ch; }
+  .muted { color: var(--ink-soft); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- botones ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 42px; padding: 0 20px; border-radius: 999px;
+    border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 15px;
+  }
+  .btn.primary { background: var(--lav); }
+  .btn.primary:hover { background: #C2B4EE; }
+  .btn.ghost { background: transparent; border-color: #D6D0E8; }
+  .btn.ghost:hover { background: var(--surface); }
+  .btn.danger { background: var(--rose); }
+  .btn.danger:hover { background: #FFB3BA; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+
+  /* ---------- inicio: frase ---------- */
+  .sentence {
+    font-size: 44px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em;
+    margin: 18px 0 14px;
+  }
+  .sentence select {
+    appearance: none; border: 0; cursor: pointer;
+    font-size: inherit; font-weight: 700; letter-spacing: inherit;
+    padding: 0 .35em; margin: 0 .05em; border-radius: 14px;
+    background: var(--surface);
+    box-shadow: inset 0 -4px 0 var(--lav);
+  }
+  .sentence select.to { box-shadow: inset 0 -4px 0 var(--sky); }
+  .sentence select:hover { background: #FBFAFE; }
+
+  .history-mini { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .history-mini li {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; align-items: center;
+    padding: 14px 4px; border-bottom: 1px solid var(--line);
+  }
+  .history-mini .what { font-weight: 600; }
+  .history-mini .when { color: var(--ink-soft); font-size: 13.5px; }
+
+  /* ---------- mosaico ---------- */
+  .mosaic { display: grid; gap: 5px; }
+  .mosaic.big { grid-template-columns: repeat(15, 1fr); max-width: 560px; }
+  .mosaic.big i { aspect-ratio: 1; border-radius: 7px; background: var(--pending); transition: background-color .25s ease, transform .25s ease; }
+  .mosaic.small { grid-template-columns: repeat(15, 10px); gap: 3px; }
+  .mosaic.small i { width: 10px; height: 10px; border-radius: 3px; background: var(--pending); }
+  .mosaic i.ok { background: var(--mint); }
+  .mosaic i.doubt { background: var(--peach); }
+  .mosaic i.miss { background: var(--rose); }
+  .mosaic i.dup { background: var(--sage); }
+  .mosaic i.removed { background: var(--lav); }
+  .mosaic i.now { background: var(--sky); transform: scale(.82); }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+
+  /* ---------- transferir ---------- */
+  .steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 26px; font-size: 13.5px; }
+  .steps li { padding: 5px 12px 5px 6px; border-radius: 999px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
+  .steps li b { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--pending); color: var(--ink); }
+  .steps li.done b { background: var(--mint); }
+  .steps li.current { background: var(--surface); color: var(--ink); font-weight: 600; }
+  .steps li.current b { background: var(--lav); }
+
+  .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .picker h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink-soft); }
+  .picker ul { list-style: none; margin: 0; padding: 6px; background: var(--surface); border-radius: 16px; border: 1px solid var(--line); max-height: 290px; overflow-y: auto; }
+  .picker label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+  .picker label:hover { background: var(--bg); }
+  .picker label .count { margin-left: auto; color: var(--ink-soft); font-size: 13px; }
+  .picker input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
+  .picker .new { border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 4px; }
+
+  .progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; max-width: 560px; }
+  .counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+  .counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
+  .route { font-weight: 600; }
+
+  .tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }
+  .tracks li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .badge { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .badge.ok { background: var(--mint); }
+  .badge.doubt { background: var(--peach); }
+  .badge.miss { background: var(--rose); }
+  .badge.dup { background: var(--sage); }
+  .badge.removed { background: var(--lav); }
+  .badge.now { background: var(--sky); }
+  .tracks .t { font-weight: 600; }
+  .tracks .a, .tracks .note { color: var(--ink-soft); }
+  .tracks .score { color: var(--ink-soft); font-size: 13px; }
+
+  .done-box { margin-top: 22px; padding: 18px 20px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 560px; display: none; }
+  .done-box.show { display: block; }
+  .done-box p { margin: 0 0 4px; }
+
+  /* ---------- repetidos ---------- */
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; border-radius: 999px; padding: 6px 16px; cursor: pointer; font-weight: 500; color: var(--ink-soft); }
+  .seg button[aria-pressed="true"] { background: var(--lav); color: var(--ink); }
+  .row-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .select { height: 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; }
+
+  .dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
+  .dups li { display: grid; grid-template-columns: 28px 1fr 1fr; gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
+  .dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
+  .dups .side { font-size: 14px; }
+  .dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }
+  .dups .remove .tag { background: var(--rose); }
+  .dups .keep .tag { background: var(--mint); }
+  .dups .t { font-weight: 600; }
+  .dups .meta { color: var(--ink-soft); font-size: 13px; }
+
+  /* ---------- historial ---------- */
+  .hist { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+  .hist > li { border-bottom: 1px solid var(--line); }
+  .hist button.row { width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer; display: grid; grid-template-columns: 116px 1fr auto; gap: 18px; align-items: center; padding: 15px 4px; }
+  .hist button.row:hover { background: rgba(255,255,255,.55); }
+  .hist .date { color: var(--ink-soft); font-size: 13.5px; }
+  .hist .what { font-weight: 600; }
+  .hist .sub { color: var(--ink-soft); font-size: 13.5px; }
+  .hist .detail { display: none; padding: 0 4px 16px 138px; }
+  .hist li.open .detail { display: block; }
+  .hist .detail ul { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+  .hist .detail li { padding: 3px 0; display: flex; gap: 10px; align-items: center; }
+  .hist .detail .badge { width: 20px; height: 20px; border-radius: 6px; font-size: 11px; }
+
+  /* ---------- ajustes ---------- */
+  .settings section { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
+  .settings section:first-of-type { border-top: 1px solid var(--line); }
+  .settings h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  .settings h3 + p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13.5px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+  .opt input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
+  .svc { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 12px; }
+  .svc .btn { height: 34px; padding: 0 14px; font-size: 14px; }
+  .thresholds { display: flex; gap: 20px; flex-wrap: wrap; }
+  .thresholds label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-soft); }
+  .thresholds input { width: 90px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; color: var(--ink); }
+  .about p { margin: 0 0 6px; }
+  .support { display: inline-flex; gap: 8px; margin-top: 6px; }
+  .support a { color: var(--ink); text-decoration: none; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; font-weight: 500; }
+  .support a:hover { border-color: var(--lav-strong); }
+
+  /* ---------- diálogo y aviso ---------- */
+  dialog { border: 0; border-radius: 20px; padding: 26px 28px; max-width: 420px; color: var(--ink); background: var(--surface); box-shadow: 0 30px 70px -20px rgba(46, 42, 61, .45); }
+  dialog::backdrop { background: rgba(46, 42, 61, .28); }
+  dialog h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
+  dialog p { margin: 0; color: var(--ink-soft); }
+  .toast { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 760px) {
+    body { padding: 0; }
+    .window { height: 100vh; border-radius: 0; grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+    .topbar { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+    nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
+    nav .spacer, nav .version { display: none; }
+    main { padding: 24px 18px; }
+    .sentence { font-size: 32px; }
+    .pickers, .settings section, .dups li { grid-template-columns: 1fr; }
+    .hist button.row { grid-template-columns: 1fr; }
+    .hist .detail { padding-left: 4px; }
+    .mosaic.big { grid-template-columns: repeat(10, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="window" role="application" aria-label="PlaylistTransfer">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>PlaylistTransfer</div>
+    <div class="status" aria-label="Estado de las conexiones">
+      <button class="chip ok" data-go="ajustes" title="Conectado"><span class="dot"></span>Tidal ✓</button>
+      <button class="chip ok" data-go="ajustes" title="Conectado"><span class="dot"></span>YouTube Music ✓</button>
+      <button class="chip off" data-go="ajustes" title="Sin conectar"><span class="dot"></span>Spotify <span class="state">sin conectar</span></button>
+    </div>
+  </header>
+
+  <nav aria-label="Secciones">
+    <button data-go="inicio" aria-current="page">Inicio</button>
+    <button data-go="transferir">Transferir</button>
+    <button data-go="repetidos">Quitar repetidos</button>
+    <button data-go="historial">Historial</button>
+    <button data-go="ajustes">Ajustes</button>
+    <span class="spacer"></span>
+    <span class="version">Versión 0.1 · prototipo</span>
+  </nav>
+
+  <main>
+    <!-- ================= INICIO ================= -->
+    <section class="screen active" id="inicio" aria-labelledby="t-inicio">
+      <h1 id="t-inicio" class="sentence">
+        Pasar de
+        <select aria-label="Servicio de origen" id="from"><option>Tidal</option><option>YouTube Music</option><option disabled>Spotify</option></select><br>
+        a
+        <select aria-label="Servicio de destino" class="to" id="to"><option>YouTube Music</option><option>Tidal</option><option disabled>Spotify</option></select>
+      </h1>
+      <p class="lede">Elegís una playlist de origen y una o varias de destino. Los temas que ya están, aunque sea en otra versión, no se repiten.</p>
+      <div class="actions">
+        <button class="btn primary" data-go="transferir">Elegir playlists</button>
+        <button class="btn ghost" data-go="repetidos">Quitar repetidos</button>
+      </div>
+
+      <h2>Lo último que pasaste</h2>
+      <ul class="history-mini" id="home-history"></ul>
+    </section>
+
+    <!-- ================= TRANSFERIR ================= -->
+    <section class="screen" id="transferir" aria-labelledby="t-transferir">
+      <h1 id="t-transferir">Transferir</h1>
+      <p class="lede">De Tidal a YouTube Music.</p>
+      <ol class="steps" id="steps">
+        <li class="current"><b>1</b>Origen y destino</li>
+        <li><b>2</b>Transferencia</li>
+        <li><b>3</b>Resultado</li>
+      </ol>
+
+      <div id="pick">
+        <div class="pickers">
+          <div class="picker">
+            <h3>Origen en Tidal</h3>
+            <ul id="src-list"></ul>
+          </div>
+          <div class="picker">
+            <h3>Destino en YouTube Music</h3>
+            <ul id="dst-list"></ul>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="go">Transferir 30 temas</button>
+          <button class="btn ghost" id="dry">Probar sin cambiar nada</button>
+        </div>
+      </div>
+
+      <div id="run" hidden>
+        <div class="progress-head">
+          <div class="counter num"><span id="count">0</span> <small>de 30 temas</small></div>
+          <div class="route">Favoritas <span class="muted">a</span> Favoritas</div>
+        </div>
+        <div class="mosaic big" id="mosaic" role="img" aria-label="Progreso de la transferencia"></div>
+        <div class="legend">
+          <span><i style="background:var(--mint)"></i>✓ Encontrado <b class="num" id="n-ok">0</b></span>
+          <span><i style="background:var(--peach)"></i>? Revisar <b class="num" id="n-doubt">0</b></span>
+          <span><i style="background:var(--rose)"></i>✗ No encontrado <b class="num" id="n-miss">0</b></span>
+          <span><i style="background:var(--sage)"></i>≈ Ya estaba <b class="num" id="n-dup">0</b></span>
+        </div>
+        <div class="done-box" id="done" role="status">
+          <p><b>Listo: agregaste <span id="added" class="num">0</span> temas a «Favoritas».</b></p>
+          <p class="muted">2 ya estaban, uno de ellos en otra versión. Revisá «Im Doing Fine», que quedó marcado con ?.</p>
+          <div class="actions" style="margin-top:14px">
+            <button class="btn primary">Abrir en YouTube Music</button>
+            <button class="btn ghost" id="again">Hacer otra transferencia</button>
+          </div>
+        </div>
+        <ul class="tracks" id="tracks" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <!-- ================= REPETIDOS ================= -->
+    <section class="screen" id="repetidos" aria-labelledby="t-rep">
+      <h1 id="t-rep">Quitar repetidos</h1>
+      <p class="lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero.</p>
+      <div class="row-controls">
+        <div class="seg" role="group" aria-label="Servicio">
+          <button aria-pressed="false">Tidal</button>
+          <button aria-pressed="true">YouTube Music</button>
+        </div>
+        <select class="select" aria-label="Playlist"><option>Clásicos (54 temas)</option><option>Para correr (37 temas)</option><option>Para cocinar (34 temas)</option></select>
+      </div>
+      <p style="margin:22px 0 0"><b>Encontré 8 repetidos en «Clásicos».</b> <span class="muted">Destildá los que quieras conservar.</span></p>
+      <ul class="dups" id="dups"></ul>
+      <div class="actions">
+        <button class="btn danger" id="remove">Quitar 8 temas</button>
+        <button class="btn ghost">Buscar de nuevo</button>
+      </div>
+    </section>
+
+    <!-- ================= HISTORIAL ================= -->
+    <section class="screen" id="historial" aria-labelledby="t-hist">
+      <h1 id="t-hist">Historial</h1>
+      <p class="lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
+      <ul class="hist" id="hist"></ul>
+      <div class="actions"><button class="btn ghost">Exportar a CSV</button></div>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section class="screen settings" id="ajustes" aria-labelledby="t-aj">
+      <h1 id="t-aj">Ajustes</h1>
+      <p class="lede">Conexiones, navegador y datos.</p>
+
+      <section>
+        <div><h3>Servicios</h3><p>Tus sesiones se guardan solo en esta compu.</p></div>
+        <div>
+          <div class="svc"><span><b>Tidal</b> <span class="muted">conectado</span></span><button class="btn ghost">Desconectar</button></div>
+          <div class="svc"><span><b>YouTube Music</b> <span class="muted">conectado</span></span><button class="btn ghost">Desconectar</button></div>
+          <div class="svc"><span><b>Spotify</b> <span class="muted">próximamente</span></span><button class="btn ghost" disabled>Conectar</button></div>
+        </div>
+      </section>
+
+      <section>
+        <div><h3>Navegador</h3><p>Dónde se abren las ventanas para iniciar sesión.</p></div>
+        <div role="radiogroup" aria-label="Navegador">
+          <label class="opt"><input type="radio" name="br" checked> <span>Vivaldi <span class="muted">(predeterminado)</span></span></label>
+          <label class="opt"><input type="radio" name="br"> Brave</label>
+          <label class="opt"><input type="radio" name="br"> Google Chrome</label>
+          <label class="opt"><input type="radio" name="br"> Microsoft Edge</label>
+        </div>
+      </section>
+
+      <section>
+        <div><h3>Coincidencias</h3><p>Avanzado. Cuánto se tienen que parecer dos temas.</p></div>
+        <div class="thresholds">
+          <label>Agregar sin dudar desde<input type="number" step="0.05" value="0.75"></label>
+          <label>Agregar para revisar desde<input type="number" step="0.05" value="0.60"></label>
+        </div>
+      </section>
+
+      <section>
+        <div><h3>Datos</h3><p>Historial, sesiones y preferencias.</p></div>
+        <div><button class="btn ghost">Abrir carpeta de datos</button></div>
+      </section>
+
+      <section class="about">
+        <div><h3>Acerca de</h3></div>
+        <div>
+          <p>PlaylistTransfer 0.1, open source con licencia MIT.</p>
+          <p class="muted">No está afiliado a Tidal, Google ni Spotify.</p>
+          <div class="support"><a href="#">Invitame un cafecito</a><a href="#">Ko-fi</a></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<dialog id="confirm" aria-labelledby="c-title">
+  <h3 id="c-title">¿Quitar 8 temas de «Clásicos»?</h3>
+  <p>Queda la versión que estaba primero en la playlist. Lo quitado queda anotado en el historial.</p>
+  <div class="actions">
+    <button class="btn danger" id="confirm-yes">Quitar 8 temas</button>
+    <button class="btn ghost" id="confirm-no">Cancelar</button>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+  /* ---------- datos de ejemplo (inventados: la app real arranca vacía) ---------- */
+  const TRACKS = [
+    ["Luna de papel","Los Faroles","ok",1.00],["Calle Norte","Los Faroles","ok",1.00],
+    ["Neon Bay","Coral Static","ok",.95],["Low Tide","Coral Static, Mira Sol","ok",1.00],
+    ["Summer Tape","Coral Static","ok",1.00],["Paper Planes Again","The Lanterns","ok",1.00],
+    ["Glass House","The Lanterns, Ivo Reyes","ok",1.00],["Domingo (acústico)","Aurelia","ok",1.00],
+    ["Ruta 40","Aurelia","dup",1.00,"ya estaba"],["Midnight Diner","Velvet Ok","ok",1.00],
+    ["Static Hearts","Velvet Ok, Juno Park","ok",1.00],["Slow Motion","Velvet Ok","ok",1.00],
+    ["North Star","Kite Club","ok",1.00],["Echoes","Kite Club","ok",1.00],["Polaroid","Kite Club","ok",1.00],
+    ["Afterglow","Kite Club, Lía Mar","ok",1.00],["Lento","Bruma","dup",1.00,"ya estaba como «Lento (sped up)»"],
+    ["Marea","Bruma","ok",1.00],["From The Start","Orchid Lane","ok",1.00],
+    ["Im Doing Fine","Tomo, Sound Garden Club","doubt",.68,"puede ser otra versión"],
+    ["Desert Road","Rusty Compass","ok",1.00],["Tiny Violin","The Paper Cuts","ok",1.00],
+    ["Notion","Blue Harbor","ok",1.00],["Sweater Season","Blue Harbor","ok",1.00],
+    ["From the Start","Good Fences","ok",1.00],["Delivery Service","Good Fences","ok",1.00],
+    ["Origami","Blue Harbor","ok",1.00],["As We Were","Nico Vale","ok",1.00],
+    ["Sugarcane","Maple Five","ok",1.00],["This Feeling","Maple Five","ok",1.00]
+  ];
+  const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", now: "…", removed: "−" };
+  const SRC = [["Favoritas",21],["Rock nacional",15],["Viaje",21],["Mix",62],["Clásicos",30],["Para correr",30]];
+  const DST = [["Clásicos",38],["Para correr",9],["Viaje",22],["Favoritas",65],["Nueva",2],["Resumen del año",null],["Estudio",30],["Gimnasio",6],["Varios",13],["Trabajo",9],["Para cocinar",34]];
+  const DUPS = [
+    ["Luna de papel","Los Faroles","4:24","En vivo en el Teatro","3:48","Faroles"],
+    ["Calle Norte","Los Faroles","3:24","Banda sonora (película)","3:29","Faroles"],
+    ["Neon Bay","Coral Static","5:01","Neon Bay (Deluxe)","3:33","Hits del verano"],
+    ["Luna de papel","Los Faroles","5:41","En vivo en el Teatro","3:48","Faroles"],
+    ["North Star","Kite Club","5:03","Grandes éxitos","5:04","North"],
+    ["Polaroid","Kite Club","3:49","Indie Pop Hits 2","3:46","North"],
+    ["Marea (Mono)","Bruma","3:44","Bruma en mono","3:43","Singles 2015-2017"],
+    ["Luna de papel (Video oficial)","Los Faroles","4:05","video","3:48","Faroles"]
+  ];
+  const HISTORY = [
+    { date: "3 mar, 18:10", what: "Favoritas a Favoritas", route: "Tidal a YouTube Music", sub: "28 agregados, 2 ya estaban", tiles: TRACKS.map(t => t[2]) },
+    { date: "3 mar, 18:25", what: "Clásicos a Clásicos", route: "Tidal a YouTube Music", sub: "24 agregados, 5 ya estaban, 1 no encontrado",
+      tiles: Array.from({length: 30}, (_, i) => i === 7 ? "miss" : (i % 6 === 2 ? "dup" : "ok")) },
+    { date: "4 mar, 10:02", what: "Repetidos en Clásicos", route: "YouTube Music", sub: "8 quitados", tiles: Array(8).fill("removed") }
+  ];
+
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+  const tilesHTML = arr => arr.map(s => `<i class="${s}"></i>`).join("");
+
+  /* ---------- navegación ---------- */
+  function go(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+    document.querySelectorAll("nav button").forEach(b => { if (b.dataset.go === id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    $("main").scrollTop = 0;
+  }
+  document.addEventListener("click", e => { const t = e.target.closest("[data-go]"); if (t) go(t.dataset.go); });
+
+  /* ---------- inicio ---------- */
+  function fitSelect(sel) {   // el selector mide lo mismo que la opción elegida
+    const probe = document.createElement("span");
+    const cs = getComputedStyle(sel);
+    probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
+    probe.textContent = sel.options[sel.selectedIndex].text;
+    document.body.appendChild(probe);
+    sel.style.width = `calc(${probe.getBoundingClientRect().width}px + .7em)`;
+    probe.remove();
+  }
+  ["#from", "#to"].forEach(id => { const el = $(id); fitSelect(el); el.addEventListener("change", () => fitSelect(el)); });
+  document.fonts?.ready.then(() => ["#from", "#to"].forEach(id => fitSelect($(id))));
+  $("#home-history").innerHTML = HISTORY.slice(0, 3).map(h => `
+    <li><div><div class="what">${esc(h.what)}</div><div class="when">${esc(h.route)}, ${esc(h.date)}</div></div>
+    <div class="mosaic small" aria-hidden="true">${tilesHTML(h.tiles)}</div></li>`).join("");
+
+  /* ---------- transferir ---------- */
+  $("#src-list").innerHTML = SRC.map(([n, c]) => `<li><label><input type="radio" name="src" ${n === "Favoritas" ? "checked" : ""}> ${esc(n)} <span class="count num">${c} temas</span></label></li>`).join("");
+  $("#dst-list").innerHTML = DST.map(([n, c]) => `<li><label><input type="checkbox" ${n === "Favoritas" ? "checked" : ""}> ${esc(n)} <span class="count num">${c == null ? "" : c + " temas"}</span></label></li>`).join("")
+    + `<li class="new"><label><input type="checkbox"> Crear una playlist nueva</label></li>`;
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let timer = null;
+  function setStep(n) { [...$("#steps").children].forEach((li, i) => { li.className = i < n ? "done" : (i === n ? "current" : ""); }); }
+  function runTransfer() {
+    $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
+    const mosaic = $("#mosaic"); mosaic.innerHTML = TRACKS.map(() => "<i></i>").join("");
+    const list = $("#tracks"); list.innerHTML = "";
+    const n = { ok: 0, doubt: 0, miss: 0, dup: 0 };
+    let i = 0;
+    const tick = () => {
+      if (i > 0) {
+        const [t, a, st, sc, note] = TRACKS[i - 1];
+        mosaic.children[i - 1].className = st; n[st]++;
+        const li = list.firstElementChild;
+        li.innerHTML = `<span class="badge ${st}">${SYMBOL[st]}</span><span><span class="t">${esc(t)}</span> <span class="a">${esc(a)}</span>${note ? `<span class="note">. ${esc(note[0].toUpperCase() + note.slice(1))}</span>` : ""}</span><span class="score num">${sc.toFixed(2)}</span>`;
+        $("#count").textContent = i; for (const k in n) $("#n-" + k).textContent = n[k];
+      }
+      if (i < TRACKS.length) {
+        mosaic.children[i].className = "now";
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="badge now">…</span><span><span class="t">${esc(TRACKS[i][0])}</span> <span class="a">buscando en YouTube Music</span></span><span></span>`;
+        list.prepend(li); i++;
+      } else {
+        clearInterval(timer); setStep(2);
+        $("#added").textContent = n.ok + n.doubt; $("#done").classList.add("show");
+      }
+    };
+    if (reduce) { for (let k = 0; k <= TRACKS.length; k++) tick(); }
+    else { clearInterval(timer); timer = setInterval(tick, 170); tick(); }
+  }
+  $("#go").addEventListener("click", runTransfer);
+  $("#dry").addEventListener("click", runTransfer);
+  $("#again").addEventListener("click", () => { clearInterval(timer); $("#run").hidden = true; $("#pick").hidden = false; setStep(0); });
+
+  /* ---------- repetidos ---------- */
+  $("#dups").innerHTML = DUPS.map(([t, a, d1, al1, d2, al2], i) => `
+    <li><input type="checkbox" checked aria-label="Quitar ${esc(t)}" data-i="${i}">
+      <div class="side remove"><span class="tag">Se quita</span><div class="t">${esc(t)}</div><div class="meta">${esc(a)}, ${esc(al1)}, <span class="num">${d1}</span></div></div>
+      <div class="side keep"><span class="tag">Queda</span><div class="t">${esc(t.replace(" (Official Video)", ""))}</div><div class="meta">${esc(a)}, ${esc(al2)}, <span class="num">${d2}</span></div></div></li>`).join("");
+  const countChecked = () => document.querySelectorAll("#dups input:checked").length;
+  $("#dups").addEventListener("change", () => {
+    const c = countChecked(), label = c === 1 ? "Quitar 1 tema" : `Quitar ${c} temas`;
+    $("#remove").textContent = label; $("#confirm-yes").textContent = label; $("#remove").disabled = c === 0;
+    $("#c-title").textContent = `¿${label} de «Clásicos»?`;
+  });
+  $("#remove").addEventListener("click", () => $("#confirm").showModal());
+  $("#confirm-no").addEventListener("click", () => $("#confirm").close());
+  $("#confirm-yes").addEventListener("click", () => {
+    const c = countChecked(); $("#confirm").close();
+    toast(c === 1 ? "Quitaste 1 tema de «Clásicos»." : `Quitaste ${c} temas de «Clásicos».`);
+  });
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b))));
+
+  /* ---------- historial ---------- */
+  $("#hist").innerHTML = HISTORY.slice().reverse().map((h, i) => `
+    <li><button class="row" aria-expanded="false">
+      <span class="date">${esc(h.date)}</span>
+      <span><div class="what">${esc(h.what)}</div><div class="sub">${esc(h.route)}. ${esc(h.sub)}</div></span>
+      <span class="mosaic small" aria-hidden="true">${tilesHTML(h.tiles)}</span></button>
+      <div class="detail"><ul>${(h.what.startsWith("Favoritas") ? TRACKS.slice(0, 9) : DUPS.slice(0, 5).map(d => [d[0], d[1], "removed"])).map(t =>
+        `<li><span class="badge ${t[2]}">${SYMBOL[t[2]]}</span><span><b>${esc(t[0])}</b> <span class="muted">${esc(t[1])}</span></span></li>`).join("")}
+        <li class="muted">y más…</li></ul></div></li>`).join("");
+  $("#hist").addEventListener("click", e => {
+    const b = e.target.closest("button.row"); if (!b) return;
+    const li = b.parentElement, open = li.classList.toggle("open"); b.setAttribute("aria-expanded", open);
+  });
+
+  /* ---------- aviso ---------- */
+  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
+
+  /* para las capturas: ?pantalla=transferir&demo=1 */
+  const q = new URLSearchParams(location.search);
+  if (q.get("pantalla")) go(q.get("pantalla"));
+  if (q.get("demo")) runTransfer();
+  if (q.get("abrir")) document.querySelector("#hist button.row")?.click();
+</script>
+</body>
+</html>
