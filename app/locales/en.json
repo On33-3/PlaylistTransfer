@@ -234,7 +234,9 @@
     "settings.sp_step3": "Copy it from your app (“Basic Information”) and paste it here:",
     "settings.sp_client_placeholder": "32 letters and numbers",
     "settings.sp_save": "Save and connect",
-    "settings.sp_note": "The app is yours and free: only you and up to 5 people you add in “User Management” can use it. Every 6 months Spotify asks you to connect again."
+    "settings.sp_note": "The app is yours and free: only you and up to 5 people you add in “User Management” can use it. Every 6 months Spotify asks you to connect again.",
+    "dedupe.confirm_readd_one": "{service} can't remove a single copy: it removes both and puts the one that stays back in its place. It will show as added today.",
+    "dedupe.confirm_readd_other": "{service} can't remove a single copy: for {n} songs it removes all copies and puts the one that stays back in its place. They will show as added today."
   },
   "py": {
     "err.removal_not_confirmed": "Removing songs requires the user's confirmation.",

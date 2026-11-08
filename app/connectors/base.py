@@ -40,6 +40,9 @@ class Connector(ABC):
     key: str          # "tidal", "ytmusic"...
     name: str         # "Tidal", "YouTube Music"...
     search_pause: float = SEARCH_PAUSE
+    # True si el servicio quita por canción y no por posición (Spotify): para quitar una copia exacta
+    # se quitan todas y se vuelve a agregar la que queda (con fecha de "agregado" nueva)
+    removes_all_copies: bool = False
 
     @abstractmethod
     def status(self) -> Status: ...

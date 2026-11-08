@@ -243,6 +243,45 @@ def test_spotify_setup_from_settings(browser, tmp_path):
     assert errors == []
 
 
+def test_spotify_duplicates_warn_before_removing_every_copy(browser, tmp_path):
+    from tests.test_spotify import track
+    api, *_ = make_api(tmp_path)
+    sp, fake = with_spotify(api, tmp_path)
+    sp.set_client_id("0123456789abcdef0123456789abcdef")
+    sp._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)
+    a, b = track(7, "Virtual Insanity", "Jamiroquai", dur=228), track(8, "Take On Me", "a-ha", dur=226)
+    fake.add_tracks(a, b)
+    fake.add_playlist("d" * 22, "Repetidos en Spotify", [a["uri"], b["uri"], a["uri"]])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=spotify]")
+    page.wait_for_selector(f"#dup-playlist option[value='{'d' * 22}']", state="attached")
+    page.select_option("#dup-playlist", "d" * 22)
+    page.click("#dup-scan")
+    page.wait_for_selector("#dups li")
+    page.click("#remove")
+    assert "Spotify no puede quitar una sola copia" in page.inner_text("#c-readd")
+    shot(page, "repetidos-spotify-confirmar")
+    page.click("#confirm-yes")
+    page.wait_for_selector("text=Quitaste 1 tema de «Repetidos en Spotify».")
+    assert fake.uris("d" * 22) == [a["uri"], b["uri"]]                # quedó la primera, en su lugar
+    assert errors == []
+
+
+def test_other_services_do_not_show_the_readd_warning(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
+    page.select_option("#dup-playlist", "dups")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dups li")
+    page.click("#remove")
+    assert page.is_hidden("#c-readd")
+    assert errors == []
+
+
 def test_copy_redirect_uri(browser, tmp_path):
     api, *_ = make_api(tmp_path)
     with_spotify(api, tmp_path)

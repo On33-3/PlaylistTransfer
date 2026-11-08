@@ -234,7 +234,9 @@
     "settings.sp_step3": "Copialo de tu app («Basic Information») y pegalo acá:",
     "settings.sp_client_placeholder": "32 letras y números",
     "settings.sp_save": "Guardar y conectar",
-    "settings.sp_note": "La app es tuya y gratis: la usan solo vos y hasta 5 personas que agregues en «User Management». Cada 6 meses Spotify pide volver a conectar."
+    "settings.sp_note": "La app es tuya y gratis: la usan solo vos y hasta 5 personas que agregues en «User Management». Cada 6 meses Spotify pide volver a conectar.",
+    "dedupe.confirm_readd_one": "{service} no puede quitar una sola copia: quita las dos y vuelve a poner la que queda en su lugar. Va a figurar como agregada hoy.",
+    "dedupe.confirm_readd_other": "{service} no puede quitar una sola copia: en {n} temas quita todas y vuelve a poner la que queda en su lugar. Van a figurar como agregadas hoy."
   },
   "py": {
     "err.removal_not_confirmed": "Para quitar temas hace falta la confirmación del usuario.",
