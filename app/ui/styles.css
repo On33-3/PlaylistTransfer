@@ -270,7 +270,8 @@
 .svc .actions-inline .btn { white-space: nowrap; }
 .login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
 .login-wait .setup-steps { margin-top: 6px; color: var(--ink); max-width: 52ch; }
-.svc:has(.login-wait:not([hidden])) .svc-hint { display: none; }   /* mientras se conecta, mandan los pasos */
+.svc-steps .setup-steps { margin-top: 6px; max-width: 52ch; }
+.svc:has(.svc-steps) { padding: 10px 0 14px; }
 .path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
 .hist li.empty { display: block; }
 .empty .btn { margin-left: 10px; height: 32px; padding: 0 14px; font-size: 14px; }
