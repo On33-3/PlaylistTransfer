@@ -16,6 +16,7 @@
 
   <nav data-i18n-aria="nav.aria" aria-label="Secciones">
     <button data-go="inicio" aria-current="page" data-i18n="nav.home">Inicio</button>
+    <button data-go="conexiones" data-i18n="nav.connections">Conexiones</button>
     <button data-go="transferir" data-i18n="nav.transfer">Transferir</button>
     <button data-go="repetidos" data-i18n="nav.dedupe">Quitar repetidos</button>
     <button data-go="historial" data-i18n="nav.history">Historial</button>
@@ -29,11 +30,12 @@
     <section class="screen active" id="inicio" aria-labelledby="t-inicio">
       <div class="notice" id="home-connect" hidden>
         <p><b data-i18n="home.connect_title">Para empezar, conectá tus servicios.</b> <span class="muted" data-i18n="home.connect_text">Hacen falta dos para pasar música; uno para quitar repetidos.</span></p>
-        <button class="btn primary" data-go="ajustes" data-i18n="home.connect_btn">Conectar</button>
+        <button class="btn primary" data-go="conexiones" data-i18n="home.connect_btn">Conectar</button>
       </div>
       <h1 id="t-inicio" data-i18n="home.title">Tus playlists, en el servicio que quieras.</h1>
       <p class="lede" id="home-lede"></p>
       <ul class="features">
+        <li><b data-i18n="home.f_connect_title">Conexiones.</b> <span id="home-f-connect"></span></li>
         <li><b data-i18n="home.f_transfer_title">Transferir.</b> <span data-i18n="home.f_transfer">Elegís una playlist y la app busca cada tema en el otro servicio.</span></li>
         <li><b data-i18n="home.f_dedupe_title">Quitar repetidos.</b> <span data-i18n="home.f_dedupe">Encuentra la misma canción dos veces.</span></li>
         <li><b data-i18n="home.f_history_title">Historial.</b> <span data-i18n="home.f_history">Cada transferencia queda guardada.</span></li>
@@ -65,7 +67,7 @@
         </p>
         <div class="notice" id="pick-connect" hidden>
           <p id="pick-connect-text"></p>
-          <button class="btn primary" data-go="ajustes" data-i18n="transfer.go_connect">Ir a conectar</button>
+          <button class="btn primary" data-go="conexiones" data-i18n="transfer.go_connect">Ir a conectar</button>
         </div>
         <div class="pickers" id="pickers">
           <div class="picker">
@@ -116,7 +118,7 @@
       <p class="lede" data-i18n="dedupe.lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero. Las versiones de otros artistas no cuentan como repetidas.</p>
       <div class="notice" id="dup-connect" hidden>
         <p data-i18n="dedupe.connect">Conectá Tidal o YouTube Music para revisar tus playlists.</p>
-        <button class="btn primary" data-go="ajustes" data-i18n="transfer.go_connect">Ir a conectar</button>
+        <button class="btn primary" data-go="conexiones" data-i18n="transfer.go_connect">Ir a conectar</button>
       </div>
       <div class="row-controls" id="dup-controls">
         <div class="seg" role="group" data-i18n-aria="dedupe.service_aria" aria-label="Servicio" id="dup-svc"></div>
@@ -151,9 +153,9 @@
     </section>
 
     <!-- ================= AJUSTES ================= -->
-    <section class="screen settings" id="ajustes" aria-labelledby="t-aj">
-      <h1 id="t-aj" data-i18n="settings.title">Ajustes</h1>
-      <p class="lede" data-i18n="settings.lede">Conexiones, navegador, idioma y datos.</p>
+    <section class="screen settings" id="conexiones" aria-labelledby="t-cx">
+      <h1 id="t-cx" data-i18n="connections.title">Conexiones</h1>
+      <p class="lede" data-i18n="connections.lede">Conectá los servicios que uses, siguiendo los pasos de cada uno.</p>
 
       <section>
         <div><h3 data-i18n="settings.services">Servicios</h3><p data-i18n="settings.services_text">Tus sesiones se guardan solo en esta compu.</p></div>
@@ -161,13 +163,18 @@
       </section>
 
       <section>
-        <div><h3 data-i18n="settings.language">Idioma</h3><p data-i18n="settings.language_text">El idioma de la app.</p></div>
-        <div role="radiogroup" data-i18n-aria="settings.language_aria" aria-label="Idioma" id="language-list"></div>
-      </section>
-
-      <section>
         <div><h3 data-i18n="settings.browser">Navegador</h3><p data-i18n="settings.browser_text">Dónde se abren las ventanas para iniciar sesión.</p></div>
         <div role="radiogroup" data-i18n-aria="settings.browser_aria" aria-label="Navegador" id="browser-list"></div>
+      </section>
+    </section>
+
+    <section class="screen settings" id="ajustes" aria-labelledby="t-aj">
+      <h1 id="t-aj" data-i18n="settings.title">Ajustes</h1>
+      <p class="lede" data-i18n="settings.lede">Idioma, coincidencias y datos.</p>
+
+      <section>
+        <div><h3 data-i18n="settings.language">Idioma</h3><p data-i18n="settings.language_text">El idioma de la app.</p></div>
+        <div role="radiogroup" data-i18n-aria="settings.language_aria" aria-label="Idioma" id="language-list"></div>
       </section>
 
       <section>

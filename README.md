@@ -33,7 +33,7 @@ Funciona en Windows 10 y 11.
 Spotify es opcional y pide dos cosas (las exige Spotify desde 2026, no la app):
 
 1. **Spotify Premium.**
-2. **Tu propia app de Spotify**, gratis: en **Ajustes › Spotify › Configurar** la app te guía paso por paso, con un botón para cada página y para copiar cada dato que hay que pegar. La usan solo vos y hasta 5 personas que agregues.
+2. **Tu propia app de Spotify**, gratis: en **Conexiones › Spotify › Configurar** la app te guía paso por paso, con un botón para cada página y para copiar cada dato que hay que pegar. La usan solo vos y hasta 5 personas que agregues.
 
 > **Todavía en prueba:** la conexión con Spotify está probada contra una simulación de su API, pero nadie la probó aún con una cuenta Premium real. Si la probás, contanos cómo te fue (y si algún nombre de botón de los pasos no coincide con lo que ves en Spotify).
 

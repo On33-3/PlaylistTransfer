@@ -101,6 +101,7 @@ function go(id) {
   if (id === "transferir" && !state.transfer) loadPickers();
   if (id === "repetidos") renderDupControls();
   if (id === "historial") renderHistory();
+  if (id === "conexiones") renderConnections();
   if (id === "ajustes") renderSettings();
 }
 document.addEventListener("click", e => { const el = e.target.closest("[data-go]"); if (el && !el.disabled) go(el.dataset.go); });
@@ -116,7 +117,7 @@ async function refreshStatus() {
       disconnected: ["off", `<span class="state">${esc(t("status.disconnected"))}</span>`],
       setup: ["off", `<span class="state">${esc(t("status.setup"))}</span>`],
       soon: ["soon", `<span class="state">${esc(t("status.soon"))}</span>`] }[s.status];
-    const target = s.status === "soon" ? "" : `data-go="ajustes"`;
+    const target = s.status === "soon" ? "" : `data-go="conexiones"`;
     return `<button class="chip ${cls}" ${target} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
   }).join("");
   // Para pasar música hacen falta dos servicios. Con dos o más no se reclama nada: cada uno usa los que
@@ -626,7 +627,8 @@ $("#open-export").addEventListener("click", () => call("open_export"));
 // opcionales _setup (antes de configurarlo) y _firefox (si el navegador es Firefox): un servicio nuevo
 // solo suma textos, nunca código acá. test_i18n.py exige la clave para cada servicio del registro.
 
-async function renderSettings() {
+/** Conexiones: cada servicio con sus pasos, y el navegador donde se inicia sesión. */
+async function renderConnections() {
   const b = await call("browsers");
   const loginSteps = await call("login_steps") || {};
   const chosenExe = b && (b.chosen || b.suggested);
@@ -653,17 +655,21 @@ async function renderSettings() {
     `<div class="svc"><span><b>${esc(NAMES[k])}</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`).join("");
   setBusy(state.busy);
 
-  const langs = await call("languages");
-  if (langs) {
-    $("#language-list").innerHTML = langs.available.map(l => `
-      <label class="opt"><input type="radio" name="lang" value="${esc(l.code)}" ${l.code === langs.current ? "checked" : ""}> <span lang="${esc(l.code)}">${esc(l.name)}</span></label>`).join("");
-  }
   if (b) {
     const chosen = chosenExe;
     $("#browser-list").innerHTML = b.browsers.length ? b.browsers.map(x => `
       <label class="opt"><input type="radio" name="br" value="${esc(x.exe)}" ${x.exe === chosen ? "checked" : ""}>
       <span>${esc(x.name)}${x.default ? ` <span class="muted">${esc(t("settings.default"))}</span>` : ""}</span></label>`).join("")
       : `<p class="muted">${esc(t("settings.no_browsers"))}</p>`;
+  }
+}
+
+/** Ajustes: idioma, coincidencias, datos y Acerca de. */
+async function renderSettings() {
+  const langs = await call("languages");
+  if (langs) {
+    $("#language-list").innerHTML = langs.available.map(l => `
+      <label class="opt"><input type="radio" name="lang" value="${esc(l.code)}" ${l.code === langs.current ? "checked" : ""}> <span lang="${esc(l.code)}">${esc(l.name)}</span></label>`).join("");
   }
   const info = await call("info");
   if (info) {
@@ -710,7 +716,7 @@ $("#language-list").addEventListener("change", async e => {
 $("#browser-list").addEventListener("change", async e => {
   if (e.target.name !== "br") return;
   const r = await call("choose_browser", e.target.value);
-  if (r) toast(t("settings.browser_toast", { name: r.name }));
+  if (r) { toast(t("settings.browser_toast", { name: r.name })); renderConnections(); }
 });
 
 /** Texto del diccionario con los nombres entre «» (o “”) en negrita: campos y botones que hay que encontrar. */
@@ -764,7 +770,7 @@ async function saveClientId(key) {
   try { r = await api.set_client_id(key, input.value); } catch (e) { r = { error: t("common.error", { msg: e.message || e }) }; }
   if (r.error) { err.textContent = r.error; err.hidden = false; input.focus(); return; }
   SETUP[key].client_id = r.client_id;
-  await refreshStatus(); await renderSettings();
+  await refreshStatus(); await renderConnections();
   connectService(key);                 // ya está configurado: sigue con el inicio de sesión
 }
 
@@ -789,7 +795,7 @@ async function connectService(key) {
   else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
   else toast(done.error || t("settings.connect_error"));
   delete state.playlists[key];
-  await refreshStatus(); renderSettings();
+  await refreshStatus(); renderConnections();
 }
 
 $("#svc-list").addEventListener("keydown", e => {
@@ -815,7 +821,7 @@ $("#svc-list").addEventListener("click", async e => {
     const key = d.dataset.disconnect;
     if (await call("disconnect", key)) {
       toast(t("settings.disconnected_toast", { service: NAMES[key] }));
-      delete state.playlists[key]; await refreshStatus(); renderSettings();
+      delete state.playlists[key]; await refreshStatus(); renderConnections();
     }
   }
 });
@@ -839,6 +845,7 @@ async function start() {
   ["#go", "#dry", "#remove", "#dup-scan"].forEach(s => { $(s).dataset.needsIdle = ""; });
   setupRoute();
   $("#home-lede").textContent = t("home.lede", { services: listAnd(Object.values(NAMES)) });
+  $("#home-f-connect").textContent = t("home.f_connect", { section: t("nav.connections") });
   const info = await call("info");
   if (info) {
     $("#version").textContent = t("nav.version", { v: info.version });
