@@ -95,7 +95,7 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
     shot(page, f"stress-{size}-4-historial")
 
     page.click("nav [data-go=inicio]")
-    page.wait_for_selector("#home-history li")
+    page.wait_for_selector("#inicio .features")
     problems["inicio"] = overflow(page)
     shot(page, f"stress-{size}-5-inicio")
 

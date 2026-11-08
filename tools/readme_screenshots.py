@@ -49,7 +49,7 @@ def main() -> None:
         page.screenshot(path=str(OUT / "historial.png"))
 
         page.click("nav [data-go=inicio]")
-        page.wait_for_selector("#home-history .mosaic")
+        page.wait_for_selector("#inicio .features")
         page.screenshot(path=str(OUT / "inicio.png"))
         browser.close()
         if errors:

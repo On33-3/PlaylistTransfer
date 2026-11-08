@@ -23,7 +23,6 @@
     "home.connect_btn": "Connect",
     "home.lede": "PlaylistTransfer moves your music between {services}, in any direction. No new accounts: everything happens on your computer.",
     "home.dedupe": "Remove duplicates",
-    "home.recent": "Recent activity",
     "op.dedupe_title": "Duplicates in {name}",
     "op.transfer_title": "{src} to {dst}",
     "op.route": "{src} to {dst}",

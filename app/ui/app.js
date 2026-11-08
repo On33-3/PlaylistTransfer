@@ -230,13 +230,6 @@ function showLegend(id, visible) {
   if (visible) el.innerHTML = legendHTML();
 }
 
-async function renderHomeHistory() {
-  const ops = await call("history", 3) || [];
-  showLegend("#home-legend", ops.length > 0);
-  $("#home-history").innerHTML = ops.length ? ops.map(op => `
-    <li><div><div class="what" title="${esc(opTitle(op))}">${esc(opTitle(op))}</div><div class="when">${esc(opRoute(op))}, ${esc(opDate(op))}</div></div>
-    ${mosaicHTML(op)}</li>`).join("") : emptyHistory();
-}
 
 /* ---------------------------------------------------------------- transferir: elegir */
 
@@ -377,7 +370,6 @@ async function startTransfer(dryRun) {
     $("#done-detail").textContent = cancelled ? t("transfer.cancelled_text") : (done.error || "");
     $("#open-dest").hidden = true; $("#done").classList.add("show");
   }
-  renderHomeHistory();
 }
 
 function onTransferEvent(tr, e) {
@@ -474,7 +466,6 @@ async function addDoubtful(ns) {
   }
   toast(added.size ? t("transfer.add_doubtful_toast", { n: added.size }) : t("transfer.add_doubtful_already"));
   updateAddAll();
-  renderHomeHistory();
 }
 
 $("#add-all").addEventListener("click", () => {
@@ -495,7 +486,6 @@ $("#tracks").addEventListener("click", async e => {
     const a = done.result.added;
     b.textContent = t("transfer.alt_added", { artist: a.artist });
     toast(t("transfer.alt_toast", { title: a.title, artist: a.artist }));
-    renderHomeHistory();
   } else { b.disabled = false; toast(done.error || t("transfer.alt_error")); }
 });
 
@@ -582,7 +572,7 @@ $("#confirm-yes").addEventListener("click", async () => {
   const done = await follow(r.job);
   if (done.state === "done") {
     toast(t("dedupe.removed_toast", { songs: songs(done.result.removed), name: done.result.name }));
-    delete state.playlists[state.dupService]; renderHomeHistory(); await renderDupControls(); scanDups();
+    delete state.playlists[state.dupService]; await renderDupControls(); scanDups();
   } else toast(done.error || t("dedupe.remove_error"));
 });
 
@@ -825,7 +815,6 @@ async function start() {
     $("#version").textContent = t("nav.version", { v: info.version });
     $("#about-version").textContent = t("settings.about_version", { v: info.version });
   }
-  renderHomeHistory();
   await refreshStatus();
   let screen = null;
   try { screen = sessionStorage.getItem("pt-screen"); sessionStorage.removeItem("pt-screen"); } catch (_) { /* nada */ }
