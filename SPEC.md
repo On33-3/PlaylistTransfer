@@ -1,6 +1,6 @@
 # SPEC — PlaylistTransfer (app de escritorio)
 
-Estado: **F0 aprobada, F1 hecha**. Cualquier decisión que cambie el alcance, el costo o el riesgo se consulta con el usuario; las decisiones menores se anotan acá en "Decisiones tomadas".
+Estado: **F0, F1 y F2 terminadas** (F2 probada por el usuario el 2026-11-08: dos transferencias reales de Tidal a YouTube Music y dos limpiezas de repetidos desde la ventana, sin errores en el log). Sigue F3. Cualquier decisión que cambie el alcance, el costo o el riesgo se consulta con el usuario; las decisiones menores se anotan acá en "Decisiones tomadas".
 
 ## 1. Objetivo
 Una mini app de escritorio para Windows, **minimalista y linda (colores pastel)**, que:
@@ -65,7 +65,9 @@ PlaylistTransfer/
 **Interfaz `Connector`** (todos los servicios la cumplen):
 `name`, `status() -> connected | expired | disconnected`, `connect(browser)`, `disconnect()`, `list_playlists()`, `read(playlist_id)`, `search(song)`, `create(name, desc)`, `add(playlist_id, songs)`, `remove(playlist_id, items)`, `url(playlist_id)`.
 
-**Progreso en vivo:** las tareas corren en un hilo. Cada evento (`{type: "track", n, total, estado, origen, destino, puntaje}`) va a una cola, y la UI la lee periódicamente por la API o recibe los eventos con `window.evaluate_js`. La ventana nunca se congela.
+**Progreso en vivo:** las tareas corren en un hilo (`app/jobs.py`, una por vez). Cada evento (`source`, `searching`, `track`, `already`, `target`, `login`) va a una cola, y la UI la lee cada ~200 ms con `api.poll(job, desde)`. Se eligió leer la cola en vez de `window.evaluate_js` porque no depende del hilo de la ventana y se puede probar sin ventana. La ventana nunca se congela. Nada se modifica hasta terminar todas las búsquedas: cancelar en ese momento no deja playlists a medias.
+
+**Pruebas de la UI:** `tests/test_ui.py` abre `app/ui` en Edge (el mismo motor que WebView2) con Playwright, conectada a la API real con servicios falsos. `PT_SCREENSHOTS=<carpeta>` guarda capturas. `PT_SMOKE=1 py -m app` abre la ventana real, espera a que la UI avise que cargó y la cierra.
 
 ## 4. Pantallas (UI)
 1. **Inicio:** fichas de estado por servicio (`Tidal ✓ conectado`, `YouTube Music ⚠ venció`, `Spotify — sin conectar`), cada una con su botón Conectar o Reconectar. Debajo, tres acciones grandes: **Transferir**, **Quitar repetidos**, **Historial**.
@@ -94,7 +96,7 @@ Quien descarga el repo o el `.exe` arranca de cero: **ni el repo ni la app traen
 
 | Escenario | Qué pasa | Test |
 |---|---|---|
-| Primera vez que se abre | Inicio: los tres servicios "sin conectar". Historial: estado vacío ("Todavía no hiciste transferencias. Cuando hagas la primera, aparece acá") con un botón a Transferir. No se crea ningún archivo solo por abrir | `test_first_run.py` |
+| Primera vez que se abre | Inicio: los tres servicios "sin conectar". Historial: estado vacío ("Todavía no hiciste transferencias. Cuando hagas la primera, aparece acá") con un botón a Transferir. Abrir no crea historial, sesiones ni preferencias (solo `app.log` y la caché de la ventana, `webview/`) | `test_first_run.py` |
 | Primer login | Se pregunta el navegador (se propone el predeterminado, nunca Chrome solo) y se guarda en preferencias | `test_auth.py`, `test_first_run.py` |
 | Primera transferencia real | Se crea `historial.sqlite` y se guarda la operación con cada tema y su artista. Un dry-run no crea nada | `test_first_run.py` |
 | Preferencias dañadas | Se usan los valores por defecto; el archivo no se pisa | `test_first_run.py` |
