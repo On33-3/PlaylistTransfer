@@ -55,7 +55,7 @@ def test_first_run_state(app):
     assert b["chosen"] is None and b["suggested"] == str(VIVALDI.exe)
 
 
-def test_connect_uses_the_suggested_browser_never_chrome(app):
+def test_connect_uses_the_suggested_browser(app):
     api, tidal, yt = app
     tidal.connected = False
     r = wait(api, api.connect("tidal")["job"])
@@ -76,9 +76,21 @@ def test_connect_can_be_cancelled(app):
 
 def test_choose_browser(app):
     api, *_ = app
-    assert api.choose_browser(str(CHROME.exe))["name"] == "Google Chrome"   # elegido a mano, sí
+    assert api.choose_browser(str(CHROME.exe))["name"] == "Google Chrome"
     assert api.browsers()["chosen"] == str(CHROME.exe)
     assert "error" in api.choose_browser(r"C:\no-existe.exe")
+
+
+def test_an_uninstalled_browser_is_not_used(app):
+    """Si el navegador elegido se desinstaló, se vuelve al predeterminado en vez de fallar al conectar."""
+    api, tidal, yt = app
+    api.choose_browser(str(CHROME.exe))
+    api._list_browsers = lambda: [VIVALDI]                  # desinstalaron Chrome
+    assert api.browsers()["chosen"] is None and api.browsers()["suggested"] == str(VIVALDI.exe)
+    tidal.connected = False
+    r = wait(api, api.connect("tidal")["job"])
+    assert r["state"] == "done" and tidal.calls == [("connect", "Vivaldi")]
+    assert prefs.load(api._prefs_path)["browser"]["name"] == "Vivaldi"
 
 
 def test_disconnected_service_gives_a_readable_error(app):

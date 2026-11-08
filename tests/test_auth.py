@@ -24,16 +24,20 @@ def test_exe_from_command():
     assert kind_of(r"C:\Program Files\BraveSoftware\brave.exe") == "brave"
 
 
-def test_default_first_and_chrome_never_suggested():
+def test_the_suggestion_is_each_persons_default_browser():
+    """Se propone el predeterminado de Windows de cada persona, sea cual sea (ninguno queda afuera)."""
     chrome = Browser("Google Chrome", "chrome", Path(r"C:\chrome.exe"))
     vivaldi = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"))
     brave = Browser("Brave", "brave", Path(r"C:\brave.exe"))
+    edge = Browser("Microsoft Edge", "msedge", Path(r"C:\msedge.exe"))
     ordered = sort_browsers([brave, vivaldi, chrome], Path(r"c:\VIVALDI.exe"))
     assert [b.name for b in ordered] == ["Vivaldi", "Brave", "Google Chrome"]
     assert suggested_browser(ordered) is vivaldi
-    # Aunque Chrome fuera el predeterminado, no se propone solo
-    assert suggested_browser(sort_browsers([chrome, brave], Path(r"C:\chrome.exe"))) is brave
-    assert suggested_browser([chrome]) is None
+    assert suggested_browser(sort_browsers([edge, chrome, brave], Path(r"C:\chrome.exe"))) is chrome
+    assert suggested_browser([chrome]) is chrome
+    # Predeterminado desconocido (uno que la app no reconoce): el primero instalado, nunca nada
+    assert suggested_browser(sort_browsers([edge, brave], Path(r"C:\raro.exe"))) is brave
+    assert suggested_browser([]) is None
 
 
 def test_profile_dir_per_browser(tmp_path):
