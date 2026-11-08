@@ -393,3 +393,33 @@ def test_saved_session_is_recognized_as_browser_auth(tmp_path):
     assert data["authorization"].startswith("SAPISIDHASH ")
     from ytmusicapi.auth.types import AuthType
     assert ytmusicapi.YTMusic(str(f)).auth_type == AuthType.BROWSER
+
+
+# ---------------------------------------------------------------- la búsqueda común (Connector.collect)
+
+def test_collect_stops_at_the_first_good_match_and_skips_failed_queries():
+    from tests.fakes import FakeService, S
+    svc = FakeService("x", "X")
+    wanted = S("Take On Me", "a-ha", dur=225)
+    asked = []
+
+    def fetch(q):
+        asked.append(q)
+        if q == "falla":
+            raise RuntimeError("se cortó")
+        return {"nada": [S("Otra", "Otro", id="o1")], "bien": [S("Take On Me", "a-ha", dur=226, id="t1")]}[q]
+    found = svc.collect(wanted, ["falla", "nada", "bien", "de más"], fetch)
+    assert asked == ["falla", "nada", "bien"]                           # "de más" ya no hizo falta
+    assert sorted(found) == ["o1", "t1"]
+
+
+def test_collect_fatal_errors_stop_everything():
+    """Si la sesión venció o el servicio pidió esperar, se corta: si no, cada tema saldría "no encontrado"."""
+    from app.connectors.base import NotConnectedError
+    from tests.fakes import FakeService, S
+    svc = FakeService("x", "X")
+
+    def fetch(q):
+        raise NotConnectedError("venció")
+    with pytest.raises(NotConnectedError):
+        svc.collect(S("A", "B"), ["a", "b"], fetch, fatal=(NotConnectedError,))

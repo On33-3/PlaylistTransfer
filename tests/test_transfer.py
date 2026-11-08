@@ -5,7 +5,7 @@ import threading
 
 import pytest
 
-from app.core.transfer import ALREADY, Cancelled, Target, run_transfer, summary
+from app.core.transfer import ALREADY, ALREADY_THERE, Cancelled, Target, run_transfer, summary
 from tests.fakes import FakeService, S
 
 
@@ -76,7 +76,7 @@ def test_real_transfer_adds_only_what_is_missing(services):
     t = res.targets[0]
     assert t.target.name == "Favoritas"                                          # nombre real del destino
     assert [s.id for s in t.added] == ["y-tom"]                                  # ni Cohen ni el en vivo (?)
-    assert [(m.id, w.id, why) for m, w, why in t.versions] == [("y-blue", "y-blue-old", "ya estaba")]
+    assert [(m.id, w.id, why) for m, w, why in t.versions] == [("y-blue", "y-blue-old", ALREADY_THERE)]
     assert yt.calls == [("add", "dst", ["y-tom"])]
     already = [e for e in events if e["type"] == "already"]
     assert [(e["n"], e["as"]["title"]) for e in already] == [(2, "Mr. Blue Sky - 2012 Remaster")]

@@ -21,8 +21,8 @@ from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError, Status
 from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
-from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TransferResult, plan_target,
-                                run_transfer, song_dict, summary)
+from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TargetResult, TransferResult, ensure_playlist,
+                                plan_target, run_transfer, song_dict, summary)
 from app.jobs import BusyError, Jobs
 from app.storage import paths, prefs
 from app.storage.export import ReportOperation, from_history, write_report
@@ -296,7 +296,7 @@ class Api:
             result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
                                   score_ok=p["score_ok"], score_min=p["score_min"])
             if not result.dry_run:
-                self._record_transfer(result, src, dst)
+                self._record_transfer(result)
             key = f"transfer-{len(self._transfers) + 1}"
             self._transfers[key] = result      # para "agregar la versión de otro artista"
             return {"transfer": key, "summary": summary(result), "source_name": result.source_name,
@@ -321,15 +321,11 @@ class Api:
             dst = self._connector(result.target_service)
             done = []
             for t in result.targets:
-                if t.target.id is None:      # playlist nueva que no se creó (no había nada para agregar)
-                    t.target.id = dst.create(t.target.name, tr("playlist.description", service=registry.name(result.source_service), date=f"{datetime.now():%Y-%m-%d}"))
-                    t.url = dst.url(t.target.id)
+                self._ensure_playlist(dst, t, result)
                 dst.add(t.target.id, [alt])
                 done.append(t.target.name)
-                self._history.record(
-                    Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
-                              target=result.target_service, target_name=t.target.name, target_url=t.url, added=1),
-                    [TrackRecord(1, "ok", track.source.title, _artist(track.source), alt.title, _artist(alt))])
+                self._history.record(self._transfer_op(result, t, added=1),
+                                     [TrackRecord(1, "ok", track.source.title, _artist(track.source), alt.title, _artist(alt))])
             return {"added": song_dict(alt), "targets": done}
         return self._start("alternative", work)
 
@@ -346,7 +342,6 @@ class Api:
 
         def work(emit, cancel):
             dst = self._connector(result.target_service)
-            service = registry.name(result.source_service)
             added_total = already_total = 0
             added_ns: set[int] = set()
             for t in result.targets:
@@ -355,20 +350,14 @@ class Api:
                     _, current = dst.read(t.target.id)
                 to_add, already, versions = plan_target([x.match for x in tracks], current)
                 if to_add:
-                    if t.target.id is None:      # playlist nueva que no se creó (no había nada para agregar)
-                        t.target.id = dst.create(t.target.name, tr("playlist.description", service=service,
-                                                                    date=f"{datetime.now():%Y-%m-%d}"))
-                        t.url = dst.url(t.target.id)
+                    self._ensure_playlist(dst, t, result)
                     dst.add(t.target.id, to_add)
                 present = {id(m) for m in to_add}
                 records = [TrackRecord(i, DOUBTFUL if id(x.match) in present else ALREADY, x.source.title,
                                        _artist(x.source), x.match.title, _artist(x.match), round(x.score, 3))
                            for i, x in enumerate(tracks, 1)]
-                self._history.record(
-                    Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
-                              target=result.target_service, target_name=t.target.name, target_url=t.url,
-                              added=len(to_add), already=len(already) + len(versions), doubtful=len(to_add)),
-                    records)
+                self._history.record(self._transfer_op(result, t, added=len(to_add), doubtful=len(to_add),
+                                                       already=len(already) + len(versions)), records)
                 added_total += len(to_add)
                 added_ns |= {x.n for x in tracks if id(x.match) in present}
                 already_total += len(already) + len(versions)
@@ -380,7 +369,20 @@ class Api:
         return self._start("add_doubtful", work)
 
     @staticmethod
-    def _transfer_operations(result: TransferResult) -> list[tuple[Operation, list[TrackRecord]]]:
+    def _ensure_playlist(dst: Connector, t: TargetResult, result: TransferResult) -> None:
+        """Al agregar después (un "?" u otro artista): si la playlist nueva no se había creado porque no
+        había nada para agregar, se crea ahora."""
+        if ensure_playlist(dst, t.target, registry.name(result.source_service)):
+            t.created, t.url = True, dst.url(t.target.id)
+
+    @staticmethod
+    def _transfer_op(result: TransferResult, t: TargetResult, **counts) -> Operation:
+        """La operación del historial para una playlist de destino de una transferencia."""
+        return Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
+                         target=result.target_service, target_name=t.target.name, target_url=t.url, **counts)
+
+    @classmethod
+    def _transfer_operations(cls, result: TransferResult) -> list[tuple[Operation, list[TrackRecord]]]:
         """Una operación por playlist de destino, con el estado de cada tema respecto de esa playlist.
         La usan el historial y el reporte, así los dos dicen exactamente lo mismo."""
         s = summary(result)
@@ -393,14 +395,12 @@ class Api:
                 tracks.append(TrackRecord(track.n, status, track.source.title, _artist(track.source),
                                           track.match.title if track.match else None, _artist(track.match) or None,
                                           round(track.score, 3)))
-            op = Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
-                           target=result.target_service, target_name=t.target.name, target_url=t.url,
-                           added=len(t.added), already=len(t.already) + len(t.versions),
-                           doubtful=s["doubtful"], not_found=s["not_found"], skipped=s["skipped"])
+            op = cls._transfer_op(result, t, added=len(t.added), already=len(t.already) + len(t.versions),
+                                  doubtful=s["doubtful"], not_found=s["not_found"], skipped=s["skipped"])
             out.append((op, tracks))
         return out
 
-    def _record_transfer(self, result: TransferResult, src: Connector, dst: Connector) -> None:
+    def _record_transfer(self, result: TransferResult) -> None:
         for op, tracks in self._transfer_operations(result):
             self._history.record(op, tracks)
 

@@ -23,6 +23,9 @@ ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
 # usuario decida al final ("+ Agregar igual" / "Agregar los N…").
 DOUBTFUL_SKIPPED = "dudoso_omitido"
 ADDABLE = (OK, DOUBTFUL)
+# Por qué no se agrega una versión (códigos internos, no se muestran): otra del mismo tema ya
+# estaba en el destino, o el origen la tenía repetida
+ALREADY_THERE, REPEATED_IN_SOURCE = "already_there", "repeated_in_source"
 
 Emit = Callable[[dict], None]
 
@@ -101,16 +104,25 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
         if twin is None:
             twin = next((a for a in to_add if same_song(m, a)), None)
             if twin is not None:
-                versions.append((m, twin, "repetida en el origen"))
+                versions.append((m, twin, REPEATED_IN_SOURCE))
                 continue
         elif twin.id == m.id:
             already.append(m)
             continue
         else:
-            versions.append((m, twin, "ya estaba"))
+            versions.append((m, twin, ALREADY_THERE))
             continue
         to_add.append(m)
     return to_add, already, versions
+
+
+def ensure_playlist(dest: Connector, target: Target, source_service: str, public: bool = False) -> bool:
+    """Una playlist nueva se crea recién cuando hay algo para agregar. True si la creó."""
+    if target.id is not None:
+        return False
+    desc = tr("playlist.description", service=source_service, date=f"{datetime.now():%Y-%m-%d}")
+    target.id = dest.create(target.name, desc, public)
+    return True
 
 
 def run_transfer(source: Connector, dest: Connector, source_id: str, targets: list[Target], *,
@@ -140,10 +152,7 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
         to_add, already, versions = plan_target(found, current)
         res = TargetResult(target, to_add, already, versions)
         if not dry_run and to_add:
-            if target.id is None:
-                desc = tr("playlist.description", service=source.name, date=f"{datetime.now():%Y-%m-%d}")
-                target.id = dest.create(target.name, desc, public)
-                res.created = True
+            res.created = ensure_playlist(dest, target, source.name, public)
             dest.add(target.id, to_add)
         if target.id is not None:
             res.url = dest.url(target.id)
@@ -155,8 +164,7 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
                 emit({"type": "already", "n": t.n, "target": target.name,
                       "as": song_dict(twin) if twin is not None else None})
         emit({"type": "target", "name": target.name, "url": res.url, "created": res.created, "dry_run": dry_run,
-              "added": len(to_add), "already": len(already), "versions": len(versions),
-              "version_notes": [{"song": song_dict(m), "as": song_dict(w), "why": why} for m, w, why in versions]})
+              "added": len(to_add), "already": len(already), "versions": len(versions)})
 
     return TransferResult(source.key, src_name, dest.key, dry_run, tracks, results)
 

@@ -14,7 +14,7 @@ from app.auth.browsers import Browser
 from app.auth.cdp_login import LoginError
 from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedError, NotOwnerError,
                                  Status, require_confirmation)
-from app.core.matching import SCORE_OK, best_match, queries_for
+from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
 
@@ -175,19 +175,11 @@ class YTMusicConnector(Connector):
         yt = self._ready()
         found: dict[str, Song] = {}
         for flt in ("songs", "videos"):        # primero canciones; si no aparece, videos
-            for q in queries_for(song):
-                try:
-                    results = yt.search(q, filter=flt, limit=10)
-                except Exception as e:
-                    log.warning("YouTube Music: falló la búsqueda %r: %s", q, e)
-                    continue
-                for item in results:
-                    if item.get("videoId"):
-                        c = self.to_song(item)
-                        found.setdefault(c.id, c)
-                time.sleep(self.search_pause)
-                if found and best_match(song, list(found.values()))[1] >= SCORE_OK:
-                    return list(found.values())
+            def fetch(q, flt=flt):
+                return [self.to_song(item) for item in yt.search(q, filter=flt, limit=10) if item.get("videoId")]
+            self.collect(song, queries_for(song), fetch, found)
+            if self.good_enough(song, found):
+                break
         return list(found.values())
 
     # ---- escritura
