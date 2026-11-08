@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from difflib import SequenceMatcher
+from functools import lru_cache
 
 from app.core.models import OTHER_VERSION, SAME, Duplicate, Song
 
@@ -40,6 +41,12 @@ _NOISE_DASH = re.compile(r"\s+-\s+[^-]*\b(remaster(ed)?|official|video|audio|lyr
 _FEAT = re.compile(r"\s+(feat\.?|ft\.?)\s+.*$", re.I)
 
 
+# Las funciones de texto son puras y se llaman muchísimas veces con los mismos títulos y artistas
+# (cada candidato se compara con cada tema): se guarda el resultado de cada texto ya visto.
+CACHE = 1 << 16
+
+
+@lru_cache(maxsize=CACHE)
 def clean(text: str) -> str:
     """Saca ruido típico de títulos: (Official Video), - Remastered 2011, feat. X."""
     text = _NOISE_PAREN.sub(" ", text or "")
@@ -48,6 +55,7 @@ def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+@lru_cache(maxsize=CACHE)
 def plain(text: str) -> str:
     """Minúsculas, sin acentos ni puntuación, & → and. Sin sacar nada más."""
     text = unicodedata.normalize("NFKD", text or "")
@@ -57,6 +65,7 @@ def plain(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+@lru_cache(maxsize=CACHE)
 def norm(text: str) -> str:
     """Como `plain`, pero antes saca el ruido de los títulos (respeta alfabetos no latinos)."""
     return plain(clean(text))
@@ -66,6 +75,7 @@ def _contains_words(short: str, long: str) -> bool:
     return bool(short) and f" {short} " in f" {long} "
 
 
+@lru_cache(maxsize=CACHE)
 def _ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio() if a and b else 0.0
 
@@ -77,6 +87,7 @@ _ARTIST_SEP = re.compile(r"\s*(?:,|&|\+|/|;|\bx\b|\band\b|\by\b|\bfeat\.?|\bft\.
 _CHANNEL_SUFFIX = re.compile(r"(?:\s*-?\s*\b(?:topic|official|oficial)\b|vevo)$")
 
 
+@lru_cache(maxsize=CACHE)
 def _artist_key(name: str) -> str:
     """Nombre de artista comparable: sin "VEVO", " - Topic", "Official" de los canales de YouTube."""
     key = plain(name)
@@ -85,16 +96,21 @@ def _artist_key(name: str) -> str:
     return key
 
 
-def artist_names(song: Song) -> list[tuple[str, set[str]]]:
+def artist_names(song: Song) -> list[tuple[str, frozenset[str]]]:
     """[(nombre completo, partes)] por artista. "Queen & David Bowie" → partes {queen, david bowie}."""
+    return list(_artist_names(tuple(song.artists)))
+
+
+@lru_cache(maxsize=CACHE)
+def _artist_names(artists: tuple[str, ...]) -> tuple[tuple[str, frozenset[str]], ...]:
     out = []
-    for name in song.artists:
+    for name in artists:
         whole = _artist_key(name)
         if not whole:
             continue
         parts = {_artist_key(p) for p in _ARTIST_SEP.split(name or "")}
-        out.append((whole, {p for p in parts if len(p) >= 3} - {whole}))
-    return out
+        out.append((whole, frozenset(p for p in parts if len(p) >= 3) - {whole}))
+    return tuple(out)
 
 
 def _all_artist_tokens(*songs: Song) -> set[str]:
@@ -151,7 +167,11 @@ _TITLE_NOISE = {"official", "oficial", "video", "videoclip", "clip", "audio", "l
 def title_keys(song: Song) -> set[str]:
     """Título base, sin lo que cambia entre versiones: (Official Video), [Remastered], (acoustic),
     feat. X, prod. X, '- Remastered 2011'. En YouTube también prueba sin el 'Artista - ' del principio."""
-    t = song.title or ""
+    return set(_title_keys(song.title or ""))
+
+
+@lru_cache(maxsize=CACHE)
+def _title_keys(t: str) -> frozenset[str]:
     variants = [t] + _DASH.split(t, maxsplit=1)
     keys = set()
     for v in variants:
@@ -160,7 +180,7 @@ def title_keys(song: Song) -> set[str]:
         k = re.sub(r"\s+", " ", _TRAILING_ROMAN.sub("", _PART.sub(" ", norm(v)))).strip()
         if k:
             keys.add(k)
-    return keys
+    return frozenset(keys)
 
 
 def title_sim(src: Song, cand: Song) -> float:
