@@ -23,7 +23,6 @@
     "home.connect_btn": "Conectar",
     "home.lede": "PlaylistTransfer pasa tu música entre {services}, en cualquier dirección. Sin cuentas nuevas: todo pasa en tu compu.",
     "home.dedupe": "Quitar repetidos",
-    "home.recent": "Lo último que pasaste",
     "op.dedupe_title": "Repetidos en {name}",
     "op.transfer_title": "{src} a {dst}",
     "op.route": "{src} a {dst}",

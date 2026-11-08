@@ -24,8 +24,27 @@ MEASURE = """(screen) => {
 }"""
 
 
+# Norma de los botones de ícono (los que no tienen texto, como ⇅): usan .icon-btn, son cuadrados
+# y el ícono queda centrado, medido en pantalla. Un carácter de texto como ícono se ve corrido.
+ICONS = """(screen) => {
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const out = [];
+  document.querySelectorAll('#' + screen + ' button').forEach(b => {
+    if (!vis(b) || b.textContent.trim() && !b.querySelector('svg')) return;      // botón con texto: no aplica
+    const name = b.id || b.className;
+    if (!b.matches('.icon-btn')) { out.push(name + ': botón sin texto que no usa .icon-btn'); return; }
+    if (b.textContent.trim()) { out.push(name + ': el ícono tiene que ser un SVG, no texto'); return; }
+    const r = b.getBoundingClientRect(), i = b.querySelector('svg').getBoundingClientRect();
+    if (Math.abs(r.width - r.height) > 0.5) out.push(name + `: no es cuadrado (${r.width}x${r.height})`);
+    const dx = (i.left + i.width / 2) - (r.left + r.width / 2), dy = (i.top + i.height / 2) - (r.top + r.height / 2);
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) out.push(name + `: ícono descentrado (${dx.toFixed(1)}, ${dy.toFixed(1)})`);
+  });
+  return out;
+}"""
+
+
 def check(page, screen):
-    bad = []
+    bad = list(page.evaluate(ICONS, screen))
     for el in page.evaluate(MEASURE, screen):
         allowed = {SEGMENT} if el["seg"] else (FIELDS if el["field"] else BUTTONS)
         if el["h"] not in allowed:

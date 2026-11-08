@@ -118,13 +118,6 @@
   .features li:nth-child(3) { border-left-color: var(--mint); }
   .features b { color: var(--ink); }
 
-  .history-mini { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-  .history-mini li {
-    display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; align-items: center;
-    padding: 14px 4px; border-bottom: 1px solid var(--line);
-  }
-  .history-mini .what { font-weight: 600; }
-  .history-mini .when { color: var(--ink-soft); font-size: 13.5px; }
 
   /* ---------- mosaico ---------- */
   .mosaic { display: grid; gap: 5px; }
@@ -275,7 +268,7 @@
 .svc .actions-inline { display: flex; gap: 8px; }
 .login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
 .path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
-.history-mini li.empty, .hist li.empty { display: block; }
+.hist li.empty { display: block; }
 .empty .btn { margin-left: 10px; height: 32px; padding: 0 14px; font-size: 14px; }
 .hist-controls { margin-bottom: 16px; }
 .export-note { font-size: 13.5px; margin-top: 10px; word-break: break-all; }
@@ -324,8 +317,7 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 
 /* Historial e Inicio: el texto se corta en dos líneas como mucho; el mosaico no empuja */
 .hist button.row { grid-template-columns: 116px minmax(0, 1fr) auto; }
-.history-mini li { grid-template-columns: minmax(0, 1fr) auto; }
-.hist .what, .history-mini .what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hist .what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Repetidos: el selector no crece con el nombre más largo */
 #dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
@@ -371,7 +363,7 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 .done-box .done-extra { margin-top: 12px; }
 
 /* Estado vacío: texto y botón en una línea, alineados */
-.history-mini li.empty, .hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .empty .btn { margin-left: 0; }
 
 /* Ayuda de los umbrales: más corta y del mismo tamaño que el resto de las ayudas */
@@ -413,4 +405,10 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 }
 .route-pick select.to { box-shadow: inset 0 -3px 0 var(--sky); }
 .route-pick select:hover { background-color: #FBFAFE; }
-.route-pick .swap { width: var(--h-md); height: var(--h-md); padding: 0; border-radius: 50%; font-size: 17px; }
+.route-pick .icon-btn { border-radius: 50%; }
+
+/* Botones de solo ícono: el ícono es un SVG (no un carácter de texto, que cada fuente ubica distinto)
+   y se centra con grid. Norma: todo botón de ícono usa .icon-btn; test_ui_design.py mide que quede centrado */
+.icon-btn { width: var(--h-md); height: var(--h-md); padding: 0; display: inline-grid; place-items: center; }
+.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round; }
