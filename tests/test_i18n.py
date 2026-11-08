@@ -88,6 +88,23 @@ def test_every_service_explains_what_happens_when_connecting():
                 assert f"settings.hint.{s.key}_setup" in ui, (lang, s.key)
 
 
+def test_setup_steps_name_their_buttons_exactly(tmp_path):
+    """Los pasos de configuración (Spotify) son "como un caso de prueba": cada texto existe en los dos
+    idiomas, y si un paso habla de un botón, lo nombra con {button}, que sale de la misma clave que el
+    botón. Así el texto nunca dice "abrí el formulario" con un botón que se llama distinto."""
+    from app.connectors.spotify import SpotifyConnector
+    info = SpotifyConnector(tmp_path / "s.json", tmp_path / "a.json").setup_info()
+    for lang in ("es", "en"):
+        ui = load(lang)["ui"]
+        for sec in info["sections"]:
+            assert sec["title"] in ui
+            for st in sec["steps"]:
+                for field in ("text", "button", "copy_key", "note"):
+                    if field in st:
+                        assert st[field] in ui, (lang, st[field])
+                assert ("{button}" in ui[st["text"]]) == ("button" in st), (lang, st["text"])
+
+
 def test_no_hardcoded_spanish_left_in_app_js():
     """Fuera de los comentarios, app.js no tiene texto en castellano: todo pasa por t()."""
     src = (UI / "app.js").read_text(encoding="utf-8")

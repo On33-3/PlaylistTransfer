@@ -381,10 +381,14 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 
 /* Configurar un servicio (Spotify): pasos en la misma fila de Ajustes, sin ventanas nuevas */
 .setup-panel { margin: 4px 0 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.setup-steps { margin: 0; padding-left: 20px; display: grid; gap: 14px; font-size: 14px; }
-.setup-steps label { display: inline; }
+.setup-section + .setup-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.setup-section h4 { margin: 0 0 10px; font-size: 14.5px; }
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; }
+.setup-steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; }
+.step-n { font-size: 13px; font-weight: 700; color: var(--lav-strong); line-height: 21px; }
+.step-body p, .step-body label { margin: 0; display: block; }
 .setup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
-.setup-row .uri { font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 0 12px; height: var(--h-md);
+.setup-row .copy-value { font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 7px 12px; min-height: var(--h-md); box-sizing: border-box; overflow-wrap: anywhere;
   display: inline-flex; align-items: center; border-radius: var(--r-field); background: var(--bg); user-select: all; }
 .setup-row .client-id { height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface);
   padding: 0 12px; width: 300px; max-width: 100%; font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink); }

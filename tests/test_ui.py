@@ -219,7 +219,7 @@ def test_each_service_says_what_happens_before_connecting(browser, tmp_path):
     hints = page.eval_on_selector_all(".svc-hint", "hs => hs.map(h => h.textContent)")
     assert hints == ["Se abre Vivaldi en la página de Tidal: iniciá sesión con tu cuenta y aprobá el acceso.",
                      "Se abre una ventana de Vivaldi solo para esto: iniciá sesión con tu cuenta de Google y se cierra sola.",
-                     "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los 3 pasos."]
+                     "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los pasos."]
     shot(page, "ajustes-ayuda-servicios")
     page.click("[data-connect=tidal]")
     page.wait_for_selector("text=Tidal conectado.")
@@ -259,6 +259,12 @@ def test_spotify_setup_from_settings(browser, tmp_path):
     page.wait_for_selector("#setup-spotify:not([hidden])")
     panel = page.inner_text("#setup-spotify")
     assert "Premium" in panel and "http://127.0.0.1/callback" in panel
+    # el texto nombra el botón exactamente como se llama
+    assert "Tocá «Abrir el formulario para crear la app»" in panel
+    assert page.is_visible("#setup-spotify button:text-is('Abrir el formulario para crear la app')")
+    assert "No copies el «Client secret»" in panel
+    numbers = page.eval_on_selector_all("#setup-spotify .step-n", "ns => ns.map(n => n.textContent)")
+    assert numbers == ["1.1", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "3.1", "3.2", "3.3", "3.4"]
     from tests.test_ui_design import check
     assert check(page, "ajustes") == []                 # el panel respeta el sistema de tamaños
     shot(page, "ajustes-spotify-configurar")
@@ -360,9 +366,14 @@ def test_copy_redirect_uri(browser, tmp_path):
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     page.click("nav [data-go=ajustes]")
     page.click("[data-setup=spotify]")
-    page.click("[data-copy=spotify]")
+    # cada valor para pegar tiene su botón Copiar, al lado del paso donde va
+    copies = page.eval_on_selector_all("#setup-spotify [data-copy]", "bs => bs.map(b => b.dataset.copy)")
+    assert copies == ["PlaylistTransfer", "Pasar mis playlists entre servicios", "http://127.0.0.1/callback"]
+    page.click("#setup-spotify [data-copy='http://127.0.0.1/callback']")
     page.wait_for_selector("text=Copiado.")
     assert page.evaluate("navigator.clipboard.readText()") == "http://127.0.0.1/callback"
+    redirect_step = page.locator("#setup-spotify li", has=page.locator("[data-copy='http://127.0.0.1/callback']"))
+    assert "Redirect URIs" in redirect_step.inner_text() and redirect_step.locator(".step-n").inner_text() == "2.6"
     # cada paso trae su link, y cada uno abre la página justa
     links = page.eval_on_selector_all("#setup-spotify [data-link]", "bs => bs.map(b => b.dataset.link)")
     assert links == ["https://www.spotify.com/premium/", "https://developer.spotify.com/dashboard/create",
