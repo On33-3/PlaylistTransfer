@@ -147,6 +147,34 @@ def test_dry_run_from_the_window_changes_nothing(browser, tmp_path):
     assert errors == []
 
 
+def test_dedupe_playlist_list_has_the_app_style_and_scrolls(browser, tmp_path):
+    """La lista de playlists de Quitar repetidos usa el mismo estilo que De/a, y con muchas playlists
+    tiene alto máximo y scroll en vez de tapar la pantalla."""
+    api, tidal, yt = make_api(tmp_path)
+    for i in range(40):
+        yt.add_playlist(f"x{i}", f"Lista número {i} con un nombre bastante largo para ver cómo se corta", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=x39]", state="attached")
+    assert page.evaluate("getComputedStyle(document.querySelector('#dup-playlist')).appearance") == "base-select"
+    page.click("#dup-playlist")
+    page.wait_for_timeout(250)
+    box = page.evaluate("""() => { const o = document.querySelector('#dup-playlist option[value=x20]').parentElement;
+        const r = document.querySelector('#dup-playlist option').getBoundingClientRect(); return innerHeight; }""")
+    last = page.locator("#dup-playlist option[value=x39]").bounding_box()
+    assert last is None or last["y"] > box                             # la lista no entra entera: hay scroll
+    cut = page.evaluate("""() => [...document.querySelectorAll('#dup-playlist option')]
+        .filter(o => o.scrollWidth > o.clientWidth + 1).map(o => o.textContent)""")
+    assert cut == []                                                  # ningún nombre cortado: pasa a dos renglones
+    shot(page, "repetidos-lista-abierta")
+    page.locator("#dup-playlist option[value=dups]").click()
+    assert page.input_value("#dup-playlist") == "dups"
+    from tests.test_ui_design import check
+    assert check(page, "repetidos") == []
+    assert errors == []
+
+
 def test_remove_duplicates_needs_the_dialog(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path)
     page, errors = open_page(browser, api)
