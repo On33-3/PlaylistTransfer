@@ -4,7 +4,7 @@ Uso (desde la raíz del repo):  py packaging/build.py
 Resultado: dist/PlaylistTransfer-<versión>-windows.zip y su .sha256
 
 Pasos: ícono → datos de versión → PyInstaller (carpeta, sin UPX) → licencias de terceros →
-LICENSE y LÉEME → zip → SHA-256. Nada de la carpeta de datos del usuario entra al paquete.
+LICENSE y LEEME → zip → SHA-256. Nada de la carpeta de datos del usuario entra al paquete.
 """
 from __future__ import annotations
 
@@ -122,6 +122,13 @@ def third_party_notices(out: Path) -> None:
     out.write_text("\n".join(parts), encoding="utf-8")
 
 
+def write_checksum(path: Path) -> str:
+    """<archivo>.sha256 en el formato de `sha256sum -c`, con fin de línea LF (con CRLF falla)."""
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    path.with_name(path.name + ".sha256").write_bytes(f"{digest}  {path.name}\n".encode("ascii"))
+    return digest
+
+
 def check_no_personal_data(folder: Path) -> None:
     leaked = [p for p in folder.rglob("*") if PERSONAL.search(p.name)]
     if leaked:
@@ -139,7 +146,8 @@ def main() -> Path:
     app_dir = DIST / "PlaylistTransfer"
     shutil.copy(ROOT / "LICENSE", app_dir / "LICENSE.txt")
     third_party_notices(app_dir / "THIRD-PARTY-NOTICES.txt")
-    (app_dir / "LÉEME.txt").write_text(README_USER.format(version=__version__), encoding="utf-8-sig")
+    # Nombre en ASCII: con tildes, algunos descompresores lo muestran mal ("L+ëEME.txt")
+    (app_dir / "LEEME.txt").write_text(README_USER.format(version=__version__), encoding="utf-8-sig")
     if not (app_dir / "_internal" / "tidalapi" / "session.py").exists():
         raise SystemExit("tidalapi no quedó como archivos .py sueltos (LGPL): revisá el .spec")
     check_no_personal_data(app_dir)
@@ -148,8 +156,7 @@ def main() -> Path:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for f in sorted(app_dir.rglob("*")):
             z.write(f, f.relative_to(DIST))
-    digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-    (DIST / (zip_path.name + ".sha256")).write_text(f"{digest}  {zip_path.name}\n", encoding="ascii")
+    digest = write_checksum(zip_path)
     size = zip_path.stat().st_size / 1e6
     print(f"\nListo: {zip_path.name} ({size:.1f} MB)\nSHA-256: {digest}")
     return zip_path

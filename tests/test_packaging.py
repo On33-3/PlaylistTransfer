@@ -79,3 +79,17 @@ def test_readme_screenshots_exist():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for img in re.findall(r"\((docs/img/[\w-]+\.png)\)", readme):
         assert (ROOT / img).exists(), img
+
+
+def test_checksum_file_works_with_sha256sum(tmp_path):
+    f = tmp_path / "PlaylistTransfer-9.9.9-windows.zip"
+    f.write_bytes(b"contenido")
+    digest = load("build").write_checksum(f)
+    raw = (tmp_path / (f.name + ".sha256")).read_bytes()
+    assert raw == f"{digest}  {f.name}\n".encode() and b"\r" not in raw
+
+
+def test_files_in_the_zip_root_have_ascii_names():
+    build = (ROOT / "packaging" / "build.py").read_text(encoding="utf-8")
+    roots = re.findall(r'app_dir / "([^"]+)"', build)
+    assert roots and all(name.isascii() for name in roots), roots
