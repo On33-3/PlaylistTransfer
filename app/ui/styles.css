@@ -387,3 +387,11 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
 .th-help { margin: 12px 0 0; font-size: 13.5px; }
 .dup-summary { margin: var(--gap-actions) 0 0; }
 .libs-title { margin-top: 12px; }
+
+/* Números y símbolos dentro de círculos e insignias: centrados de verdad.
+   Segoe UI reserva más lugar abajo (para la "g" o la "p") que arriba: un dígito queda ~1,5 px bajo. */
+/* Se corrige subiendo el contenido: un relleno abajo achica el área donde se centra. Medido a 4x
+   (scratchpad/measure_centering.py): de 1,25 px de corrimiento a menos de 0,5 px. */
+.steps li b, .badge { line-height: 1; }
+.steps li b { padding-bottom: 1.5px; font-variant-numeric: tabular-nums; }     /* círculo de 21 px, dígito de 12 px */
+.badge { padding-bottom: 2.5px; }          /* insignia de 26 px, símbolo de 13 px */
