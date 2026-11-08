@@ -404,3 +404,45 @@ def test_clicking_a_big_tile_jumps_to_that_song(browser, tmp_path):
     row = page.locator("#tracks li", has_text="Hallelujah")
     assert "flash" in row.get_attribute("class")
     assert errors == []
+
+
+# ---------------------------------------------------------------- listas con muchas playlists
+
+def test_lists_same_height_search_and_new_on_top(browser, tmp_path):
+    """El caso de la captura: pocas playlists de origen y muchas de destino."""
+    api, tidal, yt = make_api(tmp_path)
+    for i in range(14):
+        yt.add_playlist(f"extra{i}", f"Lista {i:02d}", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("input[name=dst][value=extra13]")
+    heights = page.evaluate("[...document.querySelectorAll('.picker ul')].map(u => Math.round(u.getBoundingClientRect().height))")
+    assert heights[0] == heights[1], heights
+    tops = page.evaluate("[...document.querySelectorAll('.picker ul')].map(u => Math.round(u.getBoundingClientRect().top))")
+    assert tops[0] == tops[1], f"las cajas no quedan alineadas: {tops}"   # buscador en las dos, aunque una sea corta
+    first = page.locator("#dst-list li >> nth=0")
+    assert "Crear una playlist nueva" in first.inner_text()
+    page.fill(".picker:nth-child(2) .filter", "lista 1")
+    visible = page.evaluate("[...document.querySelectorAll('#dst-list li[data-filter]')].filter(li => !li.hidden).map(li => li.querySelector('.name').textContent)")
+    assert visible == ["Lista 10", "Lista 11", "Lista 12", "Lista 13"]          # "Lista 01" no contiene "lista 1"
+    page.fill(".picker:nth-child(2) .filter", "no existe")
+    assert page.is_visible("text=Ninguna playlist coincide.")
+    page.fill(".picker:nth-child(2) .filter", "")
+    shot(page, "12-listas-iguales")
+    assert errors == []
+
+
+def test_filter_does_not_lose_the_selection(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    for i in range(12):
+        yt.add_playlist(f"extra{i}", f"Lista {i:02d}", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.check("input[name=src][value=src]")
+    page.check("input[name=dst][value=extra3]")
+    page.fill(".picker:nth-child(2) .filter", "lista 07")
+    page.check("input[name=dst][value=extra7]")
+    page.fill(".picker:nth-child(2) .filter", "")
+    assert page.is_checked("input[name=dst][value=extra3]") and page.is_checked("input[name=dst][value=extra7]")
+    assert not page.is_disabled("#go")
+    assert errors == []
