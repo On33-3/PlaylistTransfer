@@ -282,6 +282,25 @@ def test_other_services_do_not_show_the_readd_warning(browser, tmp_path):
     assert errors == []
 
 
+def test_home_route_can_be_swapped_and_includes_spotify(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    with_spotify(api, tmp_path)
+    page, errors = open_page(browser, api)
+    assert page.eval_on_selector_all("#to option", "os => os.map(o => o.textContent)") == ["Tidal", "YouTube Music", "Spotify"]
+    assert page.get_attribute("#swap", "title") == "Dar vuelta: de YouTube Music a Tidal"
+    shot(page, "inicio-frase")
+    page.click("#swap")
+    assert (page.input_value("#from"), page.input_value("#to")) == ("ytmusic", "tidal")
+    page.select_option("#to", "spotify")
+    assert page.get_attribute("#swap", "title") == "Dar vuelta: de Spotify a YouTube Music"
+    page.select_option("#from", "spotify")                             # iguales: el otro toma el anterior
+    assert (page.input_value("#from"), page.input_value("#to")) == ("spotify", "ytmusic")
+    assert round(page.locator("#swap").bounding_box()["height"]) == 36
+    page.click("nav [data-go=transferir]")
+    assert "Spotify" in page.inner_text("#route-lede")
+    assert errors == []
+
+
 def test_copy_redirect_uri(browser, tmp_path):
     api, *_ = make_api(tmp_path)
     with_spotify(api, tmp_path)

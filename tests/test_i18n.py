@@ -100,7 +100,7 @@ def test_index_html_texts_all_have_keys():
     for m in re.finditer(r"<(\w+)([^>]*)>([^<]+)<", body):
         tag, attrs, text = m.groups()
         text = text.strip()
-        if not text or re.fullmatch(r"[\d\s·✓?✗≈…−]+", text) or text == "PlaylistTransfer":
+        if not text or re.fullmatch(r"[\d\s·✓?✗≈…−⇅]+", text) or text == "PlaylistTransfer":
             continue
         if "data-i18n=" not in attrs:
             orphans.append(text)
