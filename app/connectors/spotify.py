@@ -25,7 +25,7 @@ from app.auth import loopback
 from app.auth.browsers import Browser, open_url
 from app.connectors.base import (Connector, ConnectorError, NotConnectedError, NotOwnerError, Status,
                                  require_confirmation)
-from app.core.matching import SCORE_OK, best_match, queries_for
+from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
 
@@ -339,25 +339,13 @@ class SpotifyConnector(Connector):
 
     def search(self, song: Song) -> list[Song]:
         self._ready()
-        found: dict[str, Song] = {}
+
+        def fetch(q):
+            res = self._call("GET", "/search", params={"q": q, "type": "track", "limit": SEARCH_LIMIT})
+            return [self.to_song(t) for t in (res.get("tracks") or {}).get("items") or [] if t and not t.get("is_local")]
         queries = ([f"isrc:{song.isrc}"] if song.isrc else []) + list(queries_for(song))
-        for q in queries:
-            try:
-                res = self._call("GET", "/search", params={"q": q, "type": "track", "limit": SEARCH_LIMIT})
-            except (TokenExpired, NotConnectedError, RateLimited, Forbidden):
-                raise                              # si no, todos los temas saldrían "no encontrado"
-            except ConnectorError as e:
-                log.warning("Spotify: falló la búsqueda %r: %s", q, e)
-                continue
-            for t in (res.get("tracks") or {}).get("items") or []:
-                if t and not t.get("is_local"):
-                    c = self.to_song(t)
-                    if c.id:
-                        found.setdefault(c.id, c)
-            time.sleep(self.search_pause)
-            if found and best_match(song, list(found.values()))[1] >= SCORE_OK:
-                break
-        return list(found.values())
+        return list(self.collect(song, queries, fetch, fatal=(TokenExpired, NotConnectedError, RateLimited, Forbidden),
+                                 recoverable=ConnectorError).values())
 
     # ---- escritura
 

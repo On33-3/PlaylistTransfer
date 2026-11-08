@@ -1,13 +1,19 @@
 """Interfaz que cumple cada servicio de música. El resto de la app solo habla con esto."""
 from __future__ import annotations
 
+import logging
 import threading
+import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from enum import Enum
 
 from app.auth.browsers import Browser
+from app.core.matching import SCORE_OK, best_match
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
+
+log = logging.getLogger(__name__)
 
 BATCH = 50           # temas por pedido al agregar o quitar
 SEARCH_PAUSE = 0.3   # segundos entre búsquedas, para no saturar las APIs
@@ -51,6 +57,35 @@ class Connector(ABC):
     def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
         """Inicia sesión (puede abrir el navegador y bloquear hasta que el usuario termine).
         Si `cancel` se activa mientras espera, corta y lanza `Cancelled`."""
+
+    def collect(self, song: Song, queries: Iterable[str], fetch: Callable[[str], Iterable[Song]],
+                found: dict[str, Song] | None = None, *, fatal: tuple[type[BaseException], ...] = (),
+                recoverable: type[BaseException] = Exception) -> dict[str, Song]:
+        """La búsqueda de todos los servicios: prueba las consultas en orden y corta apenas hay una
+        coincidencia buena (SCORE_OK). `fetch(q)` hace una consulta y devuelve canciones; se juntan sin
+        repetir en `found` (que puede venir con resultados de antes, como los de ISRC).
+        Si una consulta falla (`recoverable`) se anota y se sigue con la próxima; los errores de `fatal`
+        (sesión vencida, el servicio pidió esperar) cortan todo: si no, cada tema saldría "no encontrado"."""
+        found = {} if found is None else found
+        for q in queries:
+            try:
+                results = fetch(q)
+            except fatal:
+                raise
+            except recoverable as e:
+                log.warning("%s: falló la búsqueda %r: %s", self.name, q, e)
+                continue
+            for c in results:
+                if c.id:
+                    found.setdefault(c.id, c)
+            time.sleep(self.search_pause)
+            if self.good_enough(song, found):
+                break
+        return found
+
+    @staticmethod
+    def good_enough(song: Song, found: dict[str, Song]) -> bool:
+        return bool(found) and best_match(song, list(found.values()))[1] >= SCORE_OK
 
     def login_steps(self, browser: Browser | None) -> list[str]:
         """Lo que la persona hace mientras se conecta, una acción por paso: claves de la sección "ui" del

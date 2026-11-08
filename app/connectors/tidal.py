@@ -13,7 +13,7 @@ from pathlib import Path
 from app.auth.browsers import Browser, open_url
 from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedError, NotOwnerError,
                                  Status, require_confirmation)
-from app.core.matching import SCORE_OK, best_match, queries_for
+from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.core.models import Cancelled
 from app.i18n import t as tr
@@ -206,20 +206,11 @@ class TidalConnector(Connector):
             except Exception as e:
                 log.warning("Tidal: falló la búsqueda por ISRC %s: %s", song.isrc, e)
         # 2) Por texto
-        for q in queries_for(song):
-            try:
-                res = s.search(q, models=[self._track_model()], limit=10)
-            except Exception as e:
-                log.warning("Tidal: falló la búsqueda %r: %s", q, e)
-                continue
+        def fetch(q):
+            res = s.search(q, models=[self._track_model()], limit=10)
             tracks = res.get("tracks", []) if isinstance(res, dict) else getattr(res, "tracks", [])
-            for t in tracks or []:
-                c = self.to_song(t)
-                found.setdefault(c.id, c)
-            time.sleep(self.search_pause)
-            if found and best_match(song, list(found.values()))[1] >= SCORE_OK:
-                break
-        return list(found.values())
+            return [self.to_song(t) for t in tracks or []]
+        return list(self.collect(song, queries_for(song), fetch, found).values())
 
     def _track_model(self):
         try:
