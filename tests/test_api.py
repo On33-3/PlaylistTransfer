@@ -251,8 +251,8 @@ def test_services_come_from_the_registry(app):
 
 
 def test_ui_has_no_service_list_of_its_own():
-    from pathlib import Path
-    js = (Path(__file__).parents[1] / "app" / "ui" / "app.js").read_text(encoding="utf-8")
+    from tests.test_i18n import ui_scripts
+    js = ui_scripts()
     assert "YouTube Music" not in js and '"tidal"' not in js and '"ytmusic"' not in js
 
 

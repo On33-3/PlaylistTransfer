@@ -66,7 +66,7 @@ PlaylistTransfer/
 │   │   ├── paths.py            # %LOCALAPPDATA%\PlaylistTransfer
 │   │   ├── prefs.py
 │   │   └── history.py          # SQLite
-│   └── ui/                     # index.html, styles.css, app.js (sin frameworks pesados)
+│   └── ui/                     # index.html, styles.css y js/ (core, una por pantalla, main; sin frameworks)
 ├── tests/                      # pytest: matching, transfer con conectores falsos, history, browsers
 ├── legacy/transfer_playlist.py # script de consola original (referencia)
 ├── .github/workflows/build.yml
@@ -78,7 +78,7 @@ PlaylistTransfer/
 
 **Progreso en vivo:** las tareas corren en un hilo (`app/jobs.py`, una por vez). Cada evento (`source`, `searching`, `track`, `already`, `target`, `login`) va a una cola, y la UI la lee cada ~200 ms con `api.poll(job, desde)`. Se eligió leer la cola en vez de `window.evaluate_js` porque no depende del hilo de la ventana y se puede probar sin ventana. La ventana nunca se congela. Nada se modifica hasta terminar todas las búsquedas: cancelar en ese momento no deja playlists a medias.
 
-**Pruebas de la UI:** `tests/test_ui.py` abre `app/ui` en Edge (el mismo motor que WebView2) con Playwright, conectada a la API real con servicios falsos. `PT_SCREENSHOTS=<carpeta>` guarda capturas. `PT_SMOKE=1 py -m app` abre la ventana real, espera a que la UI avise que cargó y la cierra.
+**Pruebas de la UI:** `tests/test_ui_<pantalla>.py` (con lo común en `tests/ui_helpers.py`) abre `app/ui` en Edge (el mismo motor que WebView2) con Playwright, conectada a la API real con servicios falsos. `PT_SCREENSHOTS=<carpeta>` guarda capturas. `PT_SMOKE=1 py -m app` abre la ventana real, espera a que la UI avise que cargó y la cierra.
 
 ## 4. Pantallas (UI)
 1. **Inicio:** fichas de estado por servicio (`Tidal ✓ conectado`, `YouTube Music ⚠ venció`, `Spotify — sin conectar`), cada una con su botón Conectar o Reconectar. Debajo, tres acciones grandes: **Transferir**, **Quitar repetidos**, **Historial**.
