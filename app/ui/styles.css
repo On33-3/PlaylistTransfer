@@ -265,8 +265,12 @@
 .chip.soon { color: var(--ink-soft); background: transparent; border-style: dashed; cursor: default; }
 .chip.soon .dot { background: transparent; border: 1.5px solid #B9B3CC; }
 .chip.checking .dot { background: var(--sky); }
-.svc .actions-inline { display: flex; gap: 8px; }
+.svc .actions-inline { display: flex; gap: 8px; flex-shrink: 0; }   /* los botones nunca se aplastan */
+.svc > span:first-child { min-width: 0; }
+.svc .actions-inline .btn { white-space: nowrap; }
 .login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+.login-wait .setup-steps { margin-top: 6px; color: var(--ink); max-width: 52ch; }
+.svc:has(.login-wait:not([hidden])) .svc-hint { display: none; }   /* mientras se conecta, mandan los pasos */
 .path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
 .hist li.empty { display: block; }
 .empty .btn { margin-left: 10px; height: 32px; padding: 0 14px; font-size: 14px; }

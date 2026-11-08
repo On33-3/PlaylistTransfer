@@ -105,6 +105,20 @@ def test_setup_steps_name_their_buttons_exactly(tmp_path):
                 assert ("{button}" in ui[st["text"]]) == ("button" in st), (lang, st["text"])
 
 
+def test_every_login_step_exists_in_both_languages(tmp_path):
+    """Los pasos que se ven mientras se conecta (los da cada conector, también según el navegador)."""
+    from pathlib import Path as P
+    from app.auth.browsers import Browser
+    from app.connectors import registry
+    browsers = [Browser("Vivaldi", "vivaldi", P(r"C:\v.exe")), Browser("Firefox", "firefox", P(r"C:\f.exe"))]
+    for s in registry.SERVICES:
+        for b in browsers:
+            steps = s.make().login_steps(b)
+            assert steps, (s.key, b.kind)
+            for lang in ("es", "en"):
+                assert all(k in load(lang)["ui"] for k in steps), (lang, s.key, b.kind)
+
+
 def test_no_hardcoded_spanish_left_in_app_js():
     """Fuera de los comentarios, app.js no tiene texto en castellano: todo pasa por t()."""
     src = (UI / "app.js").read_text(encoding="utf-8")

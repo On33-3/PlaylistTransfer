@@ -249,7 +249,7 @@ class Api:
                     raise ConnectorError(tr("err.choose_browser_first"))
                 self.choose_browser(str(suggested.exe))
                 browser = suggested
-            emit({"type": "login", "service": c.name, "browser": browser.name})
+            emit({"type": "login", "service": c.name, "browser": browser.name, "steps": c.login_steps(browser)})
             c.connect(browser, cancel=cancel)
             return {"status": c.status().value}
         return self._start("login", work)

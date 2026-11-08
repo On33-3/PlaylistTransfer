@@ -393,6 +393,31 @@ def test_copy_redirect_uri(browser, tmp_path):
     assert errors == []
 
 
+def test_while_connecting_the_steps_show_up_numbered(browser, tmp_path):
+    """Mientras se conecta, debajo del servicio aparecen los pasos (los del conector real) y el botón Cancelar."""
+    from app.connectors.tidal import TidalConnector
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    tidal.login_hangs = True
+    tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=ajustes]")
+    page.click("[data-connect=tidal]")
+    page.wait_for_selector("#wait-tidal .setup-steps li")
+    assert page.eval_on_selector_all("#wait-tidal .step-n", "ns => ns.map(n => n.textContent)") == ["1", "2", "3", "4"]
+    text = page.inner_text("#wait-tidal")
+    assert "Se abrió la página de Tidal en Vivaldi" in text and "«Tidal ✓»" in text
+    assert page.is_hidden(".svc:has(#wait-tidal) .svc-hint")          # mientras tanto, mandan los pasos
+    from tests.test_ui_design import check
+    assert check(page, "ajustes") == []                 # con los pasos abiertos, los botones no se aplastan
+    page.set_viewport_size({"width": 860, "height": 620})
+    assert check(page, "ajustes") == []
+    page.set_viewport_size({"width": 1120, "height": 780})
+    shot(page, "ajustes-conectando-pasos")
+    page.click("#cancel-login")
+    page.wait_for_selector("text=Cancelaste el inicio de sesión.")
+    assert errors == []
+
+
 def test_login_can_be_cancelled_from_settings(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path, connected=False)
     tidal.login_hangs = True

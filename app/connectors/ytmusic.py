@@ -106,6 +106,12 @@ class YTMusicConnector(Connector):
         if self.yt is None:
             raise ConnectorError(tr("err.yt_session_rejected"))
 
+    def login_steps(self, browser: Browser | None) -> list[str]:
+        # Con Firefox se usa su sesión (no se abre una ventana aparte): los pasos son otros
+        if browser is not None and browser.is_firefox:
+            return [f"login.ytmusic_firefox.{i}" for i in range(1, 4)]
+        return [f"login.ytmusic.{i}" for i in range(1, 5)]
+
     def save_session(self, jar: dict[str, str], user_agent: str) -> None:
         import ytmusicapi
         self.browser_file.parent.mkdir(parents=True, exist_ok=True)
