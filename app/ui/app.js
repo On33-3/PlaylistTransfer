@@ -157,9 +157,10 @@ function opRoute(op) {
 }
 function opSub(op) {
   if (op.kind === "dedupe") return t("op.removed", { n: op.removed });
-  const parts = [t("op.added", { n: op.added })];
+  // Los dudosos ya están entre los agregados: se aclaran entre paréntesis, no se suman aparte
+  const added = t("op.added", { n: op.added });
+  const parts = [op.doubtful ? t("op.added_with_doubts", { added, doubtful: t("op.doubtful", { n: op.doubtful }) }) : added];
   if (op.already) parts.push(t("op.already", { n: op.already }));
-  if (op.doubtful) parts.push(t("op.doubtful", { n: op.doubtful }));
   if (op.not_found) parts.push(t("op.not_found", { n: op.not_found }));
   return parts.join(", ");
 }
@@ -172,7 +173,11 @@ const emptyHistory = () => `<li class="empty"><b>${esc(t("history.empty_title"))
 
 const LEGEND = [["ok", "ok", "--mint"], ["doubt", "doubt", "--peach"], ["miss", "miss", "--rose"],
                 ["dup", "dup", "--sage"], ["removed", "removed", "--lav"]];
-const statusLabel = s => t(`legend.${CLASS[s] || "ok"}`);
+/** El nombre del estado. En una prueba sin cambios, lo encontrado "se agregaría" (no se agregó nada). */
+const statusLabel = (s, dry = false) => {
+  const key = CLASS[s] || "ok";
+  return t(dry && (key === "ok" || key === "doubt") ? `legend.${key}_dry` : `legend.${key}`);
+};
 
 /** Qué significa cada color (una sola vez por pantalla, arriba de la lista). */
 function legendHTML() {
@@ -180,8 +185,9 @@ function legendHTML() {
     `<span><i style="background:var(${color})"></i>${SYMBOL[cls]} ${esc(t(`legend.${key}`))}</span>`).join("");
 }
 
-function tileTitle(status, song) {
-  return song?.[0] ? t("tile.tooltip", { title: song[0], artist: song[1] || "?", status: statusLabel(status) }) : statusLabel(status);
+function tileTitle(status, song, dry = false) {
+  const label = statusLabel(status, dry);
+  return song?.[0] ? t("tile.tooltip", { title: song[0], artist: song[1] || "?", status: label }) : label;
 }
 
 /** El mosaico chico de una operación del historial (con "+N" si tiene más temas de los que se dibujan). */
@@ -304,7 +310,9 @@ function trackHTML(e) {
   const cls = CLASS[e.status] || "now";
   const s = e.song, m = e.match;
   let note = "";
-  if (e.status === "dudoso" && m) note = t("transfer.note_doubt", { title: m.title, artist: m.artist || "?" });
+  if (e.status === "dudoso" && m) {
+    note = t(state.transfer?.dryRun ? "transfer.note_doubt_dry" : "transfer.note_doubt", { title: m.title, artist: m.artist || "?" });
+  }
   if (e.status === "no_encontrado") note = e.alternatives?.length ? t("transfer.note_miss_alts", { artist: s.artist }) : t("transfer.note_miss");
   if (e.as) note = t("transfer.note_already_as", { title: e.as.title });
   else if (e.status === "ya_estaba") note = t("transfer.note_already");
@@ -325,6 +333,10 @@ async function startTransfer(dryRun) {
   $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
   $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${esc(targets.map(x => x.name).join(", "))}`;
   for (const k in tr.n) $("#n-" + k).textContent = 0;
+  // En una prueba sin cambios, la leyenda dice "Se agregaría" en vez de "Agregado"
+  for (const k of ["ok", "doubt"]) {
+    $(`#run .legend [data-i18n^="transfer.legend_${k}"]`).textContent = t(`transfer.legend_${k}${dryRun ? "_dry" : ""}`);
+  }
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
   $("#run-actions").hidden = true; setStep(2);
@@ -373,7 +385,7 @@ function onTransferEvent(tr, e) {
 function setBigTile(n, status, song) {
   const tile = $("#mosaic").children[n - 1]; if (!tile) return;
   tile.className = `${CLASS[status]} jump`;
-  tile.title = `${tileTitle(status, [song.title, song.artist])}. ${t("tile.jump")}`;
+  tile.title = `${tileTitle(status, [song.title, song.artist], state.transfer?.dryRun)}. ${t("tile.jump")}`;
 }
 
 $("#mosaic").addEventListener("click", e => {
@@ -396,7 +408,7 @@ function showTransferResult(tr, res) {
   });
   $("#done-title").textContent = t(res.dry_run ? "transfer.dry_title" : "transfer.done_title");
   const s = res.summary, notes = [];
-  if (s.doubtful) notes.push(t("transfer.notes_doubtful", { n: s.doubtful }));
+  if (s.doubtful) notes.push(t(res.dry_run ? "transfer.notes_doubtful_dry" : "transfer.notes_doubtful", { n: s.doubtful }));
   if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
   const first = res.targets.find(x => x.url);

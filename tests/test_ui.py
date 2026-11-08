@@ -344,7 +344,7 @@ def test_home_and_history_legends_only_when_there_is_history(browser, tmp_path):
     page.click("nav [data-go=inicio]")
     page.wait_for_selector("#home-legend:not([hidden])")
     legend = page.inner_text("#home-legend")
-    for word in ("Encontrado", "Para revisar", "No encontrado", "Ya estaba", "Quitado"):
+    for word in ("Agregado", "Agregado, puede ser otra versión", "No encontrado", "Ya estaba", "Quitado (repetido)"):
         assert word in legend
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist-legend:not([hidden])")
@@ -361,7 +361,7 @@ def test_each_small_tile_says_which_song_it_is(browser, tmp_path):
     assert "Hallelujah — Jeff Buckley: No encontrado" in titles
     assert "Mr. Blue Sky — Electric Light Orchestra: Ya estaba" in titles
     label = page.get_attribute("#home-history .mosaic", "aria-label")
-    assert label == "2 agregados, 1 ya estaba, 1 para revisar, 1 no encontrado"
+    assert label == "2 agregados (1 puede ser otra versión), 1 ya estaba, 1 no encontrado"
     shot(page, "11-inicio-leyenda")
     assert errors == []
 
@@ -374,7 +374,7 @@ def test_small_tiles_in_english(browser, tmp_path):
     page.wait_for_selector("#hist .mosaic i")
     titles = [i.get_attribute("title") for i in page.query_selector_all("#hist .mosaic i")]
     assert "Hallelujah — Jeff Buckley: Not found" in titles
-    assert "To review" in page.inner_text("#hist-legend")
+    assert "Added, may be another version" in page.inner_text("#hist-legend")
     assert errors == []
 
 
@@ -445,4 +445,35 @@ def test_filter_does_not_lose_the_selection(browser, tmp_path):
     page.fill(".picker:nth-child(2) .filter", "")
     assert page.is_checked("input[name=dst][value=extra3]") and page.is_checked("input[name=dst][value=extra7]")
     assert not page.is_disabled("#go")
+    assert errors == []
+
+
+# ---------------------------------------------------------------- textos según lo que pasa de verdad
+
+def test_a_preview_says_would_be_added(browser, tmp_path):
+    """En "Probar sin cambiar nada" no se agrega nada: la leyenda, las notas y los cuadrados lo dicen."""
+    api, *_ = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page, dry=True)
+    legend = page.inner_text("#run .legend")
+    assert "✓ Se agregaría" in legend and "? Se agregaría, puede ser otra versión" in legend
+    assert "Agregado" not in legend
+    assert "Se agregaría «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "1 tema se agregaría pero puede ser otra versión" in page.inner_text("#done")
+    assert page.locator("#mosaic i >> nth=0").get_attribute("title").startswith("Take On Me — a-ha: Se agregaría.")
+    page.click("#again")                                             # una transferencia real después
+    transfer(page)
+    assert "✓ Agregado" in page.inner_text("#run .legend")
+    assert "Se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "1 tema se agregó pero puede ser otra versión (?)" in page.inner_text("#done")
+    assert errors == []
+
+
+def test_history_summary_counts_doubtful_inside_added(browser, tmp_path):
+    api, *_ = english_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist li[data-op]")
+    assert "2 added (1 may be another version), 1 already there, 1 not found" in page.inner_text("#hist")
     assert errors == []
