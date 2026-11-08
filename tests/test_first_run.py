@@ -62,7 +62,7 @@ def test_the_app_starts_with_spotify_waiting_for_setup(new_pc):
     api = Api.create()
     assert {s["key"]: s["status"] for s in api.status()}["spotify"] == "setup"
     sp = next(s for s in api.services() if s["key"] == "spotify")
-    assert sp["available"] and sp["setup"]["redirect_uri"] == "http://127.0.0.1/callback"
+    assert sp["available"] and "http://127.0.0.1/callback" in [st.get("copy") for sec in sp["setup"]["sections"] for st in sec["steps"]]
     assert sp["setup"]["client_id"] is None
     assert not paths.spotify_app_file().exists() and not paths.spotify_session_file().exists()
 

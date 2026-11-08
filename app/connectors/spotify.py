@@ -119,9 +119,31 @@ class SpotifyConnector(Connector):
         return cid
 
     def setup_info(self) -> dict:
-        # un link por paso, para que nadie tenga que buscar a dónde ir
-        return {"links": {"premium": PREMIUM, "create": CREATE_APP, "apps": DASHBOARD},
-                "redirect_uri": REDIRECT_URI, "client_id": self.client_id}
+        """Los pasos para configurar Spotify, uno por acción y en el orden del formulario de Spotify.
+        La UI solo los dibuja. Cada paso: `text` (clave del diccionario), y si hace falta `button` (el botón
+        que el texto nombra como {button}: el mismo texto sale de una sola clave), `link` (ese botón abre
+        esa página), `copy` / `copy_key` (lo que se pega, con su botón Copiar), `input` (acá se pega el
+        Client ID) y `note` (un aviso debajo). Los nombres entre «» son los de la pantalla de Spotify."""
+        p = "settings.sp."
+        return {"client_id": self.client_id, "sections": [
+            {"title": p + "s1", "steps": [
+                {"text": p + "premium", "button": p + "premium_btn", "link": PREMIUM}]},
+            {"title": p + "s2", "steps": [
+                {"text": p + "open_form", "button": p + "open_form_btn", "link": CREATE_APP},
+                {"text": p + "login", "button": p + "open_form_btn"},
+                {"text": p + "app_name", "copy_key": p + "app_name_value"},
+                {"text": p + "app_desc", "copy_key": p + "app_desc_value"},
+                {"text": p + "website"},
+                {"text": p + "redirect", "copy": REDIRECT_URI, "note": p + "redirect_note"},
+                {"text": p + "web_api"},
+                {"text": p + "terms"},
+                {"text": p + "save"}]},
+            {"title": p + "s3", "steps": [
+                {"text": p + "settings", "button": p + "apps_btn", "link": DASHBOARD},
+                {"text": p + "client_id"},
+                {"text": p + "paste", "button": p + "save_btn", "input": True},
+                {"text": p + "agree"}]},
+        ]}
 
     # ---- HTTP
 

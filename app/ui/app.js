@@ -7,7 +7,7 @@ const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrad
 // Los servicios salen de api.services() (app/connectors/registry.py) al arrancar
 let NAMES = {};          // {tidal: "Tidal", ...} en el orden en que se muestran
 let USABLE = [];         // los que ya se pueden usar
-let SETUP = {};          // los que piden configurar algo antes (Spotify): {links, redirect_uri, client_id}
+let SETUP = {};          // los que piden configurar algo antes (Spotify): {sections, client_id}
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -629,7 +629,7 @@ function serviceHint(k, st, browser) {
   const base = `settings.hint.${k}`;
   const key = [st === "setup" && `${base}_setup`, browser?.kind === "firefox" && `${base}_firefox`, base]
     .find(x => x && STR[x] !== undefined) || base;
-  return t(key, { browser: browser?.name || t("settings.your_browser") });
+  return t(key, { browser: browser?.name || t("settings.your_browser"), button: t("settings.setup") });
 }
 
 async function renderSettings() {
@@ -712,26 +712,31 @@ $("#browser-list").addEventListener("change", async e => {
   if (r) toast(t("settings.browser_toast", { name: r.name }));
 });
 
-/** Los pasos para usar Spotify con una app propia (lo exige Spotify desde 2026), en la misma fila. */
+/** Los pasos de configuración, tal como los define el conector (setup_info): uno por acción, numerados
+ *  2.1, 2.2..., con lo que hay que pegar al lado del paso donde va y los botones con el mismo nombre
+ *  que usa el texto. Los nombres entre «» (campos y botones) van en negrita para encontrarlos rápido. */
 function setupPanelHTML(k) {
-  const s = SETUP[k], link = (key, label) =>   // cada paso trae su link: nadie tiene que buscar a dónde ir
-    `<button class="btn ghost" data-link="${esc(s.links[key])}">${esc(t(label))}</button>`;
-  return `<div class="setup-panel" id="setup-${k}" hidden>
-    <ol class="setup-steps">
-      <li><b>${esc(t("settings.sp_step1_title"))}</b> ${esc(t("settings.sp_step1"))}
-        <div class="setup-row">${link("premium", "settings.sp_premium")}</div></li>
-      <li><b>${esc(t("settings.sp_step2_title"))}</b> ${esc(t("settings.sp_step2"))}
-        <div class="setup-row">${link("create", "settings.sp_create")}</div>
-        <div class="setup-row"><code class="uri" id="redirect-${k}">${esc(s.redirect_uri)}</code>
-          <button class="btn ghost" data-copy="${k}">${esc(t("settings.copy"))}</button></div>
-        <p class="muted setup-hint">${esc(t("settings.sp_step2_hint"))}</p></li>
-      <li><b>${esc(t("settings.sp_step3_title"))}</b> <label for="client-${k}">${esc(t("settings.sp_step3"))}</label>
-        <div class="setup-row">${link("apps", "settings.sp_apps")}</div>
-        <div class="setup-row"><input type="text" id="client-${k}" class="client-id" spellcheck="false" autocomplete="off" maxlength="64"
-          placeholder="${esc(t("settings.sp_client_placeholder"))}" value="${esc(s.client_id || "")}">
-          <button class="btn primary" data-save-client="${k}" data-needs-idle>${esc(t("settings.sp_save"))}</button></div>
-        <p class="error" id="client-error-${k}" hidden></p></li>
-    </ol>
+  const s = SETUP[k];
+  const fmt = (key, vars) => esc(t(key, vars)).replace(/([«“])([^»”]+)([»”])/g, "$1<b>$2</b>$3");
+  const step = (st, n) => {
+    const label = st.button ? t(st.button) : "";
+    const value = st.copy_key ? t(st.copy_key) : st.copy;
+    const text = fmt(st.text, { button: label });
+    let html = `<li><span class="step-n num">${n}</span><div class="step-body">`;
+    html += st.input ? `<label for="client-${k}">${text}</label>` : `<p>${text}</p>`;
+    if (st.link) html += `<div class="setup-row"><button class="btn ghost" data-link="${esc(st.link)}">${esc(label)}</button></div>`;
+    if (value) html += `<div class="setup-row"><code class="copy-value">${esc(value)}</code>
+      <button class="btn ghost" data-copy="${esc(value)}">${esc(t("settings.copy"))}</button></div>`;
+    if (st.input) html += `<div class="setup-row"><input type="text" id="client-${k}" class="client-id" spellcheck="false" autocomplete="off" maxlength="64"
+      placeholder="${esc(t("settings.sp_client_placeholder"))}" value="${esc(s.client_id || "")}">
+      <button class="btn primary" data-save-client="${k}" data-needs-idle>${esc(label)}</button></div>
+      <p class="error" id="client-error-${k}" hidden></p>`;
+    if (st.note) html += `<p class="muted setup-hint">${fmt(st.note)}</p>`;
+    return html + "</div></li>";
+  };
+  return `<div class="setup-panel" id="setup-${k}" hidden>${s.sections.map((sec, i) => `
+    <div class="setup-section"><h4>${esc(t("settings.step_n", { n: i + 1 }))} · ${fmt(sec.title)}</h4>
+      <ol class="setup-steps">${sec.steps.map((st, j) => step(st, `${i + 1}.${j + 1}`)).join("")}</ol></div>`).join("")}
     <p class="muted setup-note">${esc(t("settings.sp_note"))}</p></div>`;
 }
 
@@ -785,10 +790,10 @@ $("#svc-list").addEventListener("click", async e => {
   if (setup) {
     const panel = $("#setup-" + setup.dataset.setup), open = panel.hidden;
     panel.hidden = !open; setup.setAttribute("aria-expanded", open);
-    if (open) $("input", panel).focus();
+    if (open) $("button", panel).focus();      // el primer paso, no el último
   }
   const copy = e.target.closest("[data-copy]");
-  if (copy && await copyText(SETUP[copy.dataset.copy].redirect_uri)) toast(t("settings.copied"));
+  if (copy && await copyText(copy.dataset.copy)) toast(t("settings.copied"));
   const link = e.target.closest("[data-link]");
   if (link) call("open_url", link.dataset.link);
   const save = e.target.closest("[data-save-client]");
