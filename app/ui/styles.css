@@ -1,339 +1,27 @@
+/* PlaylistTransfer: estilos de la ventana. Sin recursos externos (ni fuentes ni íconos de afuera).
+   Orden: valores de diseño, base, ventana, componentes, una sección por pantalla y las listas
+   desplegables. Los tamaños salen siempre de :root; tests/ui_helpers.py mide que se respeten. */
+
+/* =========================================================================== valores de diseño */
 :root {
-    --bg: #F3F1FA;        /* lila neblina */
-    --surface: #FFFFFF;
-    --ink: #2E2A3D;       /* tinta ciruela */
-    --ink-soft: #6B6580;
-    --line: #E4E0F0;
-    --lav: #CFC4F2;       /* primario */
-    --lav-strong: #7E6BC2;/* foco y selección */
-    --sky: #BFE3F5;       /* en curso */
-    --mint: #BDEBD3;      /* ✓ encontrado */
-    --peach: #FFD9B8;     /* ? dudoso */
-    --rose: #FFC2C7;      /* ✗ no encontrado */
-    --sage: #DCE5E0;      /* ≈ ya estaba */
-    --pending: #EAE6F4;
-    --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body {
-    font-family: var(--font);
-    font-size: 15px;
-    line-height: 1.5;
-    color: var(--ink);
-    background: var(--bg);
-    height: 100vh;
-    overflow: hidden;
-    font-optical-sizing: auto;
-  }
-  button, select, input { font: inherit; color: inherit; }
-  :focus-visible { outline: 3px solid var(--lav-strong); outline-offset: 2px; border-radius: 8px; }
+  --bg: #F3F1FA;        /* lila neblina */
+  --surface: #FFFFFF;
+  --ink: #2E2A3D;       /* tinta ciruela */
+  --ink-soft: #6B6580;
+  --line: #E4E0F0;
+  --lav: #CFC4F2;       /* primario */
+  --lav-strong: #7E6BC2;/* foco y selección */
+  --sky: #BFE3F5;       /* en curso */
+  --mint: #BDEBD3;      /* ✓ encontrado */
+  --peach: #FFD9B8;     /* ? dudoso */
+  --rose: #FFC2C7;      /* ✗ no encontrado */
+  --sage: #DCE5E0;      /* ≈ ya estaba */
+  --pending: #EAE6F4;
+  --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
-  /* ---------- ventana ---------- */
-  .window {
-    width: 100%;
-    height: 100vh;
-    background: var(--bg);
-    display: grid;
-    grid-template-columns: 196px 1fr;
-    grid-template-rows: 60px 1fr;
-    overflow: hidden;
-  }
-  .topbar {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 22px;
-    border-bottom: 1px solid var(--line);
-  }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
-  .brand-mark { width: 26px; height: 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
-  .brand-mark i { border-radius: 3px; }
-  .brand-mark i:nth-child(1), .brand-mark i:nth-child(5), .brand-mark i:nth-child(9) { background: var(--mint); }
-  .brand-mark i:nth-child(2), .brand-mark i:nth-child(6) { background: var(--lav); }
-  .brand-mark i:nth-child(3), .brand-mark i:nth-child(7) { background: var(--sky); }
-  .brand-mark i:nth-child(4) { background: var(--peach); }
-  .brand-mark i:nth-child(8) { background: var(--rose); }
-
-  .status { display: flex; gap: 8px; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 7px;
-    height: 30px; padding: 0 12px 0 10px;
-    border-radius: 999px; font-size: 13.5px; font-weight: 500;
-    background: var(--surface); border: 1px solid var(--line);
-    cursor: pointer;
-  }
-  .chip .dot { width: 9px; height: 9px; border-radius: 50%; }
-  .chip.ok .dot { background: #5BBF8A; }
-  .chip.warn .dot { background: #F2A15F; }
-  .chip.off { color: var(--ink-soft); background: transparent; border-style: dashed; }
-  .chip.off .dot { background: transparent; border: 1.5px solid #B9B3CC; }
-  .chip .state { color: var(--ink-soft); font-weight: 400; }
-
-  /* ---------- navegación ---------- */
-  nav {
-    padding: 18px 12px;
-    display: flex; flex-direction: column; gap: 2px;
-    border-right: 1px solid var(--line);
-  }
-  nav button {
-    text-align: left; border: 0; background: transparent;
-    padding: 9px 14px; border-radius: 12px; cursor: pointer;
-    font-size: 15px; font-weight: 500; color: var(--ink-soft);
-  }
-  nav button:hover { color: var(--ink); background: rgba(207, 196, 242, .35); }
-  nav button[aria-current="page"] { color: var(--ink); background: var(--surface); box-shadow: inset 3px 0 0 var(--lav-strong); }
-  nav .spacer { flex: 1; }
-  nav .version { padding: 0 14px; font-size: 12.5px; color: var(--ink-soft); }
-
-  main { overflow-y: auto; padding: 34px 40px 40px; }
-  .screen { display: none; max-width: 760px; }
-  .screen.active { display: block; }
-  h1 { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
-  h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.01em; }
-  .lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 60ch; }
-  .muted { color: var(--ink-soft); }
-  .num { font-variant-numeric: tabular-nums; }
-
-  /* ---------- botones ---------- */
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    height: 42px; padding: 0 20px; border-radius: 999px;
-    border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 15px;
-  }
-  .btn.primary { background: var(--lav); }
-  .btn.primary:hover { background: #C2B4EE; }
-  .btn.ghost { background: transparent; border-color: #D6D0E8; }
-  .btn.ghost:hover { background: var(--surface); }
-  .btn.danger { background: var(--rose); }
-  .btn.danger:hover { background: #FFB3BA; }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
-
-  /* ---------- inicio: qué hace la app ---------- */
-  .features { list-style: none; margin: -8px 0 0; padding: 0; display: grid; gap: 10px; max-width: 64ch; }
-  .features li { padding-left: 16px; border-left: 3px solid var(--lav); color: var(--ink-soft); }
-  .features li:nth-child(2) { border-left-color: var(--sky); }
-  .features li:nth-child(3) { border-left-color: var(--mint); }
-  .features li:nth-child(4) { border-left-color: var(--peach); }
-  .features b { color: var(--ink); }
-
-
-  /* ---------- mosaico ---------- */
-  .mosaic { display: grid; gap: 5px; }
-  .mosaic.big { grid-template-columns: repeat(15, 1fr); max-width: 560px; }
-  .mosaic.big i { aspect-ratio: 1; border-radius: 7px; background: var(--pending); transition: background-color .25s ease, transform .25s ease; }
-  .mosaic.small { grid-template-columns: repeat(15, 10px); gap: 3px; }
-  .mosaic.small i { width: 10px; height: 10px; border-radius: 3px; background: var(--pending); }
-  .mosaic i.ok { background: var(--mint); }
-  .mosaic i.doubt { background: var(--peach); }
-  .mosaic i.miss { background: var(--rose); }
-  .mosaic i.dup { background: var(--sage); }
-  .mosaic i.removed { background: var(--lav); }
-  .mosaic i.now { background: var(--sky); transform: scale(.82); }
-
-  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 0; font-size: 13.5px; color: var(--ink-soft); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
-
-  /* ---------- transferir ---------- */
-  .steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 26px; font-size: 13.5px; }
-  .steps li { padding: 5px 12px 5px 6px; border-radius: 999px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
-  .steps li b { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--pending); color: var(--ink); }
-  .steps li.done b { background: var(--mint); }
-  .steps li.current { background: var(--surface); color: var(--ink); font-weight: 600; }
-  .steps li.current b { background: var(--lav); }
-
-  .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-  .picker h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink-soft); }
-  .picker ul { list-style: none; margin: 0; padding: 6px; background: var(--surface); border-radius: 16px; border: 1px solid var(--line); max-height: 290px; overflow-y: auto; }
-  .picker label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
-  .picker label:hover { background: var(--bg); }
-  .picker label .count { margin-left: auto; color: var(--ink-soft); font-size: 13px; }
-  .picker input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
-  .picker .new { border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 4px; }
-
-  .progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; max-width: 560px; }
-  .counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
-  .counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
-  .route { font-weight: 600; }
-
-  .tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }
-  .tracks li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .badge { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
-  .badge.ok { background: var(--mint); }
-  .badge.doubt { background: var(--peach); }
-  .badge.miss { background: var(--rose); }
-  .badge.dup { background: var(--sage); }
-  .badge.removed { background: var(--lav); }
-  .badge.now { background: var(--sky); }
-  .tracks .t { font-weight: 600; }
-  .tracks .a, .tracks .note { color: var(--ink-soft); }
-  .tracks .score { color: var(--ink-soft); font-size: 13px; }
-
-  .done-box { margin-top: 22px; padding: 18px 20px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 560px; display: none; }
-  .done-box.show { display: block; }
-  .done-box p { margin: 0 0 4px; }
-
-  /* ---------- repetidos ---------- */
-  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
-  .seg button { border: 0; background: transparent; border-radius: 999px; padding: 6px 16px; cursor: pointer; font-weight: 500; color: var(--ink-soft); }
-  .seg button[aria-pressed="true"] { background: var(--lav); color: var(--ink); }
-  .row-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-  .select { height: 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; }
-
-  .dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
-  .dups li { display: grid; grid-template-columns: 28px 1fr 1fr; gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
-  .dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
-  .dups .side { font-size: 14px; }
-  .dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }
-  .dups .remove .tag { background: var(--rose); }
-  .dups .keep .tag { background: var(--mint); }
-  .dups .t { font-weight: 600; }
-  .dups .meta { color: var(--ink-soft); font-size: 13px; }
-
-  /* ---------- historial ---------- */
-  .hist { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
-  .hist > li { border-bottom: 1px solid var(--line); }
-  .hist button.row { width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer; display: grid; grid-template-columns: 116px 1fr auto; gap: 18px; align-items: center; padding: 15px 4px; }
-  .hist button.row:hover { background: rgba(255,255,255,.55); }
-  .hist .date { color: var(--ink-soft); font-size: 13.5px; }
-  .hist .what { font-weight: 600; }
-  .hist .sub { color: var(--ink-soft); font-size: 13.5px; }
-  .hist .detail { display: none; padding: 0 4px 16px 138px; }
-  .hist li.open .detail { display: block; }
-  .hist .detail ul { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
-  .hist .detail li { padding: 3px 0; display: flex; gap: 10px; align-items: center; }
-  .hist .detail .badge { width: 20px; height: 20px; border-radius: 6px; font-size: 11px; }
-
-  /* ---------- ajustes ---------- */
-  .settings section { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
-  .settings section:first-of-type { border-top: 1px solid var(--line); }
-  .settings h3 { font-size: 15px; font-weight: 600; margin: 0; }
-  .settings h3 + p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13.5px; }
-  .opt { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
-  .opt input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
-  .svc { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 12px; }
-  .svc .btn { height: 34px; padding: 0 14px; font-size: 14px; }
-  .thresholds { display: flex; gap: 20px; flex-wrap: wrap; }
-  .thresholds label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-soft); }
-  .thresholds input { width: 90px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; color: var(--ink); }
-  .about p { margin: 0 0 6px; }
-  .support { display: inline-flex; gap: 8px; margin-top: 6px; }
-  .support a { color: var(--ink); text-decoration: none; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; font-weight: 500; }
-  .support a:hover { border-color: var(--lav-strong); }
-
-  /* ---------- diálogo y aviso ---------- */
-  dialog { border: 0; border-radius: 20px; padding: 26px 28px; max-width: 420px; color: var(--ink); background: var(--surface); box-shadow: 0 30px 70px -20px rgba(46, 42, 61, .45); }
-  dialog::backdrop { background: rgba(46, 42, 61, .28); }
-  dialog h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
-  dialog p { margin: 0; color: var(--ink-soft); }
-  .toast { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
-
-  @media (max-width: 760px) {
-    body { padding: 0; }
-    .window { height: 100vh; border-radius: 0; grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
-    .topbar { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
-    nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
-    nav .spacer, nav .version { display: none; }
-    main { padding: 24px 18px; }
-    .pickers, .settings section, .dups li { grid-template-columns: 1fr; }
-    .hist button.row { grid-template-columns: 1fr; }
-    .hist .detail { padding-left: 4px; }
-    .mosaic.big { grid-template-columns: repeat(10, 1fr); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; animation: none !important; }
-  }
-
-/* ---------- app real: estados vacíos, avisos y detalles ---------- */
-[hidden] { display: none !important; }
-.notice { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; max-width: 620px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 0 0 18px; }
-.notice p { margin: 0; }
-.notice .btn { height: 36px; padding: 0 16px; font-size: 14px; }
-.empty { color: var(--ink-soft); padding: 18px 4px; border-bottom: 1px solid var(--line); }
-.empty b { color: var(--ink); }
-.loading { color: var(--ink-soft); padding: 10px; }
-.error { color: #9B3B47; }
-.picker .new input[type="text"] { margin: 4px 10px 8px 36px; width: calc(100% - 46px); height: 34px; border-radius: 10px; border: 1px solid var(--line); padding: 0 10px; background: var(--bg); }
-.tracks .alts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.tracks .alts button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px; font-size: 13px; cursor: pointer; }
-.tracks .alts button:hover:not(:disabled) { border-color: var(--lav-strong); }
-.tracks .alts button:disabled { opacity: .55; cursor: default; }
-.dups .side .tag.version { background: var(--peach); margin-left: 6px; }
-.chip.soon { color: var(--ink-soft); background: transparent; border-style: dashed; cursor: default; }
-.chip.soon .dot { background: transparent; border: 1.5px solid #B9B3CC; }
-.chip.checking .dot { background: var(--sky); }
-.svc .actions-inline { display: flex; gap: 8px; flex-shrink: 0; }   /* los botones nunca se aplastan */
-.svc > span:first-child { min-width: 0; }
-.svc .actions-inline .btn { white-space: nowrap; }
-.login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
-.login-wait .setup-steps { margin-top: 6px; color: var(--ink); max-width: 52ch; }
-.svc-steps .setup-steps { margin-top: 6px; max-width: 52ch; }
-.svc:has(.svc-steps) { padding: 10px 0 14px; }
-.path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
-.hist li.empty { display: block; }
-.empty .btn { margin-left: 10px; height: 32px; padding: 0 14px; font-size: 14px; }
-.hist-controls { margin-bottom: 16px; }
-.export-note { font-size: 13.5px; margin-top: 10px; word-break: break-all; }
-.th-help { font-size: 13.5px; margin: 10px 0 0; max-width: 52ch; }
-.licenses { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13.5px; }
-.licenses li { padding: 2px 0; }
-.licenses a { color: var(--ink); }
-/* Mientras llegan los textos del idioma elegido, la ventana no se muestra (evita ver un idioma y después el otro) */
-html.i18n-pending body { visibility: hidden; }
-
-/* ---------- mosaicos que informan (mejoras 2) ---------- */
-.legend.compact { margin: 0 0 10px; gap: 6px 16px; font-size: 12.5px; }
-.legend.compact i { width: 10px; height: 10px; border-radius: 3px; }
-.mosaic-wrap { display: inline-flex; align-items: center; gap: 8px; }
-.mosaic-wrap .more { font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
-.mosaic.small i { cursor: help; }
-.mosaic.big i.jump { cursor: pointer; }
-.mosaic.big i.jump:hover { transform: scale(1.12); }
-.tracks li.flash { animation: pt-flash 1.6s ease-out; }
-@keyframes pt-flash { from { background: var(--sky); } to { background: transparent; } }
-
-/* ---------- datos extremos: que nada se salga de su lugar (mejoras, prueba de estrés) ---------- */
-main { overflow-wrap: anywhere; }                       /* una palabra larguísima se corta en vez de empujar */
-.pickers > .picker, .settings section > div { min-width: 0; }
-
-/* Listas de Transferir: las dos con la misma altura (la de la más alta, hasta 290 px) */
-.pickers { align-items: stretch; }
-.picker { display: flex; flex-direction: column; }
-.picker ul { flex: 1; scrollbar-width: thin; scrollbar-color: #D6D0E8 transparent; }
-.picker label .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.picker label .count { flex: none; }
-.picker .filter { height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 12px; margin: 0 0 8px; width: 100%; }
-.picker .new { border-top: 0; border-bottom: 1px dashed var(--line); margin: 0 0 4px; padding: 0 0 4px; position: sticky; top: -6px; background: var(--surface); z-index: 1; }
-.picker .no-match { padding: 8px 10px; color: var(--ink-soft); font-size: 13.5px; }
-
-/* Resultado: contador y ruta se acomodan; con muchos temas, cuadrados más chicos */
-.progress-head { flex-wrap: wrap; }
-.counter { white-space: nowrap; }
-.route { min-width: 0; }
-.mosaic.big.dense { grid-template-columns: repeat(30, 1fr); gap: 3px; }
-.mosaic.big.dense i { border-radius: 4px; }
-.mosaic.big.denser { grid-template-columns: repeat(45, 1fr); gap: 2px; }
-.mosaic.big.denser i { border-radius: 2px; }
-.tracks li > span, .dups .side, .done-box p { min-width: 0; }
-.dups li { grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr); }
-
-/* Historial e Inicio: el texto se corta en dos líneas como mucho; el mosaico no empuja */
-.hist button.row { grid-template-columns: 116px minmax(0, 1fr) auto; }
-.hist .what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* Repetidos: el selector no crece con el nombre más largo */
-#dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
-
-/* =====================================================================================
-   Armonización (mejoras 3): un solo sistema de tamaños para toda la app.
-   Botones: grande (acción principal de la pantalla), mediano (secundarias, Ajustes, avisos,
-   estados vacíos) y chico (dentro de un tema de la lista). Los campos usan el alto mediano.
-   ===================================================================================== */
-:root {
+  /* Un solo sistema de tamaños. Botones: grande (la acción principal de la pantalla), mediano
+     (secundarias, Ajustes, avisos, estados vacíos) y chico (dentro de un tema de la lista).
+     Los campos usan el alto mediano. */
   --h-lg: 42px;
   --h-md: 36px;
   --h-sm: 28px;
@@ -342,71 +30,276 @@ main { overflow-wrap: anywhere; }                       /* una palabra larguísi
   --gap-in-box: 16px;        /* lo mismo, dentro de una caja (resultado, Ajustes) */
 }
 
-/* Botones */
-.btn { height: var(--h-lg); }
+/* =========================================================================== base */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+  height: 100vh;
+  overflow: hidden;
+  font-optical-sizing: auto;
+}
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--lav-strong); outline-offset: 2px; border-radius: 8px; }
+[hidden] { display: none !important; }
+/* Mientras llegan los textos del idioma elegido, la ventana no se muestra (evita ver un idioma y después el otro) */
+html.i18n-pending body { visibility: hidden; }
+
+h1 { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
+h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.01em; }
+.lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 60ch; }
+.muted { color: var(--ink-soft); }
+.num { font-variant-numeric: tabular-nums; }
+.error { color: #9B3B47; }
+.loading { color: var(--ink-soft); padding: 10px; }
+.offscreen { position: fixed; left: -9999px; top: 0; }
+
+/* =========================================================================== ventana */
+.window {
+  width: 100%;
+  height: 100vh;
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: 196px 1fr;
+  grid-template-rows: 60px 1fr;
+  overflow: hidden;
+}
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+.brand-mark { width: 26px; height: 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+.brand-mark i { border-radius: 3px; }
+.brand-mark i:nth-child(1), .brand-mark i:nth-child(5), .brand-mark i:nth-child(9) { background: var(--mint); }
+.brand-mark i:nth-child(2), .brand-mark i:nth-child(6) { background: var(--lav); }
+.brand-mark i:nth-child(3), .brand-mark i:nth-child(7) { background: var(--sky); }
+.brand-mark i:nth-child(4) { background: var(--peach); }
+.brand-mark i:nth-child(8) { background: var(--rose); }
+
+/* Estado de cada servicio, arriba a la derecha */
+.status { display: flex; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px 0 10px;
+  border-radius: 999px; font-size: 13.5px; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--line);
+  cursor: pointer;
+}
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+.chip .state { color: var(--ink-soft); font-weight: 400; }
+.chip.ok .dot { background: #5BBF8A; }
+.chip.warn .dot { background: #F2A15F; }
+.chip.checking .dot { background: var(--sky); }
+.chip.off, .chip.soon { color: var(--ink-soft); background: transparent; border-style: dashed; }
+.chip.soon { cursor: default; }
+.chip.off .dot, .chip.soon .dot { background: transparent; border: 1.5px solid #B9B3CC; }
+
+nav {
+  padding: 18px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+  border-right: 1px solid var(--line);
+}
+nav button {
+  text-align: left; border: 0; background: transparent;
+  padding: 9px 14px; border-radius: 12px; cursor: pointer;
+  font-size: 15px; font-weight: 500; color: var(--ink-soft);
+}
+nav button:hover { color: var(--ink); background: rgba(207, 196, 242, .35); }
+nav button[aria-current="page"] { color: var(--ink); background: var(--surface); box-shadow: inset 3px 0 0 var(--lav-strong); }
+nav .spacer { flex: 1; }
+nav .version { padding: 0 14px; font-size: 12.5px; color: var(--ink-soft); }
+
+/* Una palabra larguísima (un nombre de playlist) se corta en vez de empujar */
+main { overflow-y: auto; padding: 34px 40px 40px; overflow-wrap: anywhere; }
+.screen { display: none; max-width: 760px; }
+.screen.active { display: block; }
+
+/* =========================================================================== componentes */
+
+/* ---- botones */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: var(--h-lg); padding: 0 20px; border-radius: 999px;
+  border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 15px;
+}
+.btn.primary { background: var(--lav); }
+.btn.primary:hover { background: #C2B4EE; }
+.btn.ghost { background: transparent; border-color: #D6D0E8; }
+.btn.ghost:hover { background: var(--surface); }
+.btn.danger { background: var(--rose); }
+.btn.danger:hover { background: #FFB3BA; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn.md, .svc .btn, .notice .btn, .empty .btn, .settings .btn {
   height: var(--h-md); padding: 0 16px; font-size: 14px;
 }
-.tracks .alts button { height: var(--h-sm); padding: 0 12px; font-weight: 500; }
 
-/* Selector de opciones (Tidal / YouTube Music, Todo / Transferencias / Repetidos): mide lo
-   mismo que un botón grande, así la fila de Repetidos queda alineada */
-.seg { padding: 3px; align-items: center; }
-.seg button { height: calc(var(--h-lg) - 8px); padding: 0 16px; }
-
-/* Campos: alto mediano, mismo radio. El desplegable de una fila de acciones va al alto grande */
-.picker .filter, .picker .new input[type="text"], .thresholds input {
-  height: var(--h-md); border-radius: var(--r-field); font-size: 14px;
-}
-.row-controls .select { height: var(--h-lg); }
+/* Botones de solo ícono: el ícono es un SVG (no un carácter de texto, que cada fuente ubica distinto)
+   y se centra con grid. Norma: todo botón de ícono usa .icon-btn; los tests miden que quede centrado */
+.icon-btn { width: var(--h-md); height: var(--h-md); padding: 0; display: inline-grid; place-items: center; }
+.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round; }
 
 /* Filas de acciones: misma separación en todas las pantallas */
-.actions { margin-top: var(--gap-actions); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--gap-actions); }
 .done-box .actions, .settings .actions { margin-top: var(--gap-in-box); }
 
-/* Cajas: avisos y resultado con el mismo aspecto */
-.notice, .done-box { padding: 18px 20px; border-radius: 16px; }
+/* ---- selector de opciones (Tidal / YouTube Music, Todo / Transferencias / Repetidos): mide lo
+        mismo que un botón grande, así la fila de Repetidos queda alineada */
+.seg { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; border-radius: 999px; height: calc(var(--h-lg) - 8px); padding: 0 16px; cursor: pointer; font-weight: 500; color: var(--ink-soft); }
+.seg button[aria-pressed="true"] { background: var(--lav); color: var(--ink); }
+
+/* ---- campos: alto mediano y mismo radio; el desplegable de una fila de acciones va al alto grande */
+.select { height: 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; }
+.row-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.row-controls .select { height: var(--h-lg); }
+
+/* ---- cajas: avisos y resultado con el mismo aspecto */
+.notice {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px;
+  max-width: 620px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+.notice p { margin: 0; }
+.done-box { margin-top: 22px; padding: 18px 20px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 560px; display: none; }
+.done-box.show { display: block; }
+.done-box p { margin: 0 0 4px; min-width: 0; }
 .done-box .done-extra { margin-top: 12px; }
 
-/* Estado vacío: texto y botón en una línea, alineados */
-.hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* ---- estado vacío: texto y botón en una línea, alineados */
+.empty { color: var(--ink-soft); padding: 18px 4px; border-bottom: 1px solid var(--line); }
+.empty b { color: var(--ink); }
 .empty .btn { margin-left: 0; }
 
-/* Ayuda de los umbrales: más corta y del mismo tamaño que el resto de las ayudas */
-.th-help { margin: 12px 0 0; font-size: 13.5px; }
-.dup-summary { margin: var(--gap-actions) 0 0; }
-.libs-title { margin-top: 12px; }
+/* ---- diálogo y aviso que se va solo */
+dialog { border: 0; border-radius: 20px; padding: 26px 28px; max-width: 420px; color: var(--ink); background: var(--surface); box-shadow: 0 30px 70px -20px rgba(46, 42, 61, .45); }
+dialog::backdrop { background: rgba(46, 42, 61, .28); }
+dialog h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
+dialog p { margin: 0; color: var(--ink-soft); }
+dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
+.toast { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* Números y símbolos dentro de círculos e insignias: centrados de verdad.
-   Segoe UI reserva más lugar abajo (para la "g" o la "p") que arriba: un dígito queda ~1,5 px bajo. */
-/* Se corrige subiendo el contenido: un relleno abajo achica el área donde se centra. Medido a 4x
-   (scratchpad/measure_centering.py): de 1,25 px de corrimiento a menos de 0,5 px. */
-.steps li b, .badge { line-height: 1; }
-.steps li b { padding-bottom: 1.5px; font-variant-numeric: tabular-nums; }     /* círculo de 21 px, dígito de 12 px */
-.badge { padding-bottom: 2.5px; }          /* insignia de 26 px, símbolo de 13 px */
+/* ---- mosaico: un cuadrado por tema, con su color */
+.mosaic { display: grid; gap: 5px; }
+.mosaic.big { grid-template-columns: repeat(15, 1fr); max-width: 560px; }
+.mosaic.big i { aspect-ratio: 1; border-radius: 7px; background: var(--pending); transition: background-color .25s ease, transform .25s ease; }
+.mosaic.big i.jump { cursor: pointer; }
+.mosaic.big i.jump:hover { transform: scale(1.12); }
+.mosaic.big.dense { grid-template-columns: repeat(30, 1fr); gap: 3px; }      /* con muchos temas, más chicos */
+.mosaic.big.dense i { border-radius: 4px; }
+.mosaic.big.denser { grid-template-columns: repeat(45, 1fr); gap: 2px; }
+.mosaic.big.denser i { border-radius: 2px; }
+.mosaic.small { grid-template-columns: repeat(15, 10px); gap: 3px; }
+.mosaic.small i { width: 10px; height: 10px; border-radius: 3px; background: var(--pending); cursor: help; }
+.mosaic i.ok { background: var(--mint); }
+.mosaic i.doubt { background: var(--peach); }
+.mosaic i.miss { background: var(--rose); }
+.mosaic i.dup { background: var(--sage); }
+.mosaic i.removed { background: var(--lav); }
+.mosaic i.now { background: var(--sky); transform: scale(.82); }
+.mosaic-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.mosaic-wrap .more { font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
 
-/* Configurar un servicio (Spotify): pasos en la misma fila de Ajustes, sin ventanas nuevas */
-.setup-panel { margin: 4px 0 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.setup-section + .setup-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.setup-section h4 { margin: 0 0 10px; font-size: 14.5px; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.legend.compact { margin: 0 0 10px; gap: 6px 16px; font-size: 12.5px; }
+.legend.compact i { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ---- insignia de estado de un tema (✓ ? ✗ ≈ −). Segoe UI reserva más lugar abajo que arriba: un
+        relleno abajo sube el símbolo y lo centra de verdad (de 1,25 px corrido a menos de 0,5 px) */
+.badge { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; line-height: 1; padding-bottom: 2.5px; }
+.badge.ok { background: var(--mint); }
+.badge.doubt { background: var(--peach); }
+.badge.miss { background: var(--rose); }
+.badge.dup { background: var(--sage); }
+.badge.removed { background: var(--lav); }
+.badge.now { background: var(--sky); }
+
+/* ---- pasos numerados (configurar un servicio y conectarlo) */
 .setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; }
 .setup-steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; }
 .step-n { font-size: 13px; font-weight: 700; color: var(--lav-strong); line-height: 21px; }
 .step-body p, .step-body label { margin: 0; display: block; }
-.setup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
-.setup-row .copy-value { font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 7px 12px; min-height: var(--h-md); box-sizing: border-box; overflow-wrap: anywhere;
-  display: inline-flex; align-items: center; border-radius: var(--r-field); background: var(--bg); user-select: all; }
-.setup-row .client-id { height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface);
-  padding: 0 12px; width: 300px; max-width: 100%; font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink); }
-.setup-note { margin: 12px 0 0; font-size: 13.5px; }
-.setup-hint { margin: 8px 0 0; font-size: 13.5px; }
-.svc-hint { font-size: 13.5px; margin-top: 2px; max-width: 46ch; }
-.setup-panel .error { margin: 8px 0 0; }
-.offscreen { position: fixed; left: -9999px; top: 0; }
-dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
 
-/* Transferir, paso 1: de dónde y a dónde. Los nombres se ven como lo que son, algo para elegir
-   (flecha ▾, un SVG en línea: sin recursos externos), y ⇅ da vuelta la dirección */
+/* =========================================================================== Inicio */
+.features { list-style: none; margin: -8px 0 0; padding: 0; display: grid; gap: 10px; max-width: 64ch; }
+.features li { padding-left: 16px; border-left: 3px solid var(--lav); color: var(--ink-soft); }
+.features li:nth-child(2) { border-left-color: var(--sky); }
+.features li:nth-child(3) { border-left-color: var(--mint); }
+.features li:nth-child(4) { border-left-color: var(--peach); }
+.features b { color: var(--ink); }
+
+/* =========================================================================== Conexiones y Ajustes */
+.settings section { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
+.settings section:first-of-type { border-top: 1px solid var(--line); }
+.settings section > div { min-width: 0; }
+.settings h3 { font-size: 15px; font-weight: 600; margin: 0; }
+.settings h3 + p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13.5px; }
+.opt { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+.opt input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
+
+/* ---- un servicio: nombre, estado, sus pasos y sus botones (que nunca se aplastan) */
+.svc { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 12px; }
+.svc:has(.svc-steps) { padding: 10px 0 14px; }
+.svc > span:first-child { min-width: 0; }
+.svc .actions-inline { display: flex; gap: 8px; flex-shrink: 0; }
+.svc .actions-inline .btn { white-space: nowrap; }
+.svc-hint { font-size: 13.5px; margin-top: 2px; max-width: 46ch; }
+.svc-steps .setup-steps { margin-top: 6px; max-width: 52ch; }
+.login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+.login-wait .setup-steps { margin-top: 6px; color: var(--ink); max-width: 52ch; }
+
+/* ---- configurar un servicio (Spotify): los pasos en la misma fila, sin ventanas nuevas */
+.setup-panel { margin: 4px 0 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.setup-panel .error { margin: 8px 0 0; }
+.setup-section + .setup-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.setup-section h4 { margin: 0 0 10px; font-size: 14.5px; }
+.setup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.setup-row .copy-value {
+  font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 7px 12px; min-height: var(--h-md);
+  overflow-wrap: anywhere; display: inline-flex; align-items: center; border-radius: var(--r-field);
+  background: var(--bg); user-select: all;
+}
+.setup-row .client-id {
+  height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface);
+  padding: 0 12px; width: 300px; max-width: 100%; font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink);
+}
+.setup-hint { margin: 8px 0 0; font-size: 13.5px; }
+.setup-note { margin: 12px 0 0; font-size: 13.5px; }
+
+/* ---- Ajustes: umbrales, datos y Acerca de */
+.thresholds { display: flex; gap: 20px; flex-wrap: wrap; }
+.thresholds label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-soft); }
+.thresholds input { width: 90px; height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface); padding: 0 10px; color: var(--ink); font-size: 14px; }
+.th-help { font-size: 13.5px; margin: 12px 0 0; max-width: 52ch; }
+.path { font-size: 13px; color: var(--ink-soft); word-break: break-all; margin-top: 8px; }
+.about p { margin: 0 0 6px; }
+.libs-title { margin-top: 12px; }
+.licenses { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13.5px; }
+.licenses li { padding: 2px 0; }
+.licenses a { color: var(--ink); }
+
+/* =========================================================================== Transferir */
+/* Pasos 1 · 2 · 3. El dígito, centrado de verdad en su círculo (ver .badge) */
+.steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 26px; font-size: 13.5px; }
+.steps li { padding: 5px 12px 5px 6px; border-radius: 999px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
+.steps li b { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--pending); color: var(--ink); line-height: 1; padding-bottom: 1.5px; font-variant-numeric: tabular-nums; }
+.steps li.done b { background: var(--mint); }
+.steps li.current { background: var(--surface); color: var(--ink); font-weight: 600; }
+.steps li.current b { background: var(--lav); }
+
+/* ---- de dónde y a dónde: los nombres se ven como algo para elegir (flecha ▾, un SVG en línea) y ⇅ da vuelta */
 .route-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 18px; font-weight: 600; }
 .route-pick select {
   appearance: none; border: 0; cursor: pointer; height: var(--h-md); border-radius: var(--r-field);
@@ -418,14 +311,84 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .route-pick select:hover { background-color: #FBFAFE; }
 .route-pick .icon-btn { border-radius: 50%; }
 
+/* ---- las dos listas, con la misma altura (la de la más alta, hasta 290 px) */
+.pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: stretch; }
+.picker { display: flex; flex-direction: column; min-width: 0; }
+.picker h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink-soft); }
+.picker ul {
+  list-style: none; margin: 0; padding: 6px; background: var(--surface); border-radius: 16px; border: 1px solid var(--line);
+  max-height: 290px; overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: #D6D0E8 transparent;
+}
+.picker label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+.picker label:hover { background: var(--bg); }
+.picker label .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker label .count { flex: none; margin-left: auto; color: var(--ink-soft); font-size: 13px; }
+.picker input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
+.picker .filter { height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface); padding: 0 12px; margin: 0 0 8px; width: 100%; font-size: 14px; }
+/* "Crear una playlist nueva" queda fija arriba: con cientos de playlists no se pierde */
+.picker .new { border-bottom: 1px dashed var(--line); margin: 0 0 4px; padding: 0 0 4px; position: sticky; top: -6px; background: var(--surface); z-index: 1; }
+.picker .new input[type="text"] { margin: 4px 10px 8px 36px; width: calc(100% - 46px); height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); padding: 0 10px; background: var(--bg); font-size: 14px; }
+.picker .no-match { padding: 8px 10px; color: var(--ink-soft); font-size: 13.5px; }
+
+/* ---- en vivo y resultado: contador y ruta se acomodan */
+.progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; max-width: 560px; flex-wrap: wrap; }
+.counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
+.counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
+.route { font-weight: 600; min-width: 0; }
+
+.tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }
+.tracks li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.tracks li > span { min-width: 0; }
+.tracks li.flash { animation: pt-flash 1.6s ease-out; }
+@keyframes pt-flash { from { background: var(--sky); } to { background: transparent; } }
+.tracks .t { font-weight: 600; }
+.tracks .a, .tracks .note { color: var(--ink-soft); }
+.tracks .score { color: var(--ink-soft); font-size: 13px; }
+.tracks .alts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.tracks .alts button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; height: var(--h-sm); padding: 0 12px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.tracks .alts button:hover:not(:disabled) { border-color: var(--lav-strong); }
+.tracks .alts button:disabled { opacity: .55; cursor: default; }
+
+/* =========================================================================== Quitar repetidos */
+#dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* no crece con el nombre más largo */
+.dup-summary { margin: var(--gap-actions) 0 0; }
+.dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
+.dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
+.dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
+.dups .side { font-size: 14px; min-width: 0; }
+.dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }
+.dups .side .tag.version { background: var(--peach); margin-left: 6px; }
+.dups .remove .tag { background: var(--rose); }
+.dups .keep .tag { background: var(--mint); }
+.dups .t { font-weight: 600; }
+.dups .meta { color: var(--ink-soft); font-size: 13px; }
+
+/* =========================================================================== Historial */
+.hist-controls { margin-bottom: 16px; }
+.export-note { font-size: 13.5px; margin-top: 10px; word-break: break-all; }
+.hist { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.hist > li { border-bottom: 1px solid var(--line); }
+.hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* Cada fila: el texto se corta en dos líneas como mucho y el mosaico no empuja */
+.hist button.row { width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer; display: grid; grid-template-columns: 116px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 4px; }
+.hist button.row:hover { background: rgba(255,255,255,.55); }
+.hist .date { color: var(--ink-soft); font-size: 13.5px; }
+.hist .what { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hist .sub { color: var(--ink-soft); font-size: 13.5px; }
+.hist .detail { display: none; padding: 0 4px 16px 138px; }
+.hist li.open .detail { display: block; }
+.hist .detail ul { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+.hist .detail li { padding: 3px 0; display: flex; gap: 10px; align-items: center; }
+.hist .detail .badge { width: 20px; height: 20px; border-radius: 6px; font-size: 11px; }
+
+/* =========================================================================== listas desplegables */
 /* La lista que se despliega, con el estilo de la app en vez del de Windows (Chromium 135+: el WebView2
-   de Windows 11 se actualiza solo). Si el motor no lo soporta, queda la lista común: no se rompe nada */
+   de Windows 11 se actualiza solo). Si el motor no lo soporta, queda la lista común: no se rompe nada.
+   Las mismas reglas para las dos: De/a (Transferir) y la playlist (Quitar repetidos). */
 @supports (appearance: base-select) {
-  /* Las mismas reglas para las dos listas: De/a (Transferir) y la playlist (Quitar repetidos) */
   .route-pick select, .route-pick select::picker(select), .select, .select::picker(select) { appearance: base-select; }
   .route-pick select, .select { display: inline-flex; align-items: center; }
-  .route-pick select::picker-icon { display: none; }               /* ya tiene su flecha ▾ */
-  .select::picker-icon { display: none; }
+  .route-pick select::picker-icon, .select::picker-icon { display: none; }      /* tienen su flecha ▾ */
   .select {   /* la misma flecha ▾ que De/a */
     padding-right: 36px;
     background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237E6BC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 11px auto;
@@ -454,8 +417,7 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
   .route-pick option:disabled, .select option:disabled { color: var(--ink-soft); opacity: .55; cursor: not-allowed; background: none; }
 }
 
-/* Botones de solo ícono: el ícono es un SVG (no un carácter de texto, que cada fuente ubica distinto)
-   y se centra con grid. Norma: todo botón de ícono usa .icon-btn; test_ui_design.py mide que quede centrado */
-.icon-btn { width: var(--h-md); height: var(--h-md); padding: 0; display: inline-grid; place-items: center; }
-.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7;
-  stroke-linecap: round; stroke-linejoin: round; }
+/* =========================================================================== movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
