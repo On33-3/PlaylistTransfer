@@ -58,3 +58,16 @@ def test_the_log_has_a_size_limit(data_dir):
             if h not in before:
                 h.close()
                 root.removeHandler(h)
+
+
+def test_the_smoke_test_notices_a_module_missing_from_the_package(monkeypatch):
+    """La ventana abre aunque falte tidalapi: recién fallaría al tocar Conectar."""
+    import importlib
+    real = importlib.import_module
+
+    def fake(name):
+        if name == "tidalapi":
+            raise ModuleNotFoundError(name)
+        return real(name)
+    monkeypatch.setattr(importlib, "import_module", fake)
+    assert main.missing_modules() == ["tidalapi"]

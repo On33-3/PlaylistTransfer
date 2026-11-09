@@ -53,6 +53,23 @@ def show_startup_error(e: BaseException) -> None:
         print(msg, file=sys.stderr)
 
 
+# Lo que la app recién importa al conectar o al usar internet: la prueba de arranque lo importa a propósito,
+# así un módulo que falte en el paquete se detecta al armarlo y no cuando alguien toca Conectar
+LOADED_LATER = ("tidalapi", "ytmusicapi", "requests", "ssl", "sqlite3")
+
+
+def missing_modules() -> list[str]:
+    import importlib
+    missing = []
+    for name in LOADED_LATER:
+        try:
+            importlib.import_module(name)
+        except Exception:
+            logging.getLogger(__name__).exception("Falta %s en el paquete", name)
+            missing.append(name)
+    return missing
+
+
 def main() -> None:
     setup_logging()
     try:
@@ -84,9 +101,12 @@ def run() -> None:
     ready = threading.Event()
     api._on_ready = ready.set                    # la UI llama a api.ui_ready() al terminar de cargar
 
+    failed = {"modules": []}
+
     def on_start():
         if not smoke:
             return
+        failed["modules"] = missing_modules()
         ok = ready.wait(30)
         print("UI lista" if ok else "La UI no avisó que estaba lista", flush=True)
         logging.getLogger(__name__).info("Prueba de arranque: %s", "UI lista" if ok else "la UI no cargó")
@@ -95,7 +115,7 @@ def run() -> None:
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
                   storage_path=str(paths.data_dir() / "webview"), icon=str(ui_dir() / "icon.ico"))
     if smoke:   # el .exe no tiene consola: el resultado sale como código de salida
-        sys.exit(0 if ready.is_set() else 1)
+        sys.exit(0 if ready.is_set() and not failed["modules"] else 1)
 
 
 if __name__ == "__main__":
