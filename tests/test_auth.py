@@ -184,6 +184,20 @@ def test_vivaldi_closed_window_stops_the_login(monkeypatch, tmp_path):
         run_login(monkeypatch, tmp_path, [google, google, [], []])
 
 
+def test_each_login_starts_without_the_tabs_of_the_last_one(monkeypatch, tmp_path):
+    """Vivaldi reabría las pestañas anteriores: al tercer inicio de sesión había 3 (comprobado con el real)."""
+    from app.auth.cdp_login import LoginError
+    default = tmp_path / "vivaldi" / "Default"
+    (default / "Sessions").mkdir(parents=True)
+    (default / "Sessions" / "Tabs_1").write_text("x")
+    (default / "Network").mkdir()
+    (default / "Network" / "Cookies").write_text("sesión de Google")
+    with pytest.raises(LoginError):
+        run_login(monkeypatch, tmp_path, [["https://accounts.google.com/"], "gone"])
+    assert not (default / "Sessions").exists()
+    assert (default / "Network" / "Cookies").read_text() == "sesión de Google"
+
+
 def test_brave_and_edge_close_entirely_and_say_the_same(monkeypatch, tmp_path):
     from app.auth.cdp_login import LoginError
     with pytest.raises(LoginError, match="Se cerró la ventana de Vivaldi"):

@@ -10,6 +10,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import socket
 import struct
 import subprocess
@@ -144,6 +145,12 @@ def cookies_for_domain(cookies: list[dict], domain: str) -> dict[str, str]:
     return jar
 
 
+def forget_previous_tabs(profile: Path) -> None:
+    """Vivaldi reabre las pestañas de la vez anterior: cada inicio de sesión sumaba una (comprobado).
+    Solo se borra la lista de pestañas; las cookies están en otra carpeta y la sesión se conserva."""
+    shutil.rmtree(profile / "Default" / "Sessions", ignore_errors=True)
+
+
 def has_web_page(cdp: CDP) -> bool:
     """¿Queda alguna página web abierta? (Solo lee la lista: no toca pestañas, que Vivaldi no deja.)
     La interfaz de Vivaldi y las extensiones de Edge también aparecen, pero no son http(s)."""
@@ -164,6 +171,7 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
     port = free_port()
     profile = profile_dir_for(profiles_dir, browser_name)
     profile.mkdir(parents=True, exist_ok=True)
+    forget_previous_tabs(profile)
     try:
         proc = subprocess.Popen([str(exe), f"--remote-debugging-port={port}",
                                  f"--user-data-dir={profile.resolve()}", "--no-first-run",
