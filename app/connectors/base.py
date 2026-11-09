@@ -24,7 +24,24 @@ LIKED = "__liked__"
 def liked_info(count: int | None) -> PlaylistInfo:
     return PlaylistInfo(LIKED, tr("playlist.liked"), count)
 SEARCH_PAUSE = 0.3   # segundos entre búsquedas, para no saturar las APIs
+RATE_LIMIT_WAITS = (2, 5, 15)   # segundos a esperar si el servicio pide frenar; después, se da por fallado
+MAX_RATE_LIMIT_WAIT = 60        # aunque el servicio pida más
 FAILURES_IN_A_ROW = 3   # rondas de búsqueda seguidas sin ninguna consulta que conteste: el servicio no responde
+
+
+def rate_limit_pause(e: BaseException) -> float | None:
+    """Si el error es "pediste demasiado, esperá": cuántos segundos pide (0 si no lo dice). Si no, None.
+    tidalapi lanza TooManyRequests con `retry_after`; requests, un HTTPError 429; ytmusicapi lo dice en el texto."""
+    response = getattr(e, "response", None)
+    if type(e).__name__ == "TooManyRequests" or getattr(response, "status_code", None) == 429 or "HTTP 429" in str(e):
+        for value in (getattr(e, "retry_after", None), getattr(response, "headers", {}).get("Retry-After") if response is not None else None):
+            try:
+                if value is not None and float(value) > 0:
+                    return float(value)
+            except (TypeError, ValueError):       # Retry-After también puede ser una fecha
+                pass
+        return 0
+    return None
 
 
 class Status(str, Enum):
@@ -92,7 +109,7 @@ class Connector(ABC):
         for q in queries:
             tried += 1
             try:
-                results = fetch(q)
+                results = self.patient(fetch, q)
             except fatal:
                 raise
             except recoverable as e:
@@ -107,6 +124,21 @@ class Connector(ABC):
                 break
         self._count_search_failure(tried > 0 and answered == 0)
         return found
+
+    @staticmethod
+    def patient(call: Callable, *args):
+        """Hace un pedido; si el servicio pide frenar (muy común al marcar miles de "Me gusta" o buscar
+        mucho), espera y reintenta unas veces en vez de dar el tema por fallado."""
+        for wait in RATE_LIMIT_WAITS:
+            try:
+                return call(*args)
+            except Exception as e:
+                asked = rate_limit_pause(e)
+                if asked is None:
+                    raise
+                log.warning("El servicio pidió frenar: espero %s s", min(asked or wait, MAX_RATE_LIMIT_WAIT))
+                time.sleep(min(asked or wait, MAX_RATE_LIMIT_WAIT))
+        return call(*args)
 
     def _count_search_failure(self, failed: bool) -> None:
         """Una búsqueda que falla de vez en cuando se saltea. Pero si varios temas seguidos fallan en

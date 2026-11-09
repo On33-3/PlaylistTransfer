@@ -331,6 +331,7 @@
     "err.choose_target": "Elegí al menos una playlist de destino.",
     "err.same_service": "El origen y el destino tienen que ser servicios distintos.",
     "err.source_empty": "«{name}» está vacía: no hay nada para pasar.",
+    "err.partial_transfer": "No se pudo completar «{name}»: {detail} Lo que ya se pasó a las otras playlists quedó en el historial. Si volvés a transferir, lo que ya está no se repite.",
     "err.liked_add_failed": "{service} no guardó las canciones en «Canciones que te gustan». Probá de nuevo.",
     "err.only_music_links": "Solo se abren links de los servicios de música.",
     "err.browser_not_found": "No encontré ese navegador.",

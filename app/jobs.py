@@ -21,6 +21,8 @@ log = logging.getLogger(__name__)
 
 RUNNING, DONE, ERROR, CANCELLED = "running", "done", "error", "cancelled"
 
+KEEP_FINISHED = 20      # tareas terminadas que se recuerdan (cada una guarda sus eventos)
+
 # Errores pensados para mostrarse tal cual; cualquier otro se muestra con un mensaje genérico
 USER_ERRORS = (ConnectorError, LoginError, ValueError)
 
@@ -65,6 +67,9 @@ class Jobs:
             running = next((j for j in self._jobs.values() if j.state == RUNNING), None)
             if running:
                 raise BusyError(tr("err.busy", kind=tr(f"job.{running.kind}")))
+            for old in [j.id for j in self._jobs.values()][:-KEEP_FINISHED or None]:   # sin crecer para siempre
+                del self._jobs[old]
+                self._threads.pop(old, None)
             job = Job(f"{kind}-{next(self._ids)}", kind)
             self._jobs[job.id] = job
 

@@ -549,3 +549,47 @@ def test_yt_liked_songs_are_the_lm_list_and_add_means_like():
     c.remove(LIKED, [Duplicate(0, Song("Uno", ["A"], id="a"), Song("Uno", ["A"], id="v1"), "exact")], confirmed=True)
     assert fake.rated[-1] == ("a", "INDIFFERENT") and fake.removed == []
     assert c.url(LIKED) == "https://music.youtube.com/playlist?list=LM"
+
+
+# ---------------------------------------------------------------- el servicio pide frenar
+
+class TooManyRequests(Exception):
+    """Como la de tidalapi."""
+    retry_after = 7
+
+
+@pytest.mark.parametrize("error, waited", [
+    (TooManyRequests(), [7]),                                  # Tidal dice cuánto
+    (Exception("Server returned HTTP 429: Too Many Requests."), [2]),   # YouTube Music no: se usa la propia
+])
+def test_a_rate_limit_waits_and_retries_instead_of_losing_the_song(monkeypatch, error, waited):
+    from app.connectors import base
+    from tests.fakes import FakeService, S
+    slept = []
+    monkeypatch.setattr(base.time, "sleep", slept.append)
+    svc, asked = FakeService("x", "X"), []
+
+    def fetch(q):
+        asked.append(q)
+        if len(asked) == 1:
+            raise error
+        return [S("A", "B", id="ok")]
+    assert list(svc.collect(S("A", "B"), ["a"], fetch)) == ["ok"]
+    assert asked == ["a", "a"] and [w for w in slept if w] == waited
+
+
+def test_a_rate_limit_that_never_ends_gives_up():
+    from app.connectors.base import Connector
+    from app.connectors import base
+    calls = []
+
+    def always():
+        calls.append(1)
+        raise Exception("Server returned HTTP 429")
+    real, base.time.sleep = base.time.sleep, lambda _: None
+    try:
+        with pytest.raises(Exception, match="429"):
+            Connector.patient(always)
+    finally:
+        base.time.sleep = real
+    assert len(calls) == len(base.RATE_LIMIT_WAITS) + 1

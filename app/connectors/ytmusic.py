@@ -205,11 +205,11 @@ class YTMusicConnector(Connector):
             # Se marca "Me gusta" uno por uno. Lo último que se marca queda arriba: se marcan al revés,
             # así el primero de la lista queda primero
             for vid in reversed(ids):
-                yt.rate_song(vid, "LIKE")
+                self.patient(yt.rate_song, vid, "LIKE")
                 time.sleep(self.search_pause)
             return
         for i in range(0, len(ids), BATCH):
-            res = yt.add_playlist_items(playlist_id, ids[i:i + BATCH], duplicates=False)
+            res = self.patient(lambda: yt.add_playlist_items(playlist_id, ids[i:i + BATCH], duplicates=False))
             if isinstance(res, dict) and res.get("status") not in (None, "STATUS_SUCCEEDED"):
                 raise NotOwnerError(tr("err.yt_add_failed", status=res.get("status")))
 
@@ -219,7 +219,7 @@ class YTMusicConnector(Connector):
         if playlist_id == LIKED:                  # en "Me gusta" cada tema está una vez: se le saca el "Me gusta"
             yt = self._ready()
             for d in items:
-                yt.rate_song(d.song.id, "INDIFFERENT")
+                self.patient(yt.rate_song, d.song.id, "INDIFFERENT")
                 time.sleep(self.search_pause)
             return
         payload = [{"videoId": d.song.id, "setVideoId": d.song.set_id}

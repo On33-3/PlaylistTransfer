@@ -32,6 +32,14 @@ ALREADY_THERE, REPEATED_IN_SOURCE = "already_there", "repeated_in_source"
 Emit = Callable[[dict], None]
 
 
+class PartialTransfer(Exception):
+    """Falló un destino después de que otros ya se completaron: `result` tiene lo que sí se hizo."""
+
+    def __init__(self, result: "TransferResult", failed: str):
+        super().__init__(failed)
+        self.result, self.failed = result, failed
+
+
 @dataclass
 class Target:
     name: str
@@ -157,30 +165,40 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
     if cancel is not None and cancel.is_set():   # última oportunidad antes de modificar algo
         raise Cancelled()
 
-    results = []
+    results: list[TargetResult] = []
     for target in targets:
-        current: list[Song] = []
-        if target.id is not None:
-            target.name, current = dest.read(target.id)
-        to_add, already, versions = plan_target(found, current)
-        res = TargetResult(target, to_add, already, versions)
-        if not dry_run and to_add:
-            res.created = ensure_playlist(dest, target, source.name, public)
-            dest.add(target.id, to_add)
-        if target.id is not None:
-            res.url = dest.url(target.id)
-        results.append(res)
-        present = {id(m) for m in already} | {id(m) for m, _, _ in versions}
-        for t in tracks:
-            if t.match is not None and id(t.match) in present:
-                twin, why = next(((w, y) for m, w, y in versions if m is t.match), (None, ALREADY_THERE))
-                # otra versión del mismo tema más arriba en el origen: repetido, no "ya estaba"
-                emit({"type": "repeated" if why == REPEATED_IN_SOURCE else "already", "n": t.n, "target": target.name,
-                      "as": song_dict(twin) if twin is not None else None})
-        emit({"type": "target", "name": target.name, "url": res.url, "created": res.created, "dry_run": dry_run,
-              "added": len(to_add), "already": len(already), "versions": len(versions)})
-
+        try:
+            results.append(_write_target(source, dest, target, tracks, found, dry_run, public, emit))
+        except Exception as e:
+            if results:
+                raise PartialTransfer(TransferResult(source.key, src_name, dest.key, dry_run, tracks, results), target.name) from e
+            raise
     return TransferResult(source.key, src_name, dest.key, dry_run, tracks, results)
+
+
+def _write_target(source: Connector, dest: Connector, target: Target, tracks: list[TrackResult], found: list[Song],
+                  dry_run: bool, public: bool, emit: Emit) -> TargetResult:
+    """Un destino: ver qué ya está y agregar lo que falta."""
+    current: list[Song] = []
+    if target.id is not None:
+        target.name, current = dest.read(target.id)
+    to_add, already, versions = plan_target(found, current)
+    res = TargetResult(target, to_add, already, versions)
+    if not dry_run and to_add:
+        res.created = ensure_playlist(dest, target, source.name, public)
+        dest.add(target.id, to_add)
+    if target.id is not None:
+        res.url = dest.url(target.id)
+    present = {id(m) for m in already} | {id(m) for m, _, _ in versions}
+    for t in tracks:
+        if t.match is not None and id(t.match) in present:
+            twin, why = next(((w, y) for m, w, y in versions if m is t.match), (None, ALREADY_THERE))
+            # otra versión del mismo tema más arriba en el origen: repetido, no "ya estaba"
+            emit({"type": "repeated" if why == REPEATED_IN_SOURCE else "already", "n": t.n, "target": target.name,
+                  "as": song_dict(twin) if twin is not None else None})
+    emit({"type": "target", "name": target.name, "url": res.url, "created": res.created, "dry_run": dry_run,
+          "added": len(to_add), "already": len(already), "versions": len(versions)})
+    return res
 
 
 def summary(result: TransferResult) -> dict:

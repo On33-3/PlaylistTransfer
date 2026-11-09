@@ -275,12 +275,12 @@ class TidalConnector(Connector):
             fav = self._favorites()
             ids.reverse()
             for i in range(0, len(ids), BATCH):
-                if fav.add_track(ids[i:i + BATCH]) is False:
+                if self.patient(fav.add_track, ids[i:i + BATCH]) is False:
                     raise ConnectorError(tr("err.liked_add_failed", service=self.name))
             return
         pl = self._editable(playlist_id)
         for i in range(0, len(ids), BATCH):
-            pl.add(ids[i:i + BATCH])
+            self.patient(pl.add, ids[i:i + BATCH])
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         require_confirmation(confirmed)

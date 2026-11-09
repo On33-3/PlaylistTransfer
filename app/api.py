@@ -8,8 +8,11 @@ pywebview expone los atributos públicos de este objeto: por eso todo el estado 
 """
 from __future__ import annotations
 
+import itertools
 import logging
 import os
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -21,7 +24,7 @@ from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError, Status
 from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
-from app.core.transfer import (ALREADY, ALREADY_THERE, DOUBTFUL_SKIPPED, REPEATED, REPEATED_IN_SOURCE, Target,
+from app.core.transfer import (ALREADY, ALREADY_THERE, DOUBTFUL_SKIPPED, REPEATED, REPEATED_IN_SOURCE, PartialTransfer, Target,
                                 TargetResult, TransferResult, already_there, ensure_playlist, plan_target,
                                 run_transfer, song_dict, summary)
 from app.jobs import BusyError, Jobs, unexpected_message
@@ -38,6 +41,16 @@ LICENSES = [
     {"name": "ytmusicapi", "license": "MIT", "url": "https://github.com/sigma67/ytmusicapi"},
     {"name": "pywebview", "license": "BSD-3-Clause", "url": "https://github.com/r0x0r/pywebview"},
 ]
+
+
+KEEP_RESULTS = 5     # transferencias y búsquedas de repetidos que se recuerdan para actuar sobre ellas
+
+
+def _remember(store: dict, key: str, value) -> None:
+    """Guarda sin crecer para siempre: la UI solo actúa sobre lo último."""
+    store[key] = value
+    while len(store) > KEEP_RESULTS:
+        del store[next(iter(store))]
 
 
 def _artist(s) -> str:
@@ -64,6 +77,7 @@ class Api:
         self._jobs = Jobs()
         self._transfers: dict[str, TransferResult] = {}
         self._scans: dict[str, dict] = {}
+        self._ids = itertools.count(1)
         i18n.set_language(self._resolve_language(system_language))
 
     def _resolve_language(self, system_language: Callable[[], str]) -> str:
@@ -207,20 +221,22 @@ class Api:
             return {"ok": True, "client_id": c.set_client_id(str(client_id or "")), "status": c.status().value}
         return self._safe(work)
 
+    def _status_of(self, s) -> dict:
+        c = self._connectors.get(s.key)
+        if c is None:
+            return {"key": s.key, "name": s.name, "status": "soon"}
+        try:
+            st = c.status().value
+        except Exception as e:
+            log.warning("No pude ver el estado de %s: %s", s.name, e)
+            st = Status.EXPIRED.value
+        return {"key": s.key, "name": s.name, "status": st}
+
     def status(self) -> list[dict]:
-        out = []
-        for s in registry.SERVICES:
-            c = self._connectors.get(s.key)
-            if c is None:
-                out.append({"key": s.key, "name": s.name, "status": "soon"})
-                continue
-            try:
-                st = c.status().value
-            except Exception as e:
-                log.warning("No pude ver el estado de %s: %s", s.name, e)
-                st = Status.EXPIRED.value
-            out.append({"key": s.key, "name": s.name, "status": st})
-        return out
+        """Cada servicio se consulta en su propio hilo (cada uno es un pedido por internet): al abrir la
+        app, tarda lo que el más lento y no la suma."""
+        with ThreadPoolExecutor(max_workers=len(registry.SERVICES)) as pool:
+            return list(pool.map(self._status_of, registry.SERVICES))
 
     def browsers(self) -> dict:
         found = self._list_browsers()
@@ -294,12 +310,19 @@ class Api:
         def work(emit, cancel):
             src, dst = self._connector(source), self._connector(target)
             tgts = [Target(str(x.get("name") or "").strip() or tr("playlist.default_name"), x.get("id") or None) for x in targets]
-            result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
-                                  score_ok=p["score_ok"], score_min=p["score_min"])
+            try:
+                result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
+                                      score_ok=p["score_ok"], score_min=p["score_min"])
+            except PartialTransfer as partial:          # lo que ya se pasó queda en el historial
+                if not partial.result.dry_run:
+                    self._record_transfer(partial.result)
+                cause = partial.__cause__
+                detail = str(cause) if isinstance(cause, ConnectorError) else unexpected_message(cause)
+                raise ConnectorError(tr("err.partial_transfer", name=partial.failed, detail=detail)) from cause
             if not result.dry_run:
                 self._record_transfer(result)
-            key = f"transfer-{len(self._transfers) + 1}"
-            self._transfers[key] = result      # para "agregar la versión de otro artista"
+            key = f"transfer-{next(self._ids)}"
+            _remember(self._transfers, key, result)      # para "agregar la versión de otro artista"
             return {"transfer": key, "summary": summary(result), "source_name": result.source_name,
                     "dry_run": result.dry_run,
                     "targets": [{"name": t.target.name, "id": t.target.id, "url": t.url, "added": len(t.added),
@@ -408,8 +431,12 @@ class Api:
         return out
 
     def _record_transfer(self, result: TransferResult) -> None:
+        """El historial es un registro: si no se puede escribir, la transferencia igual salió bien."""
         for op, tracks in self._transfer_operations(result):
-            self._history.record(op, tracks)
+            try:
+                self._history.record(op, tracks)
+            except (sqlite3.Error, OSError):
+                log.exception("No pude guardar en el historial")
 
     # ---------------------------------------------------------------- quitar repetidos
 
@@ -419,8 +446,8 @@ class Api:
             emit({"type": "reading", "service": c.name})
             name, songs = c.read(playlist_id)
             dups = find_duplicates(songs)
-            scan_id = f"scan-{len(self._scans) + 1}"
-            self._scans[scan_id] = {"key": key, "playlist_id": playlist_id, "name": name, "songs": songs, "dups": dups}
+            scan_id = f"scan-{next(self._ids)}"
+            _remember(self._scans, scan_id, {"key": key, "playlist_id": playlist_id, "name": name, "songs": songs, "dups": dups})
             return {"scan": scan_id, "name": name, "total": len(songs),
                     "duplicates": [{"i": i, "index": d.index, "kind": d.kind, "song": song_dict(d.song),
                                     "kept": song_dict(d.kept),

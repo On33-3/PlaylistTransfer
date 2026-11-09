@@ -444,3 +444,65 @@ def test_old_history_gets_the_new_column(tmp_path):
     con.commit(); con.close()
     [op] = History(db).list()
     assert (op.source_name, op.added, op.skipped) == ("Anime", 21, 0)
+
+
+# ---------------------------------------------------------------- estabilidad
+
+def test_when_the_second_destination_fails_the_first_stays_in_history(app):
+    """Antes se perdía el registro de lo que sí se había pasado."""
+    from app.connectors.base import ConnectorError
+    api, tidal, yt = app
+    yt.add_playlist("dst2", "Otra", [])
+    real = yt.add
+
+    def add(pid, songs):
+        if pid == "dst2":
+            raise ConnectorError("YouTube Music rechazó el pedido.")
+        real(pid, songs)
+    yt.add = add
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst"}, {"id": "dst2"}])["job"])
+    assert r["state"] == "error" and "No se pudo completar «Otra»" in r["error"] and "rechazó" in r["error"]
+    assert [op["target_name"] for op in api.history()] == ["Favoritas"]
+
+
+def test_a_history_that_cannot_be_written_does_not_fail_the_transfer(app):
+    import sqlite3
+    api, tidal, yt = app
+
+    def broken(*_):
+        raise sqlite3.OperationalError("database is locked")
+    api._history.record = broken
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst"}])["job"])
+    assert r["state"] == "done"
+
+
+def test_services_are_asked_at_the_same_time(app):
+    """Cada consulta espera a la otra: si fueran de a una, se vencería la espera."""
+    import threading
+    from app.connectors.base import Status
+    api, tidal, yt = app
+    together = threading.Barrier(2, timeout=5)
+
+    def status():
+        together.wait()
+        return Status.CONNECTED
+    tidal.status = yt.status = status
+    assert {s["key"]: s["status"] for s in api.status() if s["key"] != "spotify"} == {"tidal": "connected", "ytmusic": "connected"}
+
+
+def test_old_results_are_forgotten_and_ids_never_repeat(app):
+    from app import api as api_module
+    api, tidal, yt = app
+    keys = [wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst"}], True)["job"])["result"]["transfer"]
+            for _ in range(api_module.KEEP_RESULTS + 2)]
+    assert len(set(keys)) == len(keys) and list(api._transfers) == keys[-api_module.KEEP_RESULTS:]
+
+
+def test_finished_jobs_are_forgotten():
+    from app import jobs
+    j = Jobs()
+    ids = []
+    for _ in range(jobs.KEEP_FINISHED + 5):
+        ids.append(j.start("scan", lambda emit, cancel: 1))
+        j.wait(ids[-1])
+    assert len(j._jobs) <= jobs.KEEP_FINISHED + 1 and j.poll(ids[-1])["state"] == "done"
