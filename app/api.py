@@ -21,8 +21,9 @@ from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError, Status
 from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
-from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TargetResult, TransferResult, ensure_playlist,
-                                plan_target, run_transfer, song_dict, summary)
+from app.core.transfer import (ALREADY, ALREADY_THERE, DOUBTFUL_SKIPPED, REPEATED, REPEATED_IN_SOURCE, Target,
+                                TargetResult, TransferResult, already_there, ensure_playlist, plan_target,
+                                run_transfer, song_dict, summary)
 from app.jobs import BusyError, Jobs, unexpected_message
 from app.storage import paths, prefs
 from app.storage.export import ReportOperation, from_history, write_report
@@ -302,7 +303,8 @@ class Api:
             return {"transfer": key, "summary": summary(result), "source_name": result.source_name,
                     "dry_run": result.dry_run,
                     "targets": [{"name": t.target.name, "id": t.target.id, "url": t.url, "added": len(t.added),
-                                 "already": len(t.already), "versions": len(t.versions), "created": t.created}
+                                 "already": len(t.already), "versions": already_there(t) - len(t.already),
+                                 "created": t.created}
                                 for t in result.targets]}
 
         return self._start("transfer", work)
@@ -388,14 +390,19 @@ class Api:
         s = summary(result)
         out = []
         for t in result.targets:
-            already_ids = {id(m) for m in t.already} | {id(m) for m, _, _ in t.versions}
+            already_ids = {id(m) for m in t.already} | {id(m) for m, _, why in t.versions if why == ALREADY_THERE}
+            repeated_ids = {id(m) for m, _, why in t.versions if why == REPEATED_IN_SOURCE}
             tracks = []
             for track in result.tracks:
-                status = ALREADY if track.match is not None and id(track.match) in already_ids else track.status
+                status = track.status
+                if track.match is not None and id(track.match) in already_ids:
+                    status = ALREADY
+                elif track.match is not None and id(track.match) in repeated_ids:
+                    status = REPEATED
                 tracks.append(TrackRecord(track.n, status, track.source.title, _artist(track.source),
                                           track.match.title if track.match else None, _artist(track.match) or None,
                                           round(track.score, 3)))
-            op = cls._transfer_op(result, t, added=len(t.added), already=len(t.already) + len(t.versions),
+            op = cls._transfer_op(result, t, added=len(t.added), already=already_there(t),
                                   doubtful=s["doubtful"], not_found=s["not_found"], skipped=s["skipped"])
             out.append((op, tracks))
         return out

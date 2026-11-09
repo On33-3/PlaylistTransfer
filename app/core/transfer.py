@@ -19,6 +19,8 @@ from app.core.models import Cancelled  # noqa: F401  (se importa también desde 
 from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
+# Estaba repetido en la playlist de origen (el mismo tema más arriba, o otra versión): se agrega una sola vez
+REPEATED = "repetido"
 # "?" (puede ser otra versión): no se agregan solos. Quedan con su coincidencia para que el
 # usuario decida al final ("+ Agregar igual" / "Agregar los N…").
 DOUBTFUL_SKIPPED = "dudoso_omitido"
@@ -140,9 +142,15 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
     tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful)
 
     found: list[Song] = []                       # sin repetir el mismo id; los "?" omitidos no
+    first: dict[str, int] = {}                   # id encontrado → el primer tema del origen que lo usa
     for t in tracks:
-        if t.status in ADDABLE and t.match and t.match.id and all(t.match.id != f.id for f in found):
-            found.append(t.match)
+        if t.status in ADDABLE and t.match and t.match.id:
+            if t.match.id in first:              # el mismo tema, otra vez en el origen: va una sola vez
+                t.status = REPEATED
+                emit({"type": "repeated", "n": t.n, "of": first[t.match.id]})
+            else:
+                first[t.match.id] = t.n
+                found.append(t.match)
 
     if cancel is not None and cancel.is_set():   # última oportunidad antes de modificar algo
         raise Cancelled()
@@ -163,8 +171,9 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
         present = {id(m) for m in already} | {id(m) for m, _, _ in versions}
         for t in tracks:
             if t.match is not None and id(t.match) in present:
-                twin = next((w for m, w, _ in versions if m is t.match), None)
-                emit({"type": "already", "n": t.n, "target": target.name,
+                twin, why = next(((w, y) for m, w, y in versions if m is t.match), (None, ALREADY_THERE))
+                # otra versión del mismo tema más arriba en el origen: repetido, no "ya estaba"
+                emit({"type": "repeated" if why == REPEATED_IN_SOURCE else "already", "n": t.n, "target": target.name,
                       "as": song_dict(twin) if twin is not None else None})
         emit({"type": "target", "name": target.name, "url": res.url, "created": res.created, "dry_run": dry_run,
               "added": len(to_add), "already": len(already), "versions": len(versions)})
@@ -174,8 +183,16 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
 
 def summary(result: TransferResult) -> dict:
     """Cantidades para la UI y el historial."""
-    by = {OK: 0, DOUBTFUL: 0, DOUBTFUL_SKIPPED: 0, NOT_FOUND: 0}
+    by = {OK: 0, DOUBTFUL: 0, DOUBTFUL_SKIPPED: 0, NOT_FOUND: 0, REPEATED: 0}
     for t in result.tracks:
         by[t.status] += 1
+    # Repetidos en el origen: el mismo tema (REPEATED) y otra versión del mismo (en el primer destino)
+    versions = result.targets[0].versions if result.targets else []
+    repeated = by[REPEATED] + sum(1 for _, _, why in versions if why == REPEATED_IN_SOURCE)
     return {"ok": by[OK], "doubtful": by[DOUBTFUL], "skipped": by[DOUBTFUL_SKIPPED],
-            "not_found": by[NOT_FOUND], "total": len(result.tracks)}
+            "not_found": by[NOT_FOUND], "repeated": repeated, "total": len(result.tracks)}
+
+
+def already_there(t: TargetResult) -> int:
+    """Los que ya estaban en ese destino (el mismo tema u otra versión): no cuenta los repetidos del origen."""
+    return len(t.already) + sum(1 for _, _, why in t.versions if why == ALREADY_THERE)

@@ -4,8 +4,8 @@
    como archivo local) y comparten estas funciones; el orden de carga está en index.html. */
 "use strict";
 
-const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", now: "…", removed: "−" };
-const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrado: "miss", ya_estaba: "dup", quitado: "removed" };
+const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", rep: "×2", now: "…", removed: "−" };
+const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrado: "miss", ya_estaba: "dup", repetido: "rep", quitado: "removed" };
 // Los servicios salen de api.services() (app/connectors/registry.py) al arrancar
 let NAMES = {};          // {tidal: "Tidal", ...} en el orden en que se muestran
 let USABLE = [];         // los que ya se pueden usar

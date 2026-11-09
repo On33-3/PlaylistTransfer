@@ -19,7 +19,7 @@ def test_transfer_live_then_add_another_artist(browser, tmp_path):
     assert [page.inner_text(f"#n-{k}") for k in ("ok", "doubt", "miss", "dup")] == ["1", "1", "1", "1"]
     done = page.inner_text("#done")
     assert "«Para correr»" in done and "agregaste 1 tema; 1 ya estaba en otra versión" in done
-    tracks = page.inner_text("#tracks")
+    tracks = page.inner_text("#run")                                # lista y "Para revisar"
     assert "No está la de Jeff Buckley" in tracks and "Ya estaba como «Mr. Blue Sky - 2012 Remaster»" in tracks
     shot(page, "4-transferir-resultado")
     page.click("[data-alt='3:0']")
@@ -85,7 +85,7 @@ def test_clicking_a_big_tile_jumps_to_that_song(browser, tmp_path):
     tile = page.locator("#mosaic i >> nth=2")                         # Hallelujah
     assert tile.get_attribute("title").startswith("Hallelujah — Jeff Buckley: No encontrado. Tocá")
     tile.click()
-    row = page.locator("#tracks li", has_text="Hallelujah")
+    row = page.locator("#run .tracks li", has_text="Hallelujah")
     assert "flash" in row.get_attribute("class")
     assert errors == []
 
@@ -138,13 +138,13 @@ def test_a_preview_says_would_be_added(browser, tmp_path):
     legend = page.inner_text("#run .legend")
     assert "✓ Se agregaría" in legend and "? No se agregaría, puede ser otra versión" in legend
     assert "Agregado" not in legend
-    assert "No se agregaría «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "No se agregaría «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#run")
     assert "1 tema no se agregaría porque puede ser otra versión" in page.inner_text("#done")
     assert page.locator("#mosaic i >> nth=0").get_attribute("title").startswith("Take On Me — a-ha: Se agregaría.")
     page.click("#again")                                             # una transferencia real después
     transfer(page)
     assert "✓ Agregado" in page.inner_text("#run .legend")
-    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#run")
     assert "1 tema no se agregó porque puede ser otra versión" in page.inner_text("#done")
     assert errors == []
 
@@ -154,14 +154,14 @@ def test_doubtful_are_decided_at_the_end_one_by_one(browser, tmp_path):
     page, errors = open_page(browser, api)
     run_live(page)
     assert "? No agregado, puede ser otra versión" in page.inner_text("#run .legend")
-    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#tracks")
+    assert "No se agregó «Bohemian Rhapsody (Live Aid 1985)» de Queen" in page.inner_text("#run")
     assert "2 temas no se agregaron porque pueden ser otra versión" in page.inner_text("#done")
     assert sorted(s.id for s in yt.songs("dst")) == ["y1", "y2old"]          # solo Take On Me
     assert page.inner_text("#add-all") == "Agregar los 2 que pueden ser otra versión"
     shot(page, "13-agregar-igual")
-    page.click("#tracks button[data-add-doubtful='1']")                 # uno solo
-    page.wait_for_selector("#tracks button[data-add-doubtful='1'].done")
-    assert page.inner_text("#tracks button[data-add-doubtful='1']") == "✓ Agregado"
+    page.click("#run button[data-add-doubtful='1']")                 # uno solo
+    page.wait_for_selector("#run button[data-add-doubtful='1'].done")
+    assert page.inner_text("#run button[data-add-doubtful='1']") == "✓ Agregado"
     assert "y4" in [s.id for s in yt.songs("dst")]
     assert page.inner_text("#add-all") == "Agregar el que puede ser otra versión"
     page.click("#add-all")                                              # el resto, de una
@@ -175,7 +175,7 @@ def test_preview_has_no_add_buttons(browser, tmp_path):
     page, errors = open_page(browser, api)
     run_live(page, dry=True)
     assert "? No se agregaría, puede ser otra versión" in page.inner_text("#run .legend")
-    assert page.locator("#tracks [data-add-doubtful]").count() == 0 and page.is_hidden("#add-all")
+    assert page.locator("#run [data-add-doubtful]").count() == 0 and page.is_hidden("#add-all")
     assert errors == []
 
 
@@ -200,4 +200,62 @@ def test_with_only_empty_playlists_the_source_list_says_so(browser, tmp_path):
     page.click("nav [data-go=transferir]")
     page.wait_for_selector("#src-list li.loading:not(:has-text('Cargando'))")
     assert page.inner_text("#src-list") == "Tus playlists de Tidal están vacías: no hay nada para pasar."
+    assert errors == []
+
+
+def test_a_song_repeated_in_the_source_has_its_own_square(browser, tmp_path):
+    """Lo pidió la primera usuaria: un tema repetido en la playlist de origen salía como "✓ Agregado"
+    (y se agregaba una sola vez). Ahora tiene su cuadrado, su color y su número en la leyenda, en vivo
+    y en el historial."""
+    from tests.ui_helpers import check
+    api, tidal, yt = make_api(tmp_path)
+    name, songs_ = tidal.playlists["src"]
+    tidal.add_playlist("src", name, songs_ + [S("Take On Me", "a-ha", dur=225, id="t1-otra-vez")])
+    page, errors = open_page(browser, api)
+    transfer(page)
+    assert page.inner_text("#n-rep") == "1"
+    assert page.locator("#mosaic i.rep").count() == 1 and page.locator("#tracks .badge.rep").count() == 1
+    assert page.inner_text("#tracks .badge.rep") == "×2"
+    row = page.locator("#tracks li", has=page.locator(".badge.rep")).inner_text()
+    assert "Repetido más arriba en la playlist de origen" in row
+    assert "Un tema estaba repetido en la playlist de origen" in page.inner_text("#done-detail")
+    assert check(page, "transferir") == []
+    shot(page, "transferir-repetido")
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist li[data-op] .mosaic i.rep", state="attached")
+    assert "Repetido en el origen" in page.inner_text("#hist-legend")
+    assert errors == []
+
+
+def test_conflicts_come_first_to_review(browser, tmp_path):
+    """Lo pidió la primera usuaria: los temas que esperan una decisión (un "?" para agregar igual, o la
+    versión de otro artista) suben a "Para revisar", debajo del resultado y en el orden de la playlist;
+    desde ahí se resuelven. En una prueba sin cambios no hay nada que decidir: no aparece."""
+    from tests.ui_helpers import check
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    assert page.is_visible("#review")
+    titles = page.eval_on_selector_all("#review-list .t", "ts => ts.map(t => t.textContent)")
+    assert titles == ["Hallelujah", "Bohemian Rhapsody"]            # ✗ con otro artista y ?, en orden
+    assert page.locator("#tracks [data-alt], #tracks [data-add-doubtful]").count() == 0
+    review_top = page.locator("#review").bounding_box()["y"]
+    assert page.locator("#done").bounding_box()["y"] < review_top < page.locator("#tracks").bounding_box()["y"]
+    assert check(page, "transferir") == []
+    shot(page, "transferir-para-revisar")
+    page.click("#review-list [data-add-doubtful]")
+    page.wait_for_selector("#review-list [data-add-doubtful].done")
+    assert [c[0] for c in yt.calls].count("add") == 2                  # la transferencia y el "?"
+    page.click("#again")
+    assert page.is_hidden("#review") and page.locator("#review-list li").count() == 0
+    transfer(page, dry=True)
+    assert page.is_hidden("#review")
+    assert errors == []
+
+
+def test_the_repeated_legend_only_shows_when_there_is_one(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    assert page.is_hidden("#n-rep")                      # nada repetido: no ocupa lugar en la leyenda
     assert errors == []

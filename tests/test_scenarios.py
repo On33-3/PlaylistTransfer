@@ -80,6 +80,16 @@ SAME_RECORDING = [
     Case("sin duración en un servicio", S("Take On Me", "a-ha", dur=225), S("Take On Me", "a-ha"), OK, True),
     Case("mismo ISRC con el título en otro idioma", S("Gangnam Style", "PSY", isrc="KRA381200234"),
          S("강남스타일", "싸이", isrc="kra381200234"), OK, True),
+    # Lo encontró la primera usuaria (2026-11-08): en un servicio parte del título va entre paréntesis y en
+    # el otro no (y con "Artista - " adelante). Los paréntesis casi siempre son ruido, pero acá son el título
+    Case("parte del título entre paréntesis en un servicio y sin paréntesis en el otro",
+         S("(I Can't Get No) Satisfaction", "The Rolling Stones", dur=223),
+         S("The Rolling Stones - I Can't Get No Satisfaction", "The Rolling Stones", dur=224), OK, True),
+    Case("'Artista - (texto)' en un servicio y 'texto' sin paréntesis en el otro",
+         S("(Don't Fear) The Reaper", "Blue Öyster Cult", dur=308),
+         S("Blue Oyster Cult - Don't Fear The Reaper", "Blue Öyster Cult", dur=309), OK, True),
+    Case("'(Artista) - Tema' con el artista entre paréntesis",
+         S("Bohemian Rhapsody", "Queen", dur=354), S("(Queen) - Bohemian Rhapsody", "Queen", dur=355), OK, True),
 ]
 
 

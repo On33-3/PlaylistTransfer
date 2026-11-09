@@ -97,6 +97,7 @@
           <span><i style="background:var(--peach)"></i><span data-i18n="transfer.legend_skipped">? No agregado, puede ser otra versión</span> <b class="num" id="n-doubt">0</b></span>
           <span><i style="background:var(--rose)"></i><span data-i18n="transfer.legend_miss">✗ No encontrado</span> <b class="num" id="n-miss">0</b></span>
           <span><i style="background:var(--sage)"></i><span data-i18n="transfer.legend_dup">≈ Ya estaba</span> <b class="num" id="n-dup">0</b></span>
+          <span><i style="background:var(--butter)"></i><span data-i18n="transfer.legend_rep">×2 Repetido en el origen</span> <b class="num" id="n-rep">0</b></span>
         </div>
         <div class="actions" id="run-actions"><button class="btn ghost" id="cancel" data-i18n="transfer.cancel">Cancelar</button></div>
         <div class="done-box" id="done" role="status">
@@ -107,6 +108,11 @@
             <button class="btn primary" id="open-dest" hidden></button>
             <button class="btn ghost" id="again" data-i18n="transfer.again">Hacer otra transferencia</button>
           </div>
+        </div>
+        <!-- Lo que necesita una decisión (los "?" y los que están con otro artista), arriba de todo -->
+        <div class="review" id="review" hidden>
+          <p class="review-head"><b data-i18n="transfer.review_title">Para revisar</b> <span class="muted" data-i18n="transfer.review_text">Estos temas necesitan que decidas vos. Los demás están más abajo.</span></p>
+          <ul class="tracks" id="review-list"></ul>
         </div>
         <ul class="tracks" id="tracks" aria-live="polite"></ul>
       </div>

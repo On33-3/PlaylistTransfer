@@ -57,7 +57,10 @@ def test_statuses_and_alternatives(services):
     assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # solo hay en vivo: no se agrega solo
     track3 = next(e for e in events if e["type"] == "track" and e["n"] == 3)
     assert track3["alternatives"][0]["artist"] == "Leonard Cohen"
-    assert summary(res) == {"ok": 3, "doubtful": 0, "skipped": 1, "not_found": 1, "total": 5}
+    # el 5 es "Take On Me" otra vez en el origen: antes contaba como ✓ agregado (y se agregaba una sola vez)
+    assert by_n[5].status == "repetido"
+    assert {"type": "repeated", "n": 5, "of": 1} in events
+    assert summary(res) == {"ok": 2, "doubtful": 0, "skipped": 1, "not_found": 1, "repeated": 1, "total": 5}
 
 
 def test_dry_run_changes_nothing(services):
@@ -170,3 +173,18 @@ def test_an_empty_source_is_not_a_successful_transfer(services):
     with pytest.raises(ConnectorError, match="«Para después» está vacía"):
         run_transfer(tidal, yt, "vacia", [Target("Nueva")])
     assert yt.calls == []
+
+
+def test_another_version_repeated_in_the_source_is_repeated_not_already_there(services):
+    """Otra versión del mismo tema más arriba en el origen: "repetido en el origen", no "ya estaba"
+    (no estaba en el destino). Va una sola vez y el historial lo dice igual."""
+    tidal, yt = services
+    tidal.add_playlist("v", "Con versiones", [S("Take On Me", "a-ha", dur=225, id="a1"),
+                                              S("Take On Me (2017 Remaster)", "a-ha", dur=226, id="a2")])
+    yt.catalog.append(S("Take On Me", "a-ha", dur=225, id="y-tom-2"))
+    yt.search = lambda song: [c for c in yt.catalog if c.id == ("y-tom" if song.id == "a1" else "y-tom-2")]
+    events, emit = collect()
+    res = run_transfer(tidal, yt, "v", [Target("Nueva")], emit=emit)
+    assert [s.id for s in res.targets[0].added] == ["y-tom"]
+    assert [e["type"] for e in events if e.get("n") == 2 and e["type"] in ("already", "repeated")] == ["repeated"]
+    assert summary(res)["repeated"] == 1

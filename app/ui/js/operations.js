@@ -27,7 +27,7 @@ const emptyHistory = () => `<li class="empty"><b>${esc(t("history.empty_title"))
 /* ---- mosaicos: un cuadrado por tema, con su color; al pasar el mouse dice qué tema es ---- */
 
 const LEGEND = [["ok", "ok", "--mint"], ["doubt", "doubt", "--peach"], ["miss", "miss", "--rose"],
-                ["dup", "dup", "--sage"], ["removed", "removed", "--lav"]];
+                ["dup", "dup", "--sage"], ["rep", "rep", "--butter"], ["removed", "removed", "--lav"]];
 /** El nombre del estado. En una prueba sin cambios, lo encontrado "se agregaría" (no se agregó nada). */
 const statusLabel = (s, dry = false) => {
   if (s === "dudoso_omitido") return t(dry ? "legend.skipped_dry" : "legend.skipped");
