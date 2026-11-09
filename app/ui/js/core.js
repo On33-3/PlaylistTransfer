@@ -101,6 +101,9 @@ function go(id) {
   $$(".screen").forEach(s => s.classList.toggle("active", s.id === id));
   $$("nav button").forEach(b => (b.dataset.go === id ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("main").scrollTop = 0;
+  // Al entrar a elegir, las playlists se piden de nuevo: pudieron cambiar en el servicio ("Me gusta" nuevos).
+  // Lo guardado solo evita repetir el pedido dentro de la misma pantalla (cambiar origen y destino)
+  if (id === "repetidos" || (id === "transferir" && !state.transfer)) state.playlists = {};
   if (id === "transferir" && !state.transfer) loadPickers();
   if (id === "repetidos") renderDupControls();
   if (id === "historial") renderHistory();
