@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
 
-from app.connectors.base import Connector
+from app.connectors.base import Connector, ConnectorError
 from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, alternatives, best_match,
                                classify, same_song)
 from app.core.models import Song
@@ -133,6 +133,8 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
     if not targets:
         raise ValueError(tr("err.choose_target"))
     src_name, songs = source.read(source_id)
+    if not songs:      # nada para pasar: no es "transferido" (antes daba un resultado positivo vacío)
+        raise ConnectorError(tr("err.source_empty", name=src_name))
     emit({"type": "source", "name": src_name, "total": len(songs), "service": source.name})
 
     tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful)

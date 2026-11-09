@@ -177,3 +177,27 @@ def test_preview_has_no_add_buttons(browser, tmp_path):
     assert "? No se agregaría, puede ser otra versión" in page.inner_text("#run .legend")
     assert page.locator("#tracks [data-add-doubtful]").count() == 0 and page.is_hidden("#add-all")
     assert errors == []
+
+
+def test_empty_playlists_are_not_offered_as_source(browser, tmp_path):
+    """De origen, solo las que tienen algo para pasar; de destino, cualquiera (una vacía sirve)."""
+    api, tidal, yt = make_api(tmp_path)
+    tidal.add_playlist("vacia", "Para después", [])
+    yt.add_playlist("ydvacia", "Recién creada", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("input[name=src][value=src]")
+    assert page.locator("input[name=src][value=vacia]").count() == 0
+    assert page.locator("input[name=dst][value=ydvacia]").count() == 1
+    assert errors == []
+
+
+def test_with_only_empty_playlists_the_source_list_says_so(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    tidal.playlists = {}
+    tidal.add_playlist("vacia", "Para después", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("#src-list li.loading:not(:has-text('Cargando'))")
+    assert page.inner_text("#src-list") == "Tus playlists de Tidal están vacías: no hay nada para pasar."
+    assert errors == []
