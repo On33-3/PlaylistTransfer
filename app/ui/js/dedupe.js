@@ -11,9 +11,11 @@ async function renderDupControls() {
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" ${connected(k) ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
   $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
-  const pls = await getPlaylists(state.dupService) || [];
+  // Con menos de 2 temas no puede haber repetidos (las de cantidad desconocida quedan)
+  const all = await getPlaylists(state.dupService) || [];
+  const pls = all.filter(p => p.count == null || p.count >= 2);
   $("#dup-playlist").innerHTML = pls.length ? pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.count != null ? ` (${songs(p.count)})` : ""}</option>`).join("")
-    : `<option value="">${esc(t("dedupe.no_playlists"))}</option>`;
+    : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`;
   const scan = $("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
 }
 

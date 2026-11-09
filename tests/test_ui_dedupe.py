@@ -1,6 +1,7 @@
 """Quitar repetidos: elegir la playlist, revisar y confirmar."""
 from __future__ import annotations
 
+from tests.fakes import S
 from tests.ui_helpers import check, make_api, open_page, shot, with_spotify
 
 
@@ -9,7 +10,8 @@ def test_dedupe_playlist_list_has_the_app_style_and_scrolls(browser, tmp_path):
     tiene alto máximo y scroll en vez de tapar la pantalla."""
     api, tidal, yt = make_api(tmp_path)
     for i in range(40):
-        yt.add_playlist(f"x{i}", f"Lista número {i} con un nombre bastante largo para ver cómo se corta", [])
+        yt.add_playlist(f"x{i}", f"Lista número {i} con un nombre bastante largo para ver cómo se corta",
+                        [S("Tema", "Artista", id=f"a{i}"), S("Otro", "Artista", id=f"b{i}")])
     page, errors = open_page(browser, api)
     page.click("nav [data-go=repetidos]")
     page.click("#dup-svc [data-svc=ytmusic]")
@@ -93,4 +95,18 @@ def test_other_services_do_not_show_the_readd_warning(browser, tmp_path):
     page.wait_for_selector("#dups li")
     page.click("#remove")
     assert page.is_hidden("#c-readd")
+    assert errors == []
+
+
+def test_playlists_that_cannot_have_duplicates_are_not_offered(browser, tmp_path):
+    """Con menos de 2 temas no puede haber repetidos: no se ofrecen."""
+    api, tidal, yt = make_api(tmp_path)
+    yt.add_playlist("uno", "Un solo tema", [S("Tema", "Artista", id="u1")])
+    yt.add_playlist("cero", "Vacía", [])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
+    values = page.eval_on_selector_all("#dup-playlist option", "os => os.map(o => o.value)")
+    assert "uno" not in values and "cero" not in values and "dups" in values
     assert errors == []

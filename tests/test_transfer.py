@@ -159,3 +159,14 @@ def test_by_default_doubtful_wait_for_the_user(services):
     yt.calls.clear()
     run_transfer(tidal, yt, "src", [Target("x", "dst")], include_doubtful=True)     # el motor todavía lo permite
     assert yt.calls == [("add", "dst", ["y-boh-live"])]
+
+
+def test_an_empty_source_is_not_a_successful_transfer(services):
+    """Una playlist de origen vacía daba "transferido" (sin crear nada): ahora es un aviso, y nada cambia."""
+    from app.connectors.base import ConnectorError
+    tidal, yt = services
+    tidal.add_playlist("vacia", "Para después", [])
+    yt.calls.clear()
+    with pytest.raises(ConnectorError, match="«Para después» está vacía"):
+        run_transfer(tidal, yt, "vacia", [Target("Nueva")])
+    assert yt.calls == []
