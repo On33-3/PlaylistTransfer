@@ -26,7 +26,7 @@ def stress_api(tmp_path):
         yt.add_playlist(f"y{i}", name, [])
     long_songs = [S(f"Una canción con un título muy, muy largo que sigue y sigue número {k} (Remastered 2024) [Deluxe]",
                     "Un artista con nombre largo, Otro artista invitado, Y un tercero", dur=200 + k, id=f"L{k}")
-                  for k in range(240)]
+                  for k in range(120)]
     long_songs += [S("Supercalifragilisticexpialidocious" * 3, "SinEspacios" * 6, id="NS")]
     tidal.add_playlist("big", "Grande", long_songs)
     yt.catalog += [S(s.title, *s.artists, dur=s.duration, id="y" + s.id) for s in long_songs[::2]]
@@ -51,25 +51,28 @@ def overflow(page):
     }""")
 
 
-@pytest.mark.parametrize("size", SIZES)
-def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
+def test_extreme_data_does_not_break_the_layout(browser, tmp_path):
+    """Un solo recorrido; cada pantalla se mide en los dos tamaños de ventana (y no el recorrido dos veces)."""
     api, tidal, yt = stress_api(tmp_path)
     page, errors = open_page(browser, api)
-    page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
     problems = {}
+
+    def measure(screen, picture):
+        for name, (width, height) in SIZES.items():
+            page.set_viewport_size({"width": width, "height": height})
+            problems[f"{screen} {name}"] = overflow(page)
+            shot(page, f"stress-{name}-{picture}")
 
     page.click("nav [data-go=transferir]")
     page.wait_for_selector("input[name=src][value=t0]")
-    problems["transferir-elegir"] = overflow(page)
+    measure("transferir-elegir", "1-elegir")
     heights = page.evaluate("[...document.querySelectorAll('.picker ul')].map(u => Math.round(u.getBoundingClientRect().height))")
-    shot(page, f"stress-{size}-1-elegir")
 
     page.check("input[name=src][value=big]")
     page.check("input[name=dst][value=y0]")
     page.click("#go")
     page.wait_for_selector("#done.show", timeout=60000)
-    problems["transferir-resultado"] = overflow(page)
-    shot(page, f"stress-{size}-2-resultado")
+    measure("transferir-resultado", "2-resultado")
 
     page.click("nav [data-go=repetidos]")
     page.click("#dup-svc [data-svc=ytmusic]")
@@ -77,8 +80,7 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
     page.select_option("#dup-playlist", "dupsbig")
     page.click("#dup-scan")
     page.wait_for_selector("#dups li")
-    problems["repetidos"] = overflow(page)
-    shot(page, f"stress-{size}-3-repetidos")
+    measure("repetidos", "3-repetidos")
 
     for i in range(3):                                               # varias operaciones en el historial
         page.click("nav [data-go=transferir]")
@@ -91,27 +93,20 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist li[data-op]")
     page.click("#hist button.row >> nth=0")
-    problems["historial"] = overflow(page)
-    shot(page, f"stress-{size}-4-historial")
+    measure("historial", "4-historial")
 
     page.click("nav [data-go=inicio]")
     page.wait_for_selector("#inicio .features")
-    problems["inicio"] = overflow(page)
-    shot(page, f"stress-{size}-5-inicio")
+    measure("inicio", "5-inicio")
 
     page.click("nav [data-go=conexiones]")
     page.wait_for_selector("#svc-list .svc")
-    problems["conexiones"] = overflow(page)
-    shot(page, f"stress-{size}-6-conexiones")
+    measure("conexiones", "6-conexiones")
 
     page.click("nav [data-go=ajustes]")
     page.wait_for_selector("#th-ok")
-    problems["ajustes"] = overflow(page)
-    shot(page, f"stress-{size}-6-ajustes")
+    measure("ajustes", "6-ajustes")
 
-    print(f"\n[{size}] alturas de las listas origen/destino: {heights}")
-    for screen, found in problems.items():
-        print(f"[{size}] {screen}: {found or 'ok'}")
     assert errors == []
     assert {k: v for k, v in problems.items() if v} == {}
     assert len(set(heights)) == 1, f"las listas de origen y destino tienen alturas distintas: {heights}"

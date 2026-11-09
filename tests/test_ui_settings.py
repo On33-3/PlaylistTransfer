@@ -62,8 +62,8 @@ def test_switch_language_from_settings(browser, tmp_path):
     assert page.is_checked("#language-list input[value=es]")
     page.check("#language-list input[value=en]")
     page.wait_for_selector("nav [data-go=ajustes]:text-is('Settings')")
-    assert page.is_visible("#ajustes")                          # vuelve a Ajustes después de recargar
-    assert page.is_checked("#language-list input[value=en]")
+    # La página se recarga: el menú cambia antes de que Ajustes termine de dibujarse (se espera, no se supone)
+    page.wait_for_selector("#ajustes.active #language-list input[value=en]:checked")
     assert page.inner_text("#ajustes h1") == "Settings"
     page.check("#language-list input[value=es]")
     page.wait_for_selector("nav [data-go=ajustes]:text-is('Ajustes')")
