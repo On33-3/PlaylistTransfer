@@ -56,6 +56,7 @@
     "transfer.go_connect": "Ir a Conexiones",
     "transfer.loading": "Cargando tus playlists…",
     "transfer.read_error": "No pude leer tus playlists.",
+    "playlists.count_unknown": "cantidad desconocida",
     "transfer.no_playlists": "No tenés playlists en {service}.",
     "transfer.no_playlists_with_songs": "Tus playlists de {service} están vacías: no hay nada para pasar.",
     "transfer.new": "Crear una playlist nueva",

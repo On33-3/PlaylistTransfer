@@ -174,7 +174,7 @@ class FakeSpotify:
             if data["grant_type"] == "refresh_token" and not self.refresh_ok:
                 return Resp(400, {"error": "invalid_grant", "error_description": "Refresh token revoked"})
             self.tokens += 1
-            return Resp(200, {"access_token": f"tok{self.tokens}", "refresh_token": "ref", "expires_in": 3600})
+            return Resp(200, {"access_token": f"tok{self.tokens}", "refresh_token": "ref", "expires_in": 3600, "scope": sp.SCOPES})
         if self.forced:
             return self.forced.pop(0)
         assert headers["Authorization"].startswith("Bearer tok")

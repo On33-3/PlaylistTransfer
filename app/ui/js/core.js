@@ -33,6 +33,8 @@ function t(key, vars = {}) {
   return text.replace(/\{(\w+)\}/g, (m, v) => (v in vars ? vars[v] : m));
 }
 const songs = n => t("songs", { n });
+/** Cuántos temas tiene una playlist. Sin el dato se dice, porque sin número parece vacía. */
+const countLabel = n => (n == null ? t("playlists.count_unknown") : songs(n));
 const listAnd = items => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${t("list.and")} ${items[items.length - 1]}`);
 const dateLocale = () => (LANG === "es" ? "es-AR" : "en-US");
 

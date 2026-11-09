@@ -71,9 +71,8 @@ async function loadPickers() {
   const [all, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
   // De origen, solo las que tienen algo para pasar (las de cantidad desconocida quedan: el servicio no la dice)
   const src = all && all.filter(p => p.count !== 0);
-  const count = c => (c == null ? "" : songs(c));
   // El nombre va en su propio span: si es muy largo se corta con "…" y se ve completo al pasar el mouse
-  const item = (p, type) => `<li data-filter="${esc(p.name.toLowerCase())}"><label title="${esc(p.name)}"><input type="${type}" name="${type === "radio" ? "src" : "dst"}" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> <span class="name">${esc(p.name)}</span> <span class="count num">${count(p.count)}</span></label></li>`;
+  const item = (p, type) => `<li data-filter="${esc(p.name.toLowerCase())}"><label title="${esc(p.name)}"><input type="${type}" name="${type === "radio" ? "src" : "dst"}" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> <span class="name">${esc(p.name)}</span> <span class="count num">${esc(countLabel(p.count))}</span></label></li>`;
   $("#src-list").innerHTML = !src ? `<li class="loading error">${esc(t("transfer.read_error"))}</li>`
     : src.length ? src.map(p => item(p, "radio")).join("")
     : `<li class="loading">${esc(t(all.length ? "transfer.no_playlists_with_songs" : "transfer.no_playlists", { service: NAMES[from] }))}</li>`;
