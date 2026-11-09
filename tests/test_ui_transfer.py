@@ -259,3 +259,37 @@ def test_the_repeated_legend_only_shows_when_there_is_one(browser, tmp_path):
     transfer(page)
     assert page.is_hidden("#n-rep")                      # nada repetido: no ocupa lugar en la leyenda
     assert errors == []
+
+
+def test_coming_back_shows_the_current_playlists(browser, tmp_path):
+    """Un usuario sumó canciones a sus "Me gusta" y la app seguía con la lista vieja hasta desconectar y
+    conectar: solo ahí se borraba lo guardado. Al volver a la pantalla se piden de nuevo, también en Repetidos."""
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("#src-list input[value=src]")
+    name, current = tidal.playlists["src"]
+    tidal.add_playlist("src", name, current + [S("Otra", "Alguien", id="nueva")])
+    tidal.add_playlist("nueva", "Recién hecha", [S("A", "B", id="a"), S("C", "D", id="c")])
+    page.click("nav [data-go=inicio]")
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("#src-list input[value=nueva]")
+    assert page.get_attribute("#src-list input[value=src]", "data-count") == "5"
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=tidal]")
+    page.wait_for_selector("#dup-playlist option[value=nueva]", state="attached")
+    tidal.add_playlist("otra", "Más nueva", [S("E", "F", id="e"), S("G", "H", id="g")])
+    page.click("nav [data-go=inicio]")
+    page.click("nav [data-go=repetidos]")
+    page.wait_for_selector("#dup-playlist option[value=otra]", state="attached")
+    assert errors == []
+
+
+def test_another_transfer_shows_the_current_source_too(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    tidal.add_playlist("nueva", "Recién hecha", [S("A", "B", id="a")])
+    page.click("#again")
+    page.wait_for_selector("#src-list input[value=nueva]")
+    assert errors == []

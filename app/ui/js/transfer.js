@@ -344,5 +344,5 @@ $("#cancel").addEventListener("click", () => {
 $("#again").addEventListener("click", () => {
   state.transfer = null;
   $("#cancel").disabled = false; $("#cancel").textContent = t("transfer.cancel");
-  delete state.playlists[state.to]; resetTransferView();
+  state.playlists = {}; resetTransferView();
 });
