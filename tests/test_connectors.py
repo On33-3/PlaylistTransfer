@@ -8,7 +8,7 @@ from types import SimpleNamespace as NS
 
 import pytest
 
-from app.connectors.base import (BATCH, ConnectorError, NotOwnerError, RemovalNotConfirmedError, Status)
+from app.connectors.base import (BATCH, LIKED, ConnectorError, NotOwnerError, RemovalNotConfirmedError, Status)
 from app.connectors.tidal import TidalConnector, login_link
 from app.connectors.ytmusic import (YTMusicConnector, browser_headers, parse_count, sapisid_hash)
 from app.core.matching import find_duplicates
@@ -33,12 +33,38 @@ class FakeTidalPlaylist:
         return self._tracks[offset:offset + limit]
 
 
+class FakeTidalFavorites:
+    """Los favoritos de Tidal: el más reciente primero; agregar deja lo último arriba."""
+
+    def __init__(self, tracks=()):
+        self._tracks, self.calls = list(tracks), []
+
+    def get_tracks_count(self):
+        return len(self._tracks)
+
+    def tracks(self, limit=50, offset=0, order=None, order_direction=None):
+        self.calls.append(("tracks", getattr(order, "value", order), getattr(order_direction, "value", order_direction)))
+        return self._tracks[offset:offset + limit]
+
+    def add_track(self, ids):
+        self.calls.append(("add", list(ids)))
+        for i in ids:
+            self._tracks.insert(0, track(i, f"Tema {i}", "Artista"))
+        return True
+
+    def remove_track(self, tid):
+        self.calls.append(("remove", tid))
+        self._tracks = [t for t in self._tracks if str(t.id) != str(tid)]
+        return True
+
+
 class FakeTidalSession:
-    def __init__(self, playlists=None, search_results=None):
+    def __init__(self, playlists=None, search_results=None, favorites=None):
         self.playlists = playlists or {}
         self.search_results = search_results or {}
         self.queries = []
-        self.user = NS(playlists=self._user_playlists,
+        self.favorites = favorites or FakeTidalFavorites()
+        self.user = NS(playlists=self._user_playlists, favorites=self.favorites,
                        create_playlist=lambda name, desc: NS(id="new-uuid"))
 
     def check_login(self):
@@ -109,7 +135,7 @@ def test_tidal_not_owner():
 def test_tidal_list_and_create():
     s = FakeTidalSession({"a": FakeTidalPlaylist("A", [track(1, "x", "y")])})
     c = tidal(s)
-    assert [(p.id, p.name, p.count) for p in c.list_playlists()] == [("a", "A", 1)]
+    assert [(p.id, p.name, p.count) for p in c.list_playlists()] == [(LIKED, "Canciones que te gustan", 0), ("a", "A", 1)]
     assert c.create("Nueva", "desc") == "new-uuid"
 
 
@@ -248,7 +274,13 @@ class FakeYT:
                 {"playlistId": "PL2", "title": None, "count": None}]
 
     def get_playlist(self, pid, limit=None):
+        self.read_ids = getattr(self, "read_ids", []) + [pid]
+        if pid == "LM":
+            return {"title": "Liked Music", "tracks": self.tracks}
         return {"title": "Old songs", "tracks": self.tracks}
+
+    def rate_song(self, vid, rating):
+        self.rated = getattr(self, "rated", []) + [(vid, rating)]
 
     def search(self, q, filter=None, limit=10):
         self.searches.append((filter, q))
@@ -277,7 +309,8 @@ def ytc(client) -> YTMusicConnector:
 
 def test_yt_list_skips_special_playlists_and_parses_counts():
     pls = ytc(FakeYT()).list_playlists()
-    assert [(p.id, p.name, p.count) for p in pls] == [("PL1", "Old songs", 1234), ("PL2", "(sin nombre)", None)]
+    assert [(p.id, p.name, p.count) for p in pls] == [(LIKED, "Canciones que te gustan", 500), ("PL1", "Old songs", 1234),
+                                                     ("PL2", "(sin nombre)", None)]
 
 
 def test_yt_read_keeps_set_video_id():
@@ -484,4 +517,35 @@ def test_a_transfer_to_a_service_that_stopped_answering_changes_nothing(tmp_path
 def test_yt_untitled_playlist_follows_the_language():
     from app import i18n
     i18n.set_language("en")
-    assert ytc(FakeYT()).list_playlists()[1].name == "(untitled)"
+    assert [p.name for p in ytc(FakeYT()).list_playlists()] == ["Liked songs", "Old songs", "(untitled)"]
+
+
+# ---------------------------------------------------------------- canciones que te gustan
+
+def test_tidal_liked_songs_read_add_and_remove():
+    """Los favoritos de Tidal como una playlist más: se leen del más reciente al más viejo; al agregar,
+    el primero de la lista queda arriba (se marcan al revés); quitar saca ese tema y nada más."""
+    fav = FakeTidalFavorites([track(3, "Nuevo", "A"), track(2, "Medio", "A")])
+    c = tidal(FakeTidalSession(favorites=fav))
+    name, songs = c.read(LIKED)
+    assert name == "Canciones que te gustan" and [s.id for s in songs] == ["3", "2"]
+    assert fav.calls[0] == ("tracks", "DATE", "DESC")
+    c.add(LIKED, [Song("Uno", ["A"], id="10"), Song("Dos", ["A"], id="11")])
+    assert [s.id for s in c.read(LIKED)[1]] == ["10", "11", "3", "2"]
+    c.remove(LIKED, [Duplicate(1, Song("Dos", ["A"], id="11"), Song("Uno", ["A"], id="10"), "exact")], confirmed=True)
+    assert [s.id for s in c.read(LIKED)[1]] == ["10", "3", "2"]
+    with pytest.raises(RemovalNotConfirmedError):
+        c.remove(LIKED, [Duplicate(0, Song("Uno", ["A"], id="10"), Song("Uno", ["A"], id="3"), "exact")])
+    assert c.url(LIKED) == "https://tidal.com/my-collection/tracks"
+
+
+def test_yt_liked_songs_are_the_lm_list_and_add_means_like():
+    fake = FakeYT([{"title": "Take On Me", "artists": [{"name": "a-ha"}], "videoId": "v1"}])
+    c = ytc(fake)
+    name, songs = c.read(LIKED)
+    assert name == "Canciones que te gustan" and fake.read_ids == ["LM"] and [s.id for s in songs] == ["v1"]
+    c.add(LIKED, [Song("Uno", ["A"], id="a"), Song("Dos", ["A"], id="b")])
+    assert fake.rated == [("b", "LIKE"), ("a", "LIKE")] and fake.added == []      # nunca "agregar a la lista"
+    c.remove(LIKED, [Duplicate(0, Song("Uno", ["A"], id="a"), Song("Uno", ["A"], id="v1"), "exact")], confirmed=True)
+    assert fake.rated[-1] == ("a", "INDIFFERENT") and fake.removed == []
+    assert c.url(LIKED) == "https://music.youtube.com/playlist?list=LM"

@@ -12,8 +12,8 @@ from urllib.parse import parse_qs, urlparse
 from app.auth import cdp_login, firefox
 from app.auth.browsers import Browser
 from app.auth.cdp_login import LoginError
-from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedError, NotOwnerError,
-                                 Status, require_confirmation)
+from app.connectors.base import (BATCH, LIKED, Connector, ConnectorError, NotConnectedError, NotOwnerError,
+                                 Status, liked_info, require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
@@ -25,7 +25,8 @@ LOGIN_URL = ("https://accounts.google.com/ServiceLogin?service=youtube&passive=t
              "%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F")
 ORIGIN = "https://music.youtube.com"
 SESSION_COOKIES = {"__Secure-3PAPISID", "SAPISID"}
-SKIP_PLAYLISTS = {"LM", "SE"}   # "Me gusta" y "Episodios": no admiten agregar temas a mano
+LIKED_LIST = "LM"               # "Me gusta" de YouTube Music: se lee como lista; se agrega marcando "Me gusta"
+SKIP_PLAYLISTS = {"SE"}         # "Episodios": no admite agregar temas
 
 
 def sapisid_hash(sapisid: str, origin: str = ORIGIN, ts: int | None = None) -> str:
@@ -149,7 +150,7 @@ class YTMusicConnector(Connector):
 
     @staticmethod
     def url(playlist_id: str) -> str:
-        return f"https://music.youtube.com/playlist?list={playlist_id}"
+        return f"https://music.youtube.com/playlist?list={LIKED_LIST if playlist_id == LIKED else playlist_id}"
 
     # ---- lectura
 
@@ -162,16 +163,20 @@ class YTMusicConnector(Connector):
                     id=item.get("videoId"), set_id=item.get("setVideoId"))
 
     def list_playlists(self) -> list[PlaylistInfo]:
-        out = []
+        """Las canciones que te gustan (primero) y las playlists de la biblioteca."""
+        liked, out = None, []
         for p in self._ready().get_library_playlists(limit=None):
-            if p.get("playlistId") in SKIP_PLAYLISTS:
-                continue
-            out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
-        return out
+            if p.get("playlistId") == LIKED_LIST:
+                liked = parse_count(p.get("count"))
+            elif p.get("playlistId") not in SKIP_PLAYLISTS:
+                out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
+        return [liked_info(liked)] + out
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
-        pl = self._ready().get_playlist(playlist_id, limit=None)
+        pl = self._ready().get_playlist(LIKED_LIST if playlist_id == LIKED else playlist_id, limit=None)
         songs = [self.to_song(t) for t in pl.get("tracks", []) if t.get("title")]
+        if playlist_id == LIKED:
+            return tr("playlist.liked"), songs
         return pl.get("title") or tr("playlist.untitled"), songs
 
     def search(self, song: Song) -> list[Song]:
@@ -196,6 +201,13 @@ class YTMusicConnector(Connector):
     def add(self, playlist_id: str, songs: list[Song]) -> None:
         ids = [s.id for s in songs if s.id]
         yt = self._ready()
+        if playlist_id == LIKED:
+            # Se marca "Me gusta" uno por uno. Lo último que se marca queda arriba: se marcan al revés,
+            # así el primero de la lista queda primero
+            for vid in reversed(ids):
+                yt.rate_song(vid, "LIKE")
+                time.sleep(self.search_pause)
+            return
         for i in range(0, len(ids), BATCH):
             res = yt.add_playlist_items(playlist_id, ids[i:i + BATCH], duplicates=False)
             if isinstance(res, dict) and res.get("status") not in (None, "STATUS_SUCCEEDED"):
@@ -204,6 +216,12 @@ class YTMusicConnector(Connector):
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         """Hace falta el setVideoId de cada aparición: con el videoId solo se quitarían todas las copias."""
         require_confirmation(confirmed)
+        if playlist_id == LIKED:                  # en "Me gusta" cada tema está una vez: se le saca el "Me gusta"
+            yt = self._ready()
+            for d in items:
+                yt.rate_song(d.song.id, "INDIFFERENT")
+                time.sleep(self.search_pause)
+            return
         payload = [{"videoId": d.song.id, "setVideoId": d.song.set_id}
                    for d in items if d.song.id and d.song.set_id]
         if len(payload) < len(items):

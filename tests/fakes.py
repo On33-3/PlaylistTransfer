@@ -145,6 +145,8 @@ class FakeSpotify:
         self.refresh_ok = True
         self.ignore_adds = False              # simula que Spotify no guardó lo agregado
         self.tokens = 0
+        self.liked: list[str] = []            # canciones que te gustan, la más reciente primero
+        self.library_scope = True             # False: sesión de antes de pedir permiso para "Me gusta"
 
     def add_tracks(self, *tracks):
         for t in tracks:
@@ -186,6 +188,22 @@ class FakeSpotify:
             pid = f"{len(self.playlists) + 1:0>22}"
             self.add_playlist(pid, json["name"], [])
             return Resp(201, {"id": pid})
+        # Canciones que te gustan: se leen con /me/tracks (lo último guardado primero, como "track") y desde
+        # 2026 se guardan y quitan con /me/library (URIs separadas por coma en la dirección, hasta 40)
+        if path in ("/me/tracks", "/me/library") and not self.library_scope:
+            return Resp(403, {"error": {"status": 403, "message": "Insufficient client scope"}})
+        if (method, path) == ("GET", "/me/tracks"):
+            return self._page([{"track": self.catalog[x]} for x in self.liked], params, url)
+        if path == "/me/library":
+            uris = params["uris"].split(",")
+            assert len(uris) <= 40 and json is None
+            if method == "PUT":
+                for x in uris:                                   # cada uno queda arriba al guardarlo
+                    if x not in self.liked:
+                        self.liked.insert(0, x)
+            else:
+                self.liked = [x for x in self.liked if x not in uris]
+            return Resp(200, None)
         if path == "/search":
             assert int(params["limit"]) <= 10
             q = params["q"]

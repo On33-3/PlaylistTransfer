@@ -181,7 +181,8 @@ def test_lists_only_own_and_collaborative_playlists_across_pages(tmp_path, api):
     api.add_playlist("ajena".ljust(22, "0"), "De otro", [], owner="otro")
     api.add_playlist("colab".ljust(22, "0"), "Colaborativa", [], owner="otro", collaborative=True)
     names = [p.name for p in make(tmp_path, api).list_playlists()]
-    assert len(names) == 61 and "De otro" not in names and "Colaborativa" in names
+    assert len(names) == 62 and "De otro" not in names and "Colaborativa" in names
+    assert names[0] == "Canciones que te gustan"
 
 
 def test_reads_every_song_with_isrc_and_skips_podcasts(tmp_path, api):
@@ -394,3 +395,52 @@ def test_if_the_port_is_taken_the_message_says_so(tmp_path, api):
             c.connect(None)
     finally:
         other.close()
+
+
+# ---------------------------------------------------------------- canciones que te gustan
+
+def test_liked_songs_read_add_and_remove(tmp_path, api):
+    """Se leen con /me/tracks; desde 2026 se guardan y quitan con /me/library (URIs, hasta 40 por pedido).
+    Al guardar, el primero de la lista queda arriba."""
+    tracks = [track(i, f"Tema {i}", "Artista") for i in range(45)]
+    api.add_tracks(*tracks)
+    api.liked = [tracks[0]["uri"]]
+    c = make(tmp_path, api)
+    assert c.list_playlists()[0].name == "Canciones que te gustan" and c.list_playlists()[0].count == 1
+    c.add(sp.LIKED, [song_of(t) for t in tracks[1:]])
+    assert api.liked == [t["uri"] for t in tracks[1:]] + [tracks[0]["uri"]]
+    assert all(len(p["uris"].split(",")) <= 40 for m, path, p, _, _ in api.calls if path == "/me/library")
+    name, songs = c.read(sp.LIKED)
+    assert name == "Canciones que te gustan" and songs[0].id == tracks[1]["uri"] and len(songs) == 45
+    c.remove(sp.LIKED, [Duplicate(1, song_of(tracks[2]), song_of(tracks[1]), "exact")], confirmed=True)
+    assert tracks[2]["uri"] not in api.liked and len(api.liked) == 44
+    assert c.url(sp.LIKED) == "https://open.spotify.com/collection/tracks"
+
+
+def test_an_old_session_without_library_permission_still_lists_playlists(tmp_path, api):
+    """Una sesión de antes de pedir permiso para "Me gusta": las playlists se ven igual (reconectar lo suma)."""
+    api.add_playlist("p".ljust(22, "0"), "Mía", [])
+    api.library_scope = False
+    assert [p.name for p in make(tmp_path, api).list_playlists()] == ["Mía"]
+
+
+def test_login_asks_for_the_liked_songs_permission():
+    assert "user-library-read" in sp.SCOPES.split() and "user-library-modify" in sp.SCOPES.split()
+
+
+def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
+    """De punta a punta: de una playlist de Tidal a las canciones que te gustan de Spotify. Lo que ya
+    te gustaba no se repite, y el orden es el del origen."""
+    from app.core.transfer import Target, run_transfer
+    from tests.fakes import FakeService, S
+    a, b, cc = track(1, "Take On Me", "a-ha"), track(2, "Mr. Blue Sky", "Electric Light Orchestra"), track(3, "Hallelujah", "Jeff Buckley")
+    api.add_tracks(a, b, cc)
+    api.liked = [b["uri"]]
+    src = FakeService("tidal", "Tidal")
+    src.add_playlist("p", "Favoritas", [S("Take On Me", "a-ha", id="t1"), S("Mr. Blue Sky", "Electric Light Orchestra", id="t2"),
+                                        S("Hallelujah", "Jeff Buckley", id="t3")])
+    res = run_transfer(src, make(tmp_path, api), "p", [Target("?", sp.LIKED)])
+    t = res.targets[0]
+    assert t.target.name == "Canciones que te gustan" and not t.created
+    assert [s.id for s in t.added] == [a["uri"], cc["uri"]] and [s.id for s in t.already] == [b["uri"]]
+    assert api.liked == [a["uri"], cc["uri"], b["uri"]]
