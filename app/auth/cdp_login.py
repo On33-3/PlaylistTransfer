@@ -144,6 +144,16 @@ def cookies_for_domain(cookies: list[dict], domain: str) -> dict[str, str]:
     return jar
 
 
+def has_web_page(cdp: CDP) -> bool:
+    """¿Queda alguna página web abierta? (Solo lee la lista: no toca pestañas, que Vivaldi no deja.)
+    La interfaz de Vivaldi y las extensiones de Edge también aparecen, pero no son http(s)."""
+    try:
+        targets = cdp.send("Target.getTargets").get("targetInfos", [])
+    except RuntimeError:          # el navegador no lo permite: no se sabe, se sigue esperando como siempre
+        return True
+    return any(t.get("type") == "page" and str(t.get("url", "")).startswith(("http://", "https://")) for t in targets)
+
+
 def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, login_url: str,
                            domain: str, wanted: set[str], timeout: float = 600,
                            on_status: Callable[[str], None] | None = None,
@@ -185,19 +195,31 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
     try:
         deadline = time.time() + timeout
         cookies = jar()
+        seen_page, closed_checks = False, 0
         while not (wanted & cookies.keys()):
             if cancel is not None and cancel.is_set():
                 raise Cancelled()
             if time.time() > deadline:
                 raise LoginError(tr("err.login_timeout"))
             time.sleep(1.5)
+            # ¿La persona cerró la ventana? Brave y Edge se cierran del todo (se corta la conexión), pero
+            # Vivaldi sigue abierto sin ninguna página (comprobado): sin esto, la app esperaría hasta el
+            # tiempo límite con Conectar deshabilitado. Dos veces seguidas, por si justo estaba cambiando de página.
+            if has_web_page(cdp):
+                seen_page, closed_checks = True, 0
+            elif seen_page:
+                closed_checks += 1
+                if closed_checks >= 2:
+                    raise LoginError(tr("err.login_window_closed", browser=browser_name))
             cookies = jar()
         time.sleep(3)              # deja terminar la redirección
         cookies = jar()
         user_agent = cdp.send("Browser.getVersion").get("userAgent") or info.get("User-Agent", "")
     except (LoginError, Cancelled):
         raise
-    except Exception as e:         # por ejemplo, si se cerró la ventana antes de terminar
+    except OSError as e:           # se cortó la conexión: Brave y Edge se cierran del todo al cerrar la ventana
+        raise LoginError(tr("err.login_window_closed", browser=browser_name)) from e
+    except Exception as e:         # cualquier otra cosa
         raise LoginError(tr("err.login_interrupted", detail=e)) from e
     finally:
         try:
