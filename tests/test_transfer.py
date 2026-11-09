@@ -188,3 +188,24 @@ def test_another_version_repeated_in_the_source_is_repeated_not_already_there(se
     assert [s.id for s in res.targets[0].added] == ["y-tom"]
     assert [e["type"] for e in events if e.get("n") == 2 and e["type"] in ("already", "repeated")] == ["repeated"]
     assert summary(res)["repeated"] == 1
+
+
+def test_a_song_not_found_has_no_match_in_its_event(services):
+    tidal, yt = services
+    events, emit = collect()
+    run_transfer(tidal, yt, "src", [Target("Favoritas", "dst")], dry_run=True, emit=emit)
+    assert next(e for e in events if e["type"] == "track" and e["n"] == 3)["match"] is None
+
+
+def test_an_existing_playlist_is_never_created_again(services):
+    from app.core.transfer import ensure_playlist
+    tidal, yt = services
+    yt.calls.clear()
+    assert ensure_playlist(yt, Target("Favoritas", "dst"), "Tidal") is False and yt.calls == []
+
+
+def test_already_there_does_not_count_songs_repeated_in_the_source():
+    from app.core.transfer import ALREADY_THERE, REPEATED_IN_SOURCE, TargetResult, already_there
+    a, b = S("A", "X", id="a"), S("B", "X", id="b")
+    t = TargetResult(Target("n", "i"), already=[a], versions=[(a, b, ALREADY_THERE), (b, a, REPEATED_IN_SOURCE)])
+    assert already_there(t) == 2
