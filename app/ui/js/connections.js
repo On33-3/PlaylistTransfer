@@ -17,6 +17,7 @@ async function renderConnections() {
     let btns = st === "connected"
       ? `<button class="btn ghost" data-disconnect="${k}" data-needs-idle>${esc(t("settings.disconnect"))}</button>`
       : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
+      : state.login?.key === k ? loginButtonsHTML()
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
     if (SETUP[k] && st !== "setup") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
     // Sin conectar: los pasos numerados se ven antes de tocar nada (el 1 es tocar este botón). Lo que pide
@@ -31,6 +32,7 @@ async function renderConnections() {
   }).join("") + Object.keys(NAMES).filter(k => !USABLE.includes(k)).map(k =>
     `<div class="svc"><span><b>${esc(NAMES[k])}</b> <span class="muted">${esc(t("settings.soon"))}</span></span><button class="btn ghost" disabled>${esc(t("settings.connect"))}</button></div>`).join("");
   setBusy(state.busy);
+  showLoginWait();
 
   if (b) {
     const chosen = chosenExe;
@@ -89,29 +91,17 @@ async function saveClientId(key) {
 async function connectService(key) {
   const c = $(`[data-connect="${key}"]`); if (!c) return;
   const r = await call("connect", key); if (!r) return;
-  const wait = $("#wait-" + key); wait.hidden = false; wait.textContent = t("settings.opening");
-  // Mientras espera el login se puede cancelar (si el usuario cerró el navegador o cambió de idea)
-  const stop = document.createElement("button");
-  stop.className = "btn ghost"; stop.id = "cancel-login"; stop.textContent = t("settings.cancel_login");
-  stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
-  // Si la persona cerró la ventana del navegador, la app no se entera (Tidal y Spotify se abren en el
-  // navegador común) y esperaría hasta que venza el tiempo. En vez de un Conectar gris: «Abrir de nuevo»
-  // corta esta espera y vuelve a empezar
-  let again = false;
-  const reopen = document.createElement("button");
-  reopen.className = "btn primary"; reopen.id = "reopen-login"; reopen.textContent = t("settings.reopen_login");
-  reopen.addEventListener("click", () => { reopen.disabled = stop.disabled = true; again = true; api.cancel(r.job); });
-  c.hidden = true;
-  $(".actions-inline", c.closest(".svc")).append(reopen, stop);
+  const login = state.login = { key, job: r.job, again: false, stopping: false, waitHTML: esc(t("settings.opening")) };
+  c.outerHTML = loginButtonsHTML();
+  showLoginWait();
   const done = await follow(r.job, ev => {
     if (ev.type !== "login") return;
-    // Los pasos ya están a la vista desde antes de tocar Conectar: mientras tanto se ven igual, con Cancelar
-    if ($(".svc-steps", c.closest(".svc") || document)) { wait.hidden = true; return; }
-    wait.innerHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser, button: t("settings.connect") })
+    login.waitHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser, button: t("settings.connect") })
       : esc(t("settings.login_wait", { browser: ev.browser, service: ev.service }));
+    showLoginWait();
   });
-  wait.hidden = true; stop.remove(); reopen.remove(); c.hidden = false;
-  if (again && done.state === "cancelled") {
+  state.login = null;
+  if (login.again && done.state === "cancelled") {
     await refreshStatus(); await renderConnections();
     return connectService(key);
   }
@@ -120,6 +110,29 @@ async function connectService(key) {
   else toast(done.error || t("settings.connect_error"));
   delete state.playlists[key];
   await refreshStatus(); renderConnections();
+}
+
+/** Mientras espera el inicio de sesión: si la persona cerró la ventana del navegador, la app no se entera
+ *  (Tidal y Spotify se abren en el navegador común). «Abrir de nuevo» corta la espera y vuelve a empezar.
+ *  Salen de `state.login`, no se agregan a mano: la pantalla se redibuja (al cambiar de sección o de navegador). */
+function loginButtonsHTML() {
+  const off = state.login.stopping ? "disabled" : "";
+  return `<button class="btn primary" id="reopen-login" ${off}>${esc(t("settings.reopen_login"))}</button>`
+    + `<button class="btn ghost" id="cancel-login" ${off}>${esc(t("settings.cancel_login"))}</button>`;
+}
+
+/** El aviso de espera, solo si el servicio no muestra ya sus pasos. */
+function showLoginWait() {
+  const wait = state.login && $("#wait-" + state.login.key); if (!wait) return;
+  wait.hidden = !!$(".svc-steps", wait.closest(".svc"));
+  wait.innerHTML = state.login.waitHTML;
+}
+
+function stopLogin(again) {
+  if (!state.login || state.login.stopping) return;
+  Object.assign(state.login, { again, stopping: true });
+  $("#reopen-login").disabled = $("#cancel-login").disabled = true;
+  api.cancel(state.login.job);
 }
 
 $("#svc-list").addEventListener("keydown", e => {
@@ -141,6 +154,8 @@ $("#svc-list").addEventListener("click", async e => {
   const save = e.target.closest("[data-save-client]");
   if (save && !save.disabled) saveClientId(save.dataset.saveClient);
   if (c) connectService(c.dataset.connect);
+  if (e.target.closest("#reopen-login")) stopLogin(true);
+  if (e.target.closest("#cancel-login")) stopLogin(false);
   if (d) {
     const key = d.dataset.disconnect;
     if (await call("disconnect", key)) {

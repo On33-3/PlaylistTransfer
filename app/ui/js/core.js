@@ -49,6 +49,7 @@ const state = {
   from: null, to: null,  // los dos primeros servicios disponibles
   playlists: {},         // cache por servicio
   busy: false,
+  login: null,           // inicio de sesión en curso: {key, job, again, stopping, waitHTML}
   transfer: null,        // {job, total, result, ...}
   scan: null,
   dupService: null,
