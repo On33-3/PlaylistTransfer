@@ -76,6 +76,7 @@ def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.
               score_ok: float = SCORE_OK, score_min: float = SCORE_MIN,
               include_doubtful: bool = False) -> list[TrackResult]:
     results = []
+    dest.reset_search_failures()
     for n, src in enumerate(songs, 1):
         if cancel is not None and cancel.is_set():
             raise Cancelled()

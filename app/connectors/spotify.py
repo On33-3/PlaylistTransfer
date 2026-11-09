@@ -23,8 +23,8 @@ from urllib.parse import urlencode
 
 from app.auth import loopback
 from app.auth.browsers import Browser, open_url
-from app.connectors.base import (Connector, ConnectorError, NotConnectedError, NotOwnerError, Status,
-                                 require_confirmation)
+from app.connectors.base import (Connector, ConnectorError, NoNetwork, NotConnectedError, NotOwnerError, Status,
+                                 is_network_error, require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
@@ -156,8 +156,16 @@ class SpotifyConnector(Connector):
             self._http = requests.Session()
         return self._http
 
+    def _request(self, method: str, url: str, **kw):
+        try:
+            return self._session().request(method, url, timeout=30, **kw)
+        except Exception as e:
+            if is_network_error(e):
+                raise NoNetwork(tr("err.no_network", service=self.name)) from e
+            raise
+
     def _token_request(self, data: dict) -> dict:
-        r = self._session().request("POST", TOKEN, data=data, timeout=30)
+        r = self._request("POST", TOKEN, data=data)
         body = _json(r)
         if r.status_code != 200:
             if body.get("error") == "invalid_grant":
@@ -196,8 +204,8 @@ class SpotifyConnector(Connector):
         """Un pedido a la API. Renueva el token una vez si venció y respeta "esperá" (429)."""
         url = path if path.startswith("http") else API + path
         for attempt in range(4):
-            r = self._session().request(method, url, params=params, json=body, timeout=30,
-                                        headers={"Authorization": f"Bearer {self._access_token()}"})
+            r = self._request(method, url, params=params, json=body,
+                              headers={"Authorization": f"Bearer {self._access_token()}"})
             code = r.status_code
             if code in (200, 201):
                 return _json(r)
@@ -287,6 +295,9 @@ class SpotifyConnector(Connector):
         self.session_file.unlink(missing_ok=True)
         self._token, self._me = None, None
 
+    def forget_session(self) -> None:
+        self._me = None
+
     def _ready(self) -> str:
         if self._me is None and self.status() is not Status.CONNECTED:
             raise NotConnectedError(tr("err.not_connected", service=self.name))
@@ -344,7 +355,7 @@ class SpotifyConnector(Connector):
             res = self._call("GET", "/search", params={"q": q, "type": "track", "limit": SEARCH_LIMIT})
             return [self.to_song(t) for t in (res.get("tracks") or {}).get("items") or [] if t and not t.get("is_local")]
         queries = ([f"isrc:{song.isrc}"] if song.isrc else []) + list(queries_for(song))
-        return list(self.collect(song, queries, fetch, fatal=(TokenExpired, NotConnectedError, RateLimited, Forbidden),
+        return list(self.collect(song, queries, fetch, fatal=(TokenExpired, NotConnectedError, RateLimited, Forbidden, NoNetwork),
                                  recoverable=ConnectorError).values())
 
     # ---- escritura

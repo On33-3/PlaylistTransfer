@@ -125,6 +125,9 @@ class YTMusicConnector(Connector):
         self.browser_file.unlink(missing_ok=True)
         self.yt = None
 
+    def forget_session(self) -> None:
+        self.yt = None
+
     def _ready(self):
         if self.yt is None and self.status() is not Status.CONNECTED:
             raise NotConnectedError(tr("err.not_connected", service=self.name))
@@ -163,13 +166,13 @@ class YTMusicConnector(Connector):
         for p in self._ready().get_library_playlists(limit=None):
             if p.get("playlistId") in SKIP_PLAYLISTS:
                 continue
-            out.append(PlaylistInfo(p["playlistId"], p.get("title") or "(sin nombre)", parse_count(p.get("count"))))
+            out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
         return out
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
         pl = self._ready().get_playlist(playlist_id, limit=None)
         songs = [self.to_song(t) for t in pl.get("tracks", []) if t.get("title")]
-        return pl.get("title") or "Playlist", songs
+        return pl.get("title") or tr("playlist.untitled"), songs
 
     def search(self, song: Song) -> list[Song]:
         yt = self._ready()

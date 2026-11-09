@@ -130,6 +130,9 @@ class TidalConnector(Connector):
         self.session_file.unlink(missing_ok=True)
         self._s, self._loaded = None, False
 
+    def forget_session(self) -> None:
+        self._loaded = False
+
     def _ready(self):
         if not self._loaded and self.status() is not Status.CONNECTED:
             raise NotConnectedError(tr("err.not_connected", service=self.name))

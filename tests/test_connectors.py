@@ -423,3 +423,65 @@ def test_collect_fatal_errors_stop_everything():
         raise NotConnectedError("venció")
     with pytest.raises(NotConnectedError):
         svc.collect(S("A", "B"), ["a", "b"], fetch, fatal=(NotConnectedError,))
+
+
+def test_collect_stops_when_the_service_stops_answering():
+    """Tidal y YouTube Music no avisan "sesión vencida" con un error propio: cada búsqueda falla y se
+    saltea. Si varias rondas seguidas fallan en todas sus consultas, el servicio no contesta: se corta
+    (si no, todos los temas saldrían "no encontrado") y se olvida la sesión en memoria."""
+    from app.connectors.base import FAILURES_IN_A_ROW
+    from tests.fakes import FakeService, S
+    svc = FakeService("x", "X")
+    forgot = []
+    svc.forget_session = lambda: forgot.append(True)
+
+    def broken(q):
+        raise RuntimeError("401")
+    for _ in range(FAILURES_IN_A_ROW - 1):
+        assert svc.collect(S("A", "B"), ["a", "b"], broken) == {}       # unas pocas: se saltean
+    with pytest.raises(ConnectorError, match="dejó de responder"):
+        svc.collect(S("A", "B"), ["a", "b"], broken)
+    assert forgot == [True]
+
+
+def test_collect_a_search_that_answers_resets_the_count():
+    from app.connectors.base import FAILURES_IN_A_ROW
+    from tests.fakes import FakeService, S
+    svc = FakeService("x", "X")
+
+    def broken(q):
+        raise RuntimeError("se cortó")
+    for _ in range(3):
+        for _ in range(FAILURES_IN_A_ROW - 1):
+            svc.collect(S("A", "B"), ["a"], broken)
+        svc.collect(S("A", "B"), ["a"], lambda q: [])                   # contestó (aunque sin resultados)
+    # una consulta que falla y otra que contesta, en la misma ronda, tampoco cuenta
+    for _ in range(FAILURES_IN_A_ROW + 1):
+        svc.collect(S("A", "B"), ["a", "b"], lambda q: (_ for _ in ()).throw(RuntimeError()) if q == "a" else [])
+
+
+def test_a_transfer_to_a_service_that_stopped_answering_changes_nothing(tmp_path):
+    """De punta a punta con el conector real de YouTube Music: la sesión venció en medio (ytmusicapi
+    falla en cada búsqueda). La transferencia frena con un mensaje claro, no toca el destino y
+    Conexiones vuelve a comprobar la sesión."""
+    from app.core.transfer import run_transfer, Target
+    from tests.fakes import FakeService, S
+    src = FakeService("tidal", "Tidal")
+    src.add_playlist("p", "Favoritas", [S(f"Tema {i}", "Artista", id=f"t{i}") for i in range(10)])
+
+    class Expired(FakeYT):
+        def search(self, q, filter=None, limit=10):
+            self.searches.append((filter, q))
+            raise Exception("Server returned HTTP 401: Unauthorized.")
+    fake = Expired()
+    yt = ytc(fake)
+    with pytest.raises(ConnectorError, match="YouTube Music dejó de responder"):
+        run_transfer(src, yt, "p", [Target("Mix", "PL1")])
+    assert fake.added == [] and len(fake.searches) < 20                  # cortó enseguida, sin agregar nada
+    assert yt.yt is None                                                 # la sesión se vuelve a comprobar
+
+
+def test_yt_untitled_playlist_follows_the_language():
+    from app import i18n
+    i18n.set_language("en")
+    assert ytc(FakeYT()).list_playlists()[1].name == "(untitled)"

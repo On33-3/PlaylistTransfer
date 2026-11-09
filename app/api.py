@@ -23,7 +23,7 @@ from app.core.matching import DOUBTFUL, find_duplicates
 from app.core.models import Duplicate
 from app.core.transfer import (ALREADY, DOUBTFUL_SKIPPED, Target, TargetResult, TransferResult, ensure_playlist,
                                 plan_target, run_transfer, song_dict, summary)
-from app.jobs import BusyError, Jobs
+from app.jobs import BusyError, Jobs, unexpected_message
 from app.storage import paths, prefs
 from app.storage.export import ReportOperation, from_history, write_report
 from app.storage.history import History, Operation, TrackRecord
@@ -119,7 +119,7 @@ class Api:
             return {"error": str(e)}
         except Exception as e:   # nunca dejar a la UI sin respuesta
             log.exception("Error en la API")
-            return {"error": tr("err.unexpected", detail=f"{type(e).__name__}: {e}")}
+            return {"error": unexpected_message(e)}
 
     # ---------------------------------------------------------------- app
 
