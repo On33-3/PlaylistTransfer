@@ -180,7 +180,7 @@ async function startTransfer(dryRun) {
   $('#run .legend [data-i18n="transfer.legend_skipped"]').textContent = t(`transfer.legend_skipped${dry}`);
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
-  $("#run-actions").hidden = true; setStep(2);
+  $("#run-actions").hidden = true; $("#eta").hidden = true; setStep(2);
   if (done.state === "done") {
     showTransferResult(tr, done.result);
   } else {
@@ -199,9 +199,20 @@ function showCounts(tr) {
   $("#n-rep").parentElement.hidden = tr.n.rep === 0;
 }
 
+const ETA_AFTER = 5;     // con menos temas, el promedio todavía no dice nada
+
+/** Cuánto falta de búsqueda, según lo que tardó cada tema hasta ahora. */
+function updateEta(tr, n, now = performance.now()) {
+  const el = $("#eta");
+  el.hidden = n < ETA_AFTER || n >= tr.total;
+  if (el.hidden) return;
+  const seconds = (now - tr.started) / 1000 / n * (tr.total - n);
+  el.textContent = seconds < 60 ? t("transfer.eta_less") : t("transfer.eta", { n: Math.ceil(seconds / 60) });
+}
+
 function onTransferEvent(tr, e) {
   if (e.type === "source") {
-    tr.total = e.total; $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
+    tr.total = e.total; tr.started = performance.now(); $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
     $("#mosaic").innerHTML = Array.from({ length: e.total }, (_, i) => `<i data-n="${i + 1}"></i>`).join("");
     // Con muchos temas, cuadrados más chicos: el mosaico no tapa la pantalla
     $("#mosaic").classList.toggle("dense", e.total > 90 && e.total <= 300);
@@ -216,7 +227,7 @@ function onTransferEvent(tr, e) {
     const cls = CLASS[e.status]; tr.n[cls]++;
     setBigTile(e.n, e.status, e.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);
-    $("#count").textContent = e.n; showCounts(tr);
+    $("#count").textContent = e.n; showCounts(tr); updateEta(tr, e.n);
   } else if (e.type === "already" || e.type === "repeated") {
     // "ya estaba" en el destino, o repetido más arriba en el origen: no se agrega (otra vez)
     const status = e.type === "already" ? "ya_estaba" : "repetido";

@@ -305,3 +305,21 @@ def test_an_unknown_count_does_not_look_empty(browser, tmp_path):
     page.wait_for_selector("#src-list input[value=src]")
     assert page.inner_text("#src-list li .count") == "cantidad desconocida"
     assert errors == []
+
+
+def test_the_remaining_time_is_shown_while_searching(browser, tmp_path):
+    """1600 temas son unos 26 minutos: sin un estimado, parece colgada."""
+    from tests.ui_helpers import check
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    assert page.is_hidden("#eta")                        # terminó: ya no hay nada que estimar
+    eta = """([total, n, ms]) => { updateEta({ total, started: 0 }, n, ms); const el = document.querySelector('#eta'); return el.hidden ? null : el.textContent; }"""
+    assert page.evaluate(eta, [100, 4, 40000]) is None                  # pocos temas: todavía no
+    assert page.evaluate(eta, [100, 10, 100000]) == "Faltan alrededor de 15 minutos de búsqueda"
+    assert page.evaluate(eta, [100, 90, 90000]) == "Falta menos de un minuto de búsqueda"
+    assert page.evaluate(eta, [100, 40, 40000]) == "Falta alrededor de 1 minuto de búsqueda"
+    assert check(page, "transferir") == []
+    shot(page, "transferir-tiempo-restante")
+    assert page.evaluate(eta, [100, 100, 100000]) is None               # el último
+    assert errors == []
