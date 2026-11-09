@@ -94,7 +94,15 @@ async function connectService(key) {
   const stop = document.createElement("button");
   stop.className = "btn ghost"; stop.id = "cancel-login"; stop.textContent = t("settings.cancel_login");
   stop.addEventListener("click", () => { stop.disabled = true; api.cancel(r.job); });
-  $(".actions-inline", c.closest(".svc")).append(stop);
+  // Si la persona cerró la ventana del navegador, la app no se entera (Tidal y Spotify se abren en el
+  // navegador común) y esperaría hasta que venza el tiempo. En vez de un Conectar gris: «Abrir de nuevo»
+  // corta esta espera y vuelve a empezar
+  let again = false;
+  const reopen = document.createElement("button");
+  reopen.className = "btn primary"; reopen.id = "reopen-login"; reopen.textContent = t("settings.reopen_login");
+  reopen.addEventListener("click", () => { reopen.disabled = stop.disabled = true; again = true; api.cancel(r.job); });
+  c.hidden = true;
+  $(".actions-inline", c.closest(".svc")).append(reopen, stop);
   const done = await follow(r.job, ev => {
     if (ev.type !== "login") return;
     // Los pasos ya están a la vista desde antes de tocar Conectar: mientras tanto se ven igual, con Cancelar
@@ -102,7 +110,11 @@ async function connectService(key) {
     wait.innerHTML = ev.steps?.length ? stepsHTML(ev.steps, { browser: ev.browser, button: t("settings.connect") })
       : esc(t("settings.login_wait", { browser: ev.browser, service: ev.service }));
   });
-  wait.hidden = true; stop.remove();
+  wait.hidden = true; stop.remove(); reopen.remove(); c.hidden = false;
+  if (again && done.state === "cancelled") {
+    await refreshStatus(); await renderConnections();
+    return connectService(key);
+  }
   if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
   else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
   else toast(done.error || t("settings.connect_error"));

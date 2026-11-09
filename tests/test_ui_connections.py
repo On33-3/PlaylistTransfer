@@ -29,7 +29,7 @@ def test_each_service_shows_its_steps_before_connecting(browser, tmp_path):
     page.click("nav [data-go=conexiones]")
     page.wait_for_selector(".svc-steps")
     first = page.eval_on_selector_all(".svc-steps li:first-child p", "ps => ps.map(p => p.textContent)")
-    assert first == ["Tocá «Conectar»: se abre la página de Tidal en Vivaldi. Si no la ves, buscá Vivaldi en la barra de tareas.",
+    assert first == ["Tocá «Conectar»: se abre la página de Tidal en Vivaldi. Si no la ves, buscá Vivaldi en la barra de tareas. Si la cerrás sin querer, tocá «Abrir de nuevo».",
                      "Tocá «Conectar»: se abre una ventana nueva de Vivaldi, aparte de la tuya y sin tus sesiones. Es normal."]
     assert page.eval_on_selector_all(".svc-steps", "s => s.map(x => x.querySelectorAll('li').length)") == [4, 4]
     assert page.inner_text(".svc-hint") == "Necesita Spotify Premium y crear tu propia app en Spotify: tocá «Configurar» y seguí los pasos."
@@ -137,6 +137,34 @@ def test_while_connecting_the_steps_show_up_numbered(browser, tmp_path):
     shot(page, "ajustes-conectando-pasos")
     page.click("#cancel-login")
     page.wait_for_selector("text=Cancelaste el inicio de sesión.")
+    assert errors == []
+
+
+def test_if_the_login_window_was_closed_open_again_restarts_it(browser, tmp_path):
+    """Un usuario conectó, cerró la ventana del navegador y quedó con Conectar gris: con Tidal y Spotify
+    la app no se entera de que la cerró y espera hasta que vence el tiempo. Mientras espera, en vez de
+    Conectar hay «Abrir de nuevo» (habilitado), que corta esa espera y vuelve a abrir el inicio de sesión."""
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    tidal.login_hangs = True
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=conexiones]")
+    page.click("[data-connect=tidal]")
+    page.wait_for_selector("#reopen-login")
+    assert page.is_hidden("[data-connect=tidal]") and page.is_enabled("#reopen-login")
+    assert page.inner_text("#reopen-login") == "Abrir de nuevo"
+    assert check(page, "conexiones") == []
+    page.set_viewport_size({"width": 860, "height": 620})
+    assert check(page, "conexiones") == []
+    shot(page, "conexiones-abrir-de-nuevo")
+    page.click("#reopen-login")
+    page.wait_for_function("document.querySelector('#reopen-login') && !document.querySelector('#reopen-login').disabled")
+    assert [c for c in tidal.calls if c[0] == "connect"] == [("connect", "Vivaldi")] * 2    # se abrió otra vez
+    assert "Cancelaste" not in page.inner_text("#toast")
+    tidal.login_hangs = False                                   # esta vez la persona aprueba
+    page.wait_for_selector("text=Tidal conectado.")
+    page.wait_for_selector("#chips .chip.ok")
+    assert page.locator("#reopen-login").count() == 0 and page.locator("#cancel-login").count() == 0
+    assert tidal.connected and "Tidal ✓" in page.inner_text("#chips")
     assert errors == []
 
 

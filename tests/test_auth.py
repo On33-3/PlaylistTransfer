@@ -6,6 +6,9 @@ import socket
 import sqlite3
 import struct
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from app.auth.browsers import Browser, exe_from_command, kind_of, sort_browsers, suggested_browser
 from app.auth.cdp_login import CDP, cookies_for_domain, encode_frame, profile_dir_for
@@ -124,3 +127,74 @@ def test_no_shebang_in_python_files():
     """El launcher `py` respeta el shebang y abre otro Python sin las librerías (ver CLAUDE.md)."""
     for f in [*(ROOT / "app").rglob("*.py"), *(ROOT / "tools").glob("*.py"), *(ROOT / "packaging").glob("*.py")]:
         assert not f.read_text(encoding="utf-8").startswith("#!"), f
+
+
+# ---------------------------------------------------------------- se cerró la ventana del login
+
+class FakeBrowserCDP:
+    """El navegador visto por DevTools: `pages` dice qué páginas tiene abiertas en cada consulta."""
+
+    def __init__(self, pages):
+        self.pages = list(pages)
+        self.closed = False
+
+    def send(self, method, params=None):
+        if method == "Target.getTargets":
+            current = self.pages.pop(0) if len(self.pages) > 1 else self.pages[0]
+            if current == "error":
+                raise RuntimeError("Not allowed")
+            if current == "gone":
+                raise ConnectionAbortedError(10053, "An established connection was aborted")
+            return {"targetInfos": [{"type": "app", "url": "chrome-extension://vivaldi/browser.html"}]
+                    + [{"type": "page", "url": u} for u in current]}
+        if method == "Storage.getCookies":
+            return {"cookies": []}
+        return {}
+
+    def close(self):
+        self.closed = True
+
+
+def run_login(monkeypatch, tmp_path, pages, cancel_after=None):
+    import threading
+    from app.auth import cdp_login
+    fake = FakeBrowserCDP(pages)
+    proc = SimpleNamespace(wait=lambda timeout=None: 0, kill=lambda: None)
+    monkeypatch.setattr(cdp_login.subprocess, "Popen", lambda *a, **k: proc)
+    monkeypatch.setattr(cdp_login, "devtools_info", lambda port: {"webSocketDebuggerUrl": "ws://x"})
+    monkeypatch.setattr(cdp_login, "CDP", lambda url: fake)
+    calls = {"n": 0}
+    cancel = threading.Event()
+
+    def no_sleep(_):
+        calls["n"] += 1
+        if cancel_after and calls["n"] >= cancel_after:
+            cancel.set()
+    monkeypatch.setattr(cdp_login.time, "sleep", no_sleep)
+    return cdp_login.login_and_read_cookies(Path(r"C:\v.exe"), "Vivaldi", tmp_path, "https://accounts.google.com/",
+                                            "youtube.com", {"SAPISID"}, cancel=cancel)
+
+
+def test_vivaldi_closed_window_stops_the_login(monkeypatch, tmp_path):
+    """Vivaldi sigue abierto sin ninguna página cuando se cierra la ventana (comprobado con el real):
+    la app se da cuenta y corta, en vez de esperar 10 minutos con Conectar deshabilitado."""
+    from app.auth.cdp_login import LoginError
+    google = ["https://accounts.google.com/"]
+    with pytest.raises(LoginError, match="Se cerró la ventana de Vivaldi"):
+        run_login(monkeypatch, tmp_path, [google, google, [], []])
+
+
+def test_brave_and_edge_close_entirely_and_say_the_same(monkeypatch, tmp_path):
+    from app.auth.cdp_login import LoginError
+    with pytest.raises(LoginError, match="Se cerró la ventana de Vivaldi"):
+        run_login(monkeypatch, tmp_path, [["https://accounts.google.com/"], "gone"])
+
+
+@pytest.mark.parametrize("pages", [
+    [["https://accounts.google.com/"], [], ["https://accounts.google.com/signin"]],   # un instante sin página: cambiaba
+    ["error"],                                                                         # no deja consultar: se espera igual
+])
+def test_no_false_alarm_while_the_window_is_open(monkeypatch, tmp_path, pages):
+    from app.core.models import Cancelled
+    with pytest.raises(Cancelled):                     # siguió esperando hasta que la persona canceló
+        run_login(monkeypatch, tmp_path, pages, cancel_after=8)
