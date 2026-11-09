@@ -122,6 +122,7 @@ def test_what_the_window_needs_is_never_excluded_from_the_package():
     spec = (ROOT / "packaging" / "PlaylistTransfer.spec").read_text(encoding="utf-8")
     unused = re.search(r"UNUSED = \[(.*?)\]", spec, re.S).group(1)
     assert not {"cffi", "pycparser", "ssl", "sqlite3"} & set(re.findall(r'"(\w+)"', unused))
+    assert "a.binaries =" not in spec and "a.datas =" not in spec         # pywebview busca las DLL de cada arquitectura
 
 
 def test_the_build_stops_if_the_package_grows(tmp_path):
