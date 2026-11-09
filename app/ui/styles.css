@@ -9,8 +9,12 @@
   --ink: #2E2A3D;       /* tinta ciruela */
   --ink-soft: #6B6580;
   --line: #E4E0F0;
-  --lav: #CFC4F2;       /* primario */
+  /* Lo elegido (segmento, filtro, paso actual) es violeta claro; una acción principal es violeta intenso
+     con letra blanca: un botón para tocar nunca se confunde con algo ya seleccionado. Contraste 5,8:1 */
+  --lav: #CFC4F2;       /* lo elegido */
   --lav-strong: #7E6BC2;/* foco y selección */
+  --action: #6A56B4;    /* botón principal */
+  --action-hover: #5E4AA6;
   --sky: #BFE3F5;       /* en curso */
   --mint: #BDEBD3;      /* ✓ encontrado */
   --peach: #FFD9B8;     /* ? dudoso */
@@ -135,8 +139,8 @@ main { overflow-y: auto; padding: 34px 40px calc(var(--toast-bottom) + var(--toa
   height: var(--h-lg); padding: 0 20px; border-radius: 999px;
   border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 15px;
 }
-.btn.primary { background: var(--lav); }
-.btn.primary:hover { background: #C2B4EE; }
+.btn.primary { background: var(--action); color: #fff; }
+.btn.primary:hover { background: var(--action-hover); }
 .btn.ghost { background: transparent; border-color: #D6D0E8; }
 .btn.ghost:hover { background: var(--surface); }
 .btn.danger { background: var(--rose); }
