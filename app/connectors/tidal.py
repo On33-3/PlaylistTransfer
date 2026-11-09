@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 from app.auth.browsers import Browser, open_url
-from app.connectors.base import (BATCH, Connector, ConnectorError, NotConnectedError, NotOwnerError,
-                                 Status, require_confirmation)
+from app.connectors.base import (BATCH, LIKED, Connector, ConnectorError, NotConnectedError, NotOwnerError,
+                                 Status, liked_info, require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.core.models import Cancelled
@@ -149,6 +149,8 @@ class TidalConnector(Connector):
 
     @staticmethod
     def url(playlist_id: str) -> str:
+        if playlist_id == LIKED:
+            return "https://tidal.com/my-collection/tracks"
         return f"https://tidal.com/playlist/{playlist_id}"
 
     # ---- lectura
@@ -168,8 +170,15 @@ class TidalConnector(Connector):
                     isrc=getattr(t, "isrc", None), id=str(t.id))
 
     def list_playlists(self) -> list[PlaylistInfo]:
-        """Playlists creadas por el usuario (son las únicas a las que se les puede agregar temas)."""
-        user, seen, out, offset = self._ready().user, set(), [], 0
+        """Las canciones que te gustan (primero) y las playlists creadas por el usuario (son las únicas a
+        las que se les puede agregar temas)."""
+        user, seen, offset = self._ready().user, set(), 0
+        try:
+            liked = int(user.favorites.get_tracks_count())
+        except Exception as e:                    # no se sabe cuántas: igual se ofrecen
+            log.info("Tidal: no pude contar los favoritos: %s", e)
+            liked = None
+        out = [liked_info(liked)]
         while True:
             try:
                 batch = user.playlists(limit=50, offset=offset)
@@ -184,7 +193,30 @@ class TidalConnector(Connector):
             offset += len(batch)
         return out
 
+    def _favorites(self):
+        return self._ready().user.favorites
+
+    def _read_liked(self) -> tuple[str, list[Song]]:
+        """Los favoritos, del más reciente al más viejo (como se ven en Tidal)."""
+        fav, songs, offset = self._favorites(), [], 0
+        try:
+            from tidalapi.types import ItemOrder, OrderDirection
+            order = {"order": ItemOrder.Date, "order_direction": OrderDirection.Descending}
+        except ImportError:                       # tests sin tidalapi
+            order = {}
+        while True:
+            batch = fav.tracks(limit=100, offset=offset, **order)
+            if not batch:
+                break
+            songs += [self.to_song(t) for t in batch]
+            offset += len(batch)
+            if len(batch) < 100:
+                break
+        return tr("playlist.liked"), songs
+
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
+        if playlist_id == LIKED:
+            return self._read_liked()
         pl = self._ready().playlist(playlist_id)
         songs, offset = [], 0
         while True:
@@ -238,6 +270,14 @@ class TidalConnector(Connector):
         ids = [s.id for s in songs if s.id]
         if not ids:
             return
+        if playlist_id == LIKED:
+            # Lo último que se marca queda arriba: se marcan al revés, así el primero de la lista queda primero
+            fav = self._favorites()
+            ids.reverse()
+            for i in range(0, len(ids), BATCH):
+                if fav.add_track(ids[i:i + BATCH]) is False:
+                    raise ConnectorError(tr("err.liked_add_failed", service=self.name))
+            return
         pl = self._editable(playlist_id)
         for i in range(0, len(ids), BATCH):
             pl.add(ids[i:i + BATCH])
@@ -245,6 +285,11 @@ class TidalConnector(Connector):
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         require_confirmation(confirmed)
         if not items:
+            return
+        if playlist_id == LIKED:                  # en favoritos cada tema está una vez: se quita por id
+            fav = self._favorites()
+            for d in items:
+                fav.remove_track(d.song.id)
             return
         pl = self._editable(playlist_id)
         for index in sorted({d.index for d in items}, reverse=True):   # de atrás para adelante

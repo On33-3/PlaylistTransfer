@@ -23,8 +23,8 @@ from urllib.parse import urlencode
 
 from app.auth import loopback
 from app.auth.browsers import Browser, open_url
-from app.connectors.base import (Connector, ConnectorError, NoNetwork, NotConnectedError, NotOwnerError, Status,
-                                 is_network_error, require_confirmation)
+from app.connectors.base import (LIKED, Connector, ConnectorError, NoNetwork, NotConnectedError, NotOwnerError,
+                                 Status, is_network_error, liked_info, require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
@@ -42,12 +42,15 @@ PREMIUM = "https://www.spotify.com/premium/"
 # (comprobado por un usuario el 2026-11-08). Con puerto, sí lo acepta.
 CALLBACK_PORT = 8973
 REDIRECT_URI = f"http://127.0.0.1:{CALLBACK_PORT}{loopback.CALLBACK_PATH}"
-SCOPES = "playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public"
+# user-library-*: las canciones que te gustan (leer, guardar y quitar)
+SCOPES = ("playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public "
+          "user-library-read user-library-modify")
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
 _PLAYLIST_ID = re.compile(r"(?:playlist[/:])?([A-Za-z0-9]{22})(?:\b|$)")
 
 PAGE = 50              # temas o playlists por pedido (máximo de Spotify)
 ADD_BATCH = 100        # temas por pedido al agregar (máximo de Spotify)
+LIBRARY_BATCH = 40     # temas por pedido al guardar o quitar de "Me gusta" (/me/library, desde 2026)
 SEARCH_LIMIT = 10      # máximo desde febrero de 2026
 MAX_WAIT = 30          # segundos: si Spotify pide esperar más, se avisa en vez de esperar
 
@@ -322,6 +325,8 @@ class SpotifyConnector(Connector):
 
     @staticmethod
     def url(playlist_id: str) -> str:
+        if playlist_id == LIKED:
+            return "https://open.spotify.com/collection/tracks"
         return f"https://open.spotify.com/playlist/{playlist_id}"
 
     # ---- lectura
@@ -339,6 +344,10 @@ class SpotifyConnector(Connector):
         """Las propias y las colaborativas: de las demás, Spotify no deja leer ni cambiar los temas."""
         me = self._ready()
         out = []
+        try:                                       # las canciones que te gustan, primero
+            out.append(liked_info(self._call("GET", "/me/tracks", params={"limit": 1}).get("total")))
+        except Forbidden:                          # sesión de antes de pedir ese permiso: reconectar lo arregla
+            log.info("Spotify: la sesión no tiene permiso para leer las canciones que te gustan")
         for p in self._pages("/me/playlists"):
             if not p or not ((p.get("owner") or {}).get("id") == me or p.get("collaborative")):
                 continue
@@ -348,6 +357,10 @@ class SpotifyConnector(Connector):
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
         self._ready()
+        if playlist_id == LIKED:                   # de la más reciente a la más vieja, como en Spotify
+            songs = [self.to_song(e["track"]) for e in self._pages("/me/tracks")
+                     if (e or {}).get("track") and not e["track"].get("is_local")]
+            return tr("playlist.liked"), songs
         name = self._call("GET", f"/playlists/{playlist_id}", params={"fields": "name"}).get("name") or ""
         songs = []
         for entry in self._pages(f"/playlists/{playlist_id}/items"):
@@ -375,6 +388,12 @@ class SpotifyConnector(Connector):
     def add(self, playlist_id: str, songs: list[Song]) -> None:
         uris = [s.id for s in songs if s.id and s.id.startswith("spotify:track:")]
         self._ready()
+        if playlist_id == LIKED:
+            # Lo último que se guarda queda arriba: se guardan al revés, así el primero de la lista queda primero
+            uris.reverse()
+            for i in range(0, len(uris), LIBRARY_BATCH):
+                self._call("PUT", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
+            return
         for i in range(0, len(uris), ADD_BATCH):
             try:
                 self._call("POST", f"/playlists/{playlist_id}/items", body={"uris": uris[i:i + ADD_BATCH]})
@@ -387,6 +406,11 @@ class SpotifyConnector(Connector):
         Al final se relee la playlist; si no quedó como se esperaba, se arregla lo que falte y se avisa."""
         require_confirmation(confirmed)
         if not items:
+            return
+        if playlist_id == LIKED:                   # en "Me gusta" cada tema está una vez: se quita por URI
+            uris = sorted({d.song.id for d in items if d.song.id})
+            for i in range(0, len(uris), LIBRARY_BATCH):
+                self._call("DELETE", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
             return
         _, now = self.read(playlist_id)
         current = [s.id for s in now]

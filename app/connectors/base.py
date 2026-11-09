@@ -16,6 +16,13 @@ from app.i18n import t as tr
 log = logging.getLogger(__name__)
 
 BATCH = 50           # temas por pedido al agregar o quitar
+# Las canciones que te gustan ("Me gusta", Liked Songs, favoritos): no son una playlist en ningún servicio,
+# pero la app las muestra como una más, primera en la lista, con este id (cada conector lo traduce)
+LIKED = "__liked__"
+
+
+def liked_info(count: int | None) -> PlaylistInfo:
+    return PlaylistInfo(LIKED, tr("playlist.liked"), count)
 SEARCH_PAUSE = 0.3   # segundos entre búsquedas, para no saturar las APIs
 FAILURES_IN_A_ROW = 3   # rondas de búsqueda seguidas sin ninguna consulta que conteste: el servicio no responde
 
