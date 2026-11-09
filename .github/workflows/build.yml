@@ -1,6 +1,6 @@
 # Tests en cada push y PR. Con un tag vX.Y.Z: compila el .exe en una Windows limpia, prueba que
 # abra y lo publica en Releases (zip + SHA-256). Sin acciones de terceros: solo las de GitHub y gh.
-name: Tests, compilar y publicar
+name: Test, build and release
 
 on:
   push:
@@ -39,16 +39,16 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements-build.txt
 
-      - name: La versión del tag coincide con app/__init__.py
+      - name: Tag version matches app/__init__.py
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           $v = python -c "import app; print(app.__version__)"
-          if ("v$v" -ne "${{ github.ref_name }}") { throw "El tag ${{ github.ref_name }} no coincide con la versión $v" }
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match version $v" }
 
       - run: python packaging/build.py
 
-      - name: El .exe abre sin Python en el PATH
+      - name: The .exe opens without Python on PATH
         shell: pwsh
         run: |
           $exe = "dist\PlaylistTransfer\PlaylistTransfer.exe"
@@ -57,8 +57,8 @@ jobs:
           $psi.EnvironmentVariables["PATH"] = ($env:PATH -split ";" | Where-Object { $_ -notmatch "Python|hostedtoolcache" }) -join ";"
           $psi.EnvironmentVariables["PT_SMOKE"] = "1"
           $p = [System.Diagnostics.Process]::Start($psi)
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "El .exe no terminó en 2 minutos" }
-          if ($p.ExitCode -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "El .exe no cargó la UI (código $($p.ExitCode))" }
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "The .exe did not exit within 2 minutes" }
+          if ($p.ExitCode -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "The .exe did not load the UI (exit code $($p.ExitCode))" }
           "El .exe abrió y cargó la UI"
 
       - uses: actions/upload-artifact@v4
@@ -80,14 +80,16 @@ jobs:
         with:
           name: PlaylistTransfer-windows
           path: dist
-      - name: Publicar en Releases
+      - name: Publish to Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo "Descargá **PlaylistTransfer-${GITHUB_REF_NAME#v}-windows.zip**, descomprimilo y abrí \`PlaylistTransfer.exe\`. No hace falta instalar Python."
+            echo "Download **PlaylistTransfer-${GITHUB_REF_NAME#v}-windows.zip**, unzip it and open \`PlaylistTransfer.exe\`. You don't need to install Python."
             echo
-            echo "Windows puede mostrar *Windows protegió su PC* porque el programa todavía no está firmado: tocá **Más información → Ejecutar de todas formas**."
+            echo "Windows may show *Windows protected your PC* because the program isn't signed yet: click **More info → Run anyway**."
+            echo
+            echo "*En castellano: [README.es.md]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.es.md).*"
             echo
             echo "SHA-256:"
             echo '```'

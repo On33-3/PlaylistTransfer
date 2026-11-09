@@ -70,7 +70,7 @@ def test_workflow_only_uses_github_actions_and_checks_the_version():
     wf = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
     uses = re.findall(r"uses:\s*([\w./-]+)@", wf)
     assert uses and all(u.startswith("actions/") for u in uses), uses
-    assert "no coincide con la versión" in wf and "PT_SMOKE" in wf
+    assert "does not match version" in wf and "PT_SMOKE" in wf
     assert re.search(r"release:\n\s+if: startsWith\(github.ref, 'refs/tags/v'\)", wf)
     assert "permissions:\n  contents: read" in wf                     # por defecto, solo lectura
 
@@ -83,10 +83,17 @@ def test_build_requirements_are_pinned():
                 assert "==" in line, f"{f}: {line} sin versión fija"
 
 
-def test_readme_screenshots_exist():
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for img in re.findall(r"\((docs/img/[\w-]+\.png)\)", readme):
-        assert (ROOT / img).exists(), img
+@pytest.mark.parametrize("readme, lang", [("README.md", "en"), ("README.es.md", "es")])
+def test_readme_screenshots_exist_in_its_language(readme, lang):
+    """README.md (inglés, lo que ve GitHub) y README.es.md: cada uno con sus capturas
+    (tools/readme_screenshots.py) y un enlace al otro."""
+    text = (ROOT / readme).read_text(encoding="utf-8")
+    imgs = re.findall(r"\((docs/img/[\w/-]+\.png)\)", text)
+    assert imgs
+    for img in imgs:
+        assert img.startswith(f"docs/img/{lang}/") and (ROOT / img).exists(), img
+    other = "README.es.md" if readme == "README.md" else "README.md"
+    assert f"]({other})" in text
 
 
 def test_checksum_file_works_with_sha256sum(tmp_path):
