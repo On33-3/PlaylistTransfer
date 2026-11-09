@@ -175,11 +175,16 @@ def _title_keys(t: str) -> frozenset[str]:
     variants = [t] + _DASH.split(t, maxsplit=1)
     keys = set()
     for v in variants:
-        v = _PROD.sub(" ", _FEAT.sub(" ", _ANY_BRACKETS.sub(" ", v)))
-        # Las partes ("Pt. 2", "II") se comparan aparte, en pieces(): acá no cuentan
-        k = re.sub(r"\s+", " ", _TRAILING_ROMAN.sub("", _PART.sub(" ", norm(v)))).strip()
-        if k:
-            keys.add(k)
+        # Sin lo que va entre paréntesis (casi siempre sobra: "(Remastered)", "(Live)") y también con lo de
+        # adentro, sin los signos: a veces es parte del título y otro servicio lo escribe sin paréntesis,
+        # "(I Can't Get No) Satisfaction" = "I Can't Get No Satisfaction". El ruido conocido ("Official
+        # Video") ya lo saca norm(); que sea otra versión (en vivo, remix) lo deciden version_tags()
+        for w in (_ANY_BRACKETS.sub(" ", v), v):
+            w = _PROD.sub(" ", _FEAT.sub(" ", w))
+            # Las partes ("Pt. 2", "II") se comparan aparte, en pieces(): acá no cuentan
+            k = re.sub(r"\s+", " ", _TRAILING_ROMAN.sub("", _PART.sub(" ", norm(w)))).strip()
+            if k:
+                keys.add(k)
     return frozenset(keys)
 
 

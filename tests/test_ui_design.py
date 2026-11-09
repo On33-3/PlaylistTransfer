@@ -95,7 +95,8 @@ def test_numbers_and_symbols_are_centered_in_their_circles(browser, tmp_path):
     page.click("#go")
     page.wait_for_selector("#done.show")
     off = {}
-    for sel in ["#steps li b", "#tracks .badge.ok", "#tracks .badge.doubt", "#tracks .badge.miss", "#tracks .badge.dup"]:
+    for sel in ["#steps li b", "#run .tracks .badge.ok", "#run .tracks .badge.doubt", "#run .tracks .badge.miss",
+                "#run .tracks .badge.dup"]:
         for k, el in enumerate(page.query_selector_all(sel)[:3]):
             d = _ink_offset(el.screenshot(), 4)
             if d:

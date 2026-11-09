@@ -16,6 +16,7 @@
   --peach: #FFD9B8;     /* ? dudoso */
   --rose: #FFC2C7;      /* ✗ no encontrado */
   --sage: #DCE5E0;      /* ≈ ya estaba */
+  --butter: #F6E8AE;    /* ×2 repetido en el origen */
   --pending: #EAE6F4;
   --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
@@ -208,6 +209,7 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .mosaic i.doubt { background: var(--peach); }
 .mosaic i.miss { background: var(--rose); }
 .mosaic i.dup { background: var(--sage); }
+.mosaic i.rep { background: var(--butter); }
 .mosaic i.removed { background: var(--lav); }
 .mosaic i.now { background: var(--sky); transform: scale(.82); }
 .mosaic-wrap { display: inline-flex; align-items: center; gap: 8px; }
@@ -219,13 +221,14 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .legend.compact { margin: 0 0 10px; gap: 6px 16px; font-size: 12.5px; }
 .legend.compact i { width: 10px; height: 10px; border-radius: 3px; }
 
-/* ---- insignia de estado de un tema (✓ ? ✗ ≈ −). Segoe UI reserva más lugar abajo que arriba: un
+/* ---- insignia de estado de un tema (✓ ? ✗ ≈ ×2 −). Segoe UI reserva más lugar abajo que arriba: un
         relleno abajo sube el símbolo y lo centra de verdad (de 1,25 px corrido a menos de 0,5 px) */
 .badge { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; line-height: 1; padding-bottom: 2.5px; }
 .badge.ok { background: var(--mint); }
 .badge.doubt { background: var(--peach); }
 .badge.miss { background: var(--rose); }
 .badge.dup { background: var(--sage); }
+.badge.rep { background: var(--butter); font-size: 11px; letter-spacing: -.5px; }
 .badge.removed { background: var(--lav); }
 .badge.now { background: var(--sky); }
 
@@ -351,6 +354,11 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .tracks .alts button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; height: var(--h-sm); padding: 0 12px; font-size: 13px; font-weight: 500; cursor: pointer; }
 .tracks .alts button:hover:not(:disabled) { border-color: var(--lav-strong); }
 .tracks .alts button:disabled { opacity: .55; cursor: default; }
+
+/* "Para revisar": los temas que esperan una decisión, entre el resultado y la lista completa */
+.review { margin: var(--gap-actions) 0 0; max-width: 680px; }
+.review-head { margin: 0; line-height: 22px; }   /* alto entero: la lista de abajo queda en píxel exacto y los símbolos centrados */
+.review .tracks { margin-top: 10px; }
 
 /* =========================================================================== Quitar repetidos */
 #dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* no crece con el nombre más largo */

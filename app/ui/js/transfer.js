@@ -138,6 +138,7 @@ function setStep(n) { [...$("#steps").children].forEach((li, i) => { li.classNam
 
 function resetTransferView() {
   $("#run").hidden = true; $("#pick").hidden = false; $("#done").classList.remove("show"); setStep(0);
+  $("#review").hidden = true; $("#review-list").innerHTML = "";
   if ($("#transferir").classList.contains("active")) loadPickers();
 }
 
@@ -149,14 +150,15 @@ function trackHTML(e) {
     note = t(state.transfer?.dryRun ? "transfer.note_skipped_dry" : "transfer.note_skipped", { title: m.title, artist: m.artist || "?" });
   }
   if (e.status === "no_encontrado") note = e.alternatives?.length ? t("transfer.note_miss_alts", { artist: s.artist }) : t("transfer.note_miss");
-  if (e.as) note = t("transfer.note_already_as", { title: e.as.title });
+  if (e.status === "repetido") note = e.as ? t("transfer.note_repeated_as", { title: e.as.title }) : t("transfer.note_repeated");
+  else if (e.as) note = t("transfer.note_already_as", { title: e.as.title });
   else if (e.status === "ya_estaba") note = t("transfer.note_already");
   let alts = e.status === "no_encontrado" && e.alternatives?.length
     ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="${esc(t("transfer.alt_title"))}">+ ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
   if (e.status === "dudoso_omitido" && m && !state.transfer?.dryRun) {   // el usuario decide: "+ Agregar igual"
     alts = `<div class="alts"><button data-add-doubtful="${e.n}" disabled title="${esc(t("transfer.add_anyway_title", { title: m.title, artist: m.artist || "?" }))}">${esc(t("transfer.add_anyway"))}</button></div>`;
   }
-  const score = e.score != null && !["ya_estaba", "no_encontrado"].includes(e.status) ? Number(e.score).toFixed(2) : "";
+  const score = e.score != null && !["ya_estaba", "repetido", "no_encontrado"].includes(e.status) ? Number(e.score).toFixed(2) : "";
   return `<span class="badge ${cls}">${SYMBOL[cls]}</span><span><span class="t">${esc(s.title)}</span> <span class="a">${esc(s.artist)}</span>${note ? `<span class="note">. ${esc(note)}</span>` : ""}${alts}</span><span class="score num">${score}</span>`;
 }
 
@@ -165,13 +167,14 @@ async function startTransfer(dryRun) {
   if (!src || !targets.length) return;
   const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
-  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0 }, rows: {}, tracks: {} };
+  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {} };
   $("#add-all").hidden = true;
   $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
-  $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#count").textContent = "0";
+  $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#review-list").innerHTML = ""; $("#review").hidden = true;
+  $("#count").textContent = "0";
   $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
   $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${esc(targets.map(x => x.name).join(", "))}`;
-  for (const k in tr.n) $("#n-" + k).textContent = 0;
+  showCounts(tr);
   // La leyenda dice lo que va a pasar: "Agregado" / "Se agregaría" (prueba). Los "?" nunca se agregan solos
   const dry = dryRun ? "_dry" : "";
   $('#run .legend [data-i18n="transfer.legend_ok"]').textContent = t(`transfer.legend_ok${dry}`);
@@ -191,6 +194,12 @@ async function startTransfer(dryRun) {
   }
 }
 
+/** Los números de la leyenda. "Repetido en el origen" es raro: se muestra solo si hay alguno. */
+function showCounts(tr) {
+  for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
+  $("#n-rep").parentElement.hidden = tr.n.rep === 0;
+}
+
 function onTransferEvent(tr, e) {
   if (e.type === "source") {
     tr.total = e.total; $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
@@ -208,15 +217,17 @@ function onTransferEvent(tr, e) {
     const cls = CLASS[e.status]; tr.n[cls]++;
     setBigTile(e.n, e.status, e.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);
-    $("#count").textContent = e.n; for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
-  } else if (e.type === "already") {
-    const prev = tr.tracks[e.n]; if (!prev || prev.status === "ya_estaba") return;
-    tr.n[CLASS[prev.status]]--; tr.n.dup++;
-    const upd = { ...prev, status: "ya_estaba", as: e.as };
+    $("#count").textContent = e.n; showCounts(tr);
+  } else if (e.type === "already" || e.type === "repeated") {
+    // "ya estaba" en el destino, o repetido más arriba en el origen: no se agrega (otra vez)
+    const status = e.type === "already" ? "ya_estaba" : "repetido";
+    const prev = tr.tracks[e.n]; if (!prev || prev.status === status) return;
+    tr.n[CLASS[prev.status]]--; tr.n[CLASS[status]]++;
+    const upd = { ...prev, status, as: e.as };
     tr.tracks[e.n] = upd;
-    setBigTile(e.n, "ya_estaba", prev.song);
+    setBigTile(e.n, status, prev.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(upd);
-    for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
+    showCounts(tr);
   }
 }
 
@@ -249,6 +260,7 @@ function showTransferResult(tr, res) {
   const s = res.summary, notes = [];
   if (s.skipped) notes.push(t(res.dry_run ? "transfer.notes_skipped_dry" : "transfer.notes_skipped", { n: s.skipped }));
   if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
+  if (s.repeated) notes.push(t("transfer.notes_repeated", { n: s.repeated }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
   const first = res.targets.find(x => x.url);
   $("#open-dest").hidden = !first || res.dry_run;
@@ -256,12 +268,25 @@ function showTransferResult(tr, res) {
   $("#open-dest").onclick = () => first && call("open_url", first.url);
   $("#done").classList.add("show");
   if (!res.dry_run) $$("#tracks [data-alt], #tracks [data-add-doubtful]").forEach(b => { b.disabled = false; });
+  showReview(tr, res);
   updateAddAll();
+}
+
+/** "Para revisar": los temas en los que la persona puede hacer algo (un "?" para agregar igual, o la
+ *  versión de otro artista) suben a un bloque propio debajo del resultado, en el orden de la playlist.
+ *  Las filas se mueven (no se copian): sus botones y el salto desde el mosaico siguen andando. */
+function showReview(tr, res) {
+  const list = $("#review-list");
+  list.innerHTML = "";
+  const pending = res.dry_run ? [] : Object.keys(tr.rows).map(Number).sort((a, b) => a - b)
+    .filter(n => $("[data-add-doubtful], [data-alt]", tr.rows[n]));
+  pending.forEach(n => list.append(tr.rows[n]));
+  $("#review").hidden = pending.length === 0;
 }
 
 /** "Agregar los N que pueden ser otra versión": solo si quedan "?" sin agregar en una transferencia real. */
 function updateAddAll() {
-  const pending = $$("#tracks [data-add-doubtful]:not(.done)").map(b => Number(b.dataset.addDoubtful));
+  const pending = $$("#review-list [data-add-doubtful]:not(.done), #tracks [data-add-doubtful]:not(.done)").map(b => Number(b.dataset.addDoubtful));
   const btn = $("#add-all");
   btn.hidden = pending.length === 0 || !state.transfer?.result || state.transfer.result.dry_run;
   btn.textContent = t("transfer.add_all", { n: pending.length });
@@ -269,7 +294,7 @@ function updateAddAll() {
 }
 
 async function addDoubtful(ns) {
-  const buttons = ns.map(n => $(`#tracks [data-add-doubtful="${n}"]`)).filter(Boolean);
+  const buttons = ns.map(n => $(`#run [data-add-doubtful="${n}"]`)).filter(Boolean);
   buttons.forEach(b => { b.disabled = true; });
   const r = await call("add_doubtful", state.transfer.result.transfer, ns);
   if (!r) { buttons.forEach(b => { b.disabled = false; }); return; }
@@ -277,7 +302,7 @@ async function addDoubtful(ns) {
   if (done.state !== "done") { buttons.forEach(b => { b.disabled = false; }); toast(done.error || t("transfer.alt_error")); return; }
   const added = new Set(done.result.added_ns);
   for (const n of done.result.ns) {
-    const b = $(`#tracks [data-add-doubtful="${n}"]`); if (!b) continue;
+    const b = $(`#run [data-add-doubtful="${n}"]`); if (!b) continue;
     b.classList.add("done");
     b.textContent = t(added.has(n) ? "transfer.added_anyway" : "transfer.add_anyway_already");
     const prev = state.transfer.tracks[n];
@@ -292,7 +317,7 @@ $("#add-all").addEventListener("click", () => {
   if (ns.length) addDoubtful(ns);
 });
 
-$("#tracks").addEventListener("click", async e => {
+async function onTrackClick(e) {
   const one = e.target.closest("[data-add-doubtful]");
   if (one && !one.disabled && !one.classList.contains("done") && state.transfer?.result) { addDoubtful([Number(one.dataset.addDoubtful)]); return; }
   const b = e.target.closest("[data-alt]"); if (!b || b.disabled || !state.transfer?.result) return;
@@ -306,7 +331,9 @@ $("#tracks").addEventListener("click", async e => {
     b.textContent = t("transfer.alt_added", { artist: a.artist });
     toast(t("transfer.alt_toast", { title: a.title, artist: a.artist }));
   } else { b.disabled = false; toast(done.error || t("transfer.alt_error")); }
-});
+}
+$("#tracks").addEventListener("click", onTrackClick);
+$("#review-list").addEventListener("click", onTrackClick);
 
 $("#go").addEventListener("click", () => startTransfer(false));
 $("#dry").addEventListener("click", () => startTransfer(true));
