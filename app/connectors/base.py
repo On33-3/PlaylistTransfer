@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 BATCH = 50           # temas por pedido al agregar o quitar
 SEARCH_PAUSE = 0.3   # segundos entre búsquedas, para no saturar las APIs
+FAILURES_IN_A_ROW = 3   # rondas de búsqueda seguidas sin ninguna consulta que conteste: el servicio no responde
 
 
 class Status(str, Enum):
@@ -32,6 +33,19 @@ class ConnectorError(Exception):
 
 class NotConnectedError(ConnectorError):
     pass
+
+
+class NoNetwork(ConnectorError):
+    """No se pudo hablar con el servicio (sin internet, o no contesta)."""
+
+
+def is_network_error(e: BaseException) -> bool:
+    """Los errores de conexión de `requests` (lo usan tidalapi, ytmusicapi y Spotify): sin internet o sin respuesta."""
+    try:
+        import requests
+    except ImportError:
+        return False
+    return isinstance(e, (requests.ConnectionError, requests.Timeout))
 
 
 class NotOwnerError(ConnectorError):
@@ -67,7 +81,9 @@ class Connector(ABC):
         Si una consulta falla (`recoverable`) se anota y se sigue con la próxima; los errores de `fatal`
         (sesión vencida, el servicio pidió esperar) cortan todo: si no, cada tema saldría "no encontrado"."""
         found = {} if found is None else found
+        tried = answered = 0
         for q in queries:
+            tried += 1
             try:
                 results = fetch(q)
             except fatal:
@@ -75,13 +91,33 @@ class Connector(ABC):
             except recoverable as e:
                 log.warning("%s: falló la búsqueda %r: %s", self.name, q, e)
                 continue
+            answered += 1
             for c in results:
                 if c.id:
                     found.setdefault(c.id, c)
             time.sleep(self.search_pause)
             if self.good_enough(song, found):
                 break
+        self._count_search_failure(tried > 0 and answered == 0)
         return found
+
+    def _count_search_failure(self, failed: bool) -> None:
+        """Una búsqueda que falla de vez en cuando se saltea. Pero si varios temas seguidos fallan en
+        todas sus consultas, el servicio no está contestando (sesión vencida, sin internet): seguir
+        marcaría cada tema "no encontrado". Se corta antes de cambiar nada (la transferencia agrega
+        recién al final) y se olvida la sesión en memoria, así Conexiones vuelve a comprobarla."""
+        self._failed_in_a_row = getattr(self, "_failed_in_a_row", 0) + 1 if failed else 0
+        if self._failed_in_a_row >= FAILURES_IN_A_ROW:
+            self._failed_in_a_row = 0
+            self.forget_session()
+            raise ConnectorError(tr("err.search_failing", service=self.name))
+
+    def reset_search_failures(self) -> None:
+        """Al empezar una transferencia: lo que falló en una anterior no cuenta."""
+        self._failed_in_a_row = 0
+
+    def forget_session(self) -> None:
+        """Olvida la sesión que tiene en memoria (no la guardada): la próxima vez se vuelve a comprobar."""
 
     @staticmethod
     def good_enough(song: Song, found: dict[str, Song]) -> bool:

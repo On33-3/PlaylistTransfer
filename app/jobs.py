@@ -12,7 +12,7 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from app.connectors.base import ConnectorError
+from app.connectors.base import ConnectorError, is_network_error
 from app.auth.cdp_login import LoginError
 from app.core.transfer import Cancelled
 from app.i18n import t as tr
@@ -35,6 +35,13 @@ class Job:
     error: str | None = None
     cancel: threading.Event = field(default_factory=threading.Event)
     lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+def unexpected_message(e: BaseException) -> str:
+    """Lo que ve el usuario ante un error no previsto: sin internet se dice así; lo demás, con su detalle."""
+    if is_network_error(e):
+        return tr("err.no_network_generic")
+    return tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
 
 
 class BusyError(Exception):
@@ -79,7 +86,7 @@ class Jobs:
             except Exception as e:      # error inesperado: se registra completo y se avisa corto
                 log.error("Falló %s:\n%s", job.id, traceback.format_exc())
                 with job.lock:
-                    job.error = tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
+                    job.error = unexpected_message(e)
                     job.state = ERROR
 
         t = threading.Thread(target=run, name=job.id, daemon=True)

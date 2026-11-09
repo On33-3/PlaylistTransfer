@@ -265,6 +265,21 @@ def test_unexpected_errors_become_messages(app):
     assert r["state"] == "error" and "se cortó internet" in r["error"]
 
 
+def test_without_internet_the_message_says_so(app):
+    """Un error de conexión de `requests` (lo usan las librerías de Tidal y YouTube Music) no sale como
+    "algo salió mal (ConnectionError: HTTPSConnectionPool…)", ni en una tarea ni en un llamado directo."""
+    import requests
+    api, tidal, yt = app
+
+    def offline(*_):
+        raise requests.ConnectionError("HTTPSConnectionPool(host='music.youtube.com'): Max retries exceeded")
+    yt.read = offline
+    r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], True)["job"])
+    assert r["state"] == "error" and r["error"].startswith("No hay conexión") and "HTTPS" not in r["error"]
+    yt.list_playlists = offline
+    assert api.playlists("ytmusic")["error"].startswith("No hay conexión")
+
+
 def test_api_exposes_no_public_state(app):
     """pywebview publica a la página todo atributo público: solo tienen que verse métodos."""
     api, *_ = app

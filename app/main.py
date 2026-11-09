@@ -29,16 +29,42 @@ def own_taskbar_icon() -> None:
 
 
 def setup_logging() -> Path:
+    """app.log en la carpeta de datos, con tope: hasta 1 MB y una copia anterior (app.log.1)."""
+    from logging.handlers import RotatingFileHandler
     log_file = paths.data_dir() / "app.log"
-    logging.basicConfig(filename=log_file, level=logging.INFO, encoding="utf-8",
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=1, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
     return log_file
 
 
+def show_startup_error(e: BaseException) -> None:
+    """Si la app no llega a abrir la ventana, el .exe (que no tiene consola) se cerraría sin decir nada:
+    se registra el error y se avisa con un cuadro de Windows que dice dónde quedó el detalle."""
+    from app.i18n import t as tr
+    logging.getLogger(__name__).exception("No se pudo abrir la app")
+    msg = tr("err.startup_failed", detail=f"{type(e).__name__}: {e}", log=paths.data_dir() / "app.log")
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, msg, TITLE, 0x10)    # 0x10: ícono de error
+    except (AttributeError, OSError):    # no es Windows
+        print(msg, file=sys.stderr)
+
+
 def main() -> None:
+    setup_logging()
+    try:
+        run()
+    except Exception as e:
+        show_startup_error(e)
+        sys.exit(1)
+
+
+def run() -> None:
     import webview
 
-    setup_logging()
     own_taskbar_icon()
     api = Api.create()
     from app import i18n

@@ -184,6 +184,8 @@ async function startTransfer(dryRun) {
     $("#done-title").textContent = t(cancelled ? "transfer.cancelled_title" : "transfer.failed_title");
     $("#done-detail").textContent = cancelled ? t("transfer.cancelled_text") : (done.error || "");
     $("#open-dest").hidden = true; $("#done").classList.add("show");
+    // Si falló porque un servicio dejó de responder (sesión vencida), los chips lo muestran
+    if (!cancelled) refreshStatus();
   }
 }
 

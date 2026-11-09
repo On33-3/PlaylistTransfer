@@ -349,3 +349,24 @@ def test_rate_limit_during_search_stops_instead_of_saying_not_found(tmp_path, ap
     api.forced = [Resp(429, {}, {"Retry-After": "600"})]
     with pytest.raises(sp.RateLimited):
         c.search(Song("Take On Me", ["a-ha"], duration=226))
+
+
+# ---------------------------------------------------------------- sin internet
+
+def test_without_internet_the_search_stops_with_a_clear_message(tmp_path, api):
+    """Sin red, `requests` lanza ConnectionError: no es "no encontrado" ni "algo salió mal", es "no hay
+    conexión", y corta la búsqueda en la primera consulta."""
+    import requests
+    c = make(tmp_path, api)
+    c._me = "me"
+
+    class Offline:
+        calls = 0
+
+        def request(self, *a, **kw):
+            Offline.calls += 1
+            raise requests.ConnectionError("Failed to resolve 'api.spotify.com'")
+    c._http = Offline()
+    with pytest.raises(sp.NoNetwork, match="No hay conexión con Spotify"):
+        c.search(Song("Take On Me", ["a-ha"]))
+    assert Offline.calls == 1
