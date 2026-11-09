@@ -115,3 +115,33 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path, size):
     assert errors == []
     assert {k: v for k, v in problems.items() if v} == {}
     assert len(set(heights)) == 1, f"las listas de origen y destino tienen alturas distintas: {heights}"
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_the_toast_never_covers_the_end_of_a_screen(browser, tmp_path, size):
+    """El aviso negro sale abajo al centro. Bajando del todo, lo último de cada pantalla (en Conexiones,
+    el último navegador) queda por encima del aviso: nunca tapado, ni en la ventana mínima."""
+    from tests.ui_helpers import BRAVE, VIVALDI, with_spotify
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    with_spotify(api, tmp_path)
+    api._list_browsers = lambda: [VIVALDI, BRAVE] * 2               # una lista larga de navegadores
+    page, errors = open_page(browser, api)
+    page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
+    page.add_style_tag(content=".toast { transition: none !important; }")
+    covered = {}
+    for screen in ("inicio", "conexiones", "transferir", "repetidos", "historial", "ajustes"):
+        page.click(f"nav [data-go={screen}]")
+        page.wait_for_timeout(150)
+        page.evaluate("toast('Las ventanas para iniciar sesión se abren en Vivaldi.')")
+        overlap = page.evaluate("""() => {
+            const main = document.querySelector("main"); main.scrollTop = main.scrollHeight;
+            const top = document.querySelector("#toast").getBoundingClientRect().top;
+            const els = [...document.querySelectorAll(".screen.active *")].filter(e => {
+                const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden";
+            });
+            return Math.max(0, ...els.map(e => e.getBoundingClientRect().bottom)) - top;
+        }""")
+        if overlap > 0:
+            covered[screen] = round(overlap)
+    assert covered == {}
+    assert errors == []
