@@ -331,6 +331,7 @@
     "err.choose_target": "Choose at least one destination playlist.",
     "err.same_service": "The source and destination must be different services.",
     "err.source_empty": "“{name}” is empty: there's nothing to transfer.",
+    "err.partial_transfer": "Couldn't finish “{name}”: {detail} What already went to the other playlists is in History. If you transfer again, what's already there isn't repeated.",
     "err.liked_add_failed": "{service} didn't save the songs to “Liked songs”. Please try again.",
     "err.only_music_links": "Only music service links can be opened.",
     "err.browser_not_found": "Couldn't find that browser.",
