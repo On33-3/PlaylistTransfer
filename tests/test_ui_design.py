@@ -105,3 +105,29 @@ def test_numbers_and_symbols_are_centered_in_their_circles(browser, tmp_path):
     assert len(off) >= 7
     bad = {k: v for k, v in off.items() if abs(v[0]) > 1 or abs(v[1]) > 1}
     assert bad == {}, bad
+
+
+def _contrast(fg, bg):
+    def lum(rgb):
+        c = [x / 255 for x in rgb]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    a, b = sorted((lum(fg), lum(bg)), reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
+def test_a_main_button_never_looks_like_something_already_chosen(browser, tmp_path):
+    """Norma (pedido del usuario): "Ir a Conexiones" en violeta claro parecía ya elegido, porque ese es el
+    color de lo seleccionado (segmento, filtro, paso actual). Una acción principal tiene su propio color,
+    distinto del de lo elegido, y su letra se lee bien (contraste de 4,5:1 o más)."""
+    import re
+    api, *_ = make_api(tmp_path, connected=False)
+    page, errors = open_page(browser, api)
+    rgb = lambda css: tuple(int(x) for x in re.findall(r"\d+", css)[:3])
+    style = lambda sel, prop: rgb(page.eval_on_selector(sel, f"e => getComputedStyle(e).{prop}"))
+    action_bg, action_fg = style("#home-connect", "backgroundColor"), style("#home-connect", "color")
+    page.click("nav [data-go=historial]")
+    chosen_bg = style("#hist-filter [aria-pressed=true], .seg [aria-pressed=true]", "backgroundColor")
+    assert action_bg != chosen_bg
+    assert _contrast(action_fg, action_bg) >= 4.5
+    assert errors == []
