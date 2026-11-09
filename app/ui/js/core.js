@@ -1,5 +1,5 @@
 /* PlaylistTransfer: lo común a todas las pantallas. Habla con Python por window.pywebview.api
-   (ver app/api.py). Todos los textos salen de app/locales/<idioma>.json con t("clave"): en ningún
+   (ver app/api/). Todos los textos salen de app/locales/<idioma>.json con t("clave"): en ningún
    archivo de la UI va texto suelto. Los archivos son scripts comunes (no módulos: la página se abre
    como archivo local) y comparten estas funciones; el orden de carga está en index.html. */
 "use strict";
