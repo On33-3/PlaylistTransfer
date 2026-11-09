@@ -55,7 +55,7 @@ def test_spotify_setup_from_connections(browser, tmp_path):
     page.click("[data-setup=spotify]")
     page.wait_for_selector("#setup-spotify:not([hidden])")
     panel = page.inner_text("#setup-spotify")
-    assert "Premium" in panel and "http://127.0.0.1/callback" in panel
+    assert "Premium" in panel and "http://127.0.0.1:8973/callback" in panel
     # el texto nombra el botón exactamente como se llama
     assert "Tocá «Abrir el formulario para crear la app»" in panel
     assert page.is_visible("#setup-spotify button:text-is('Abrir el formulario para crear la app')")
@@ -90,11 +90,11 @@ def test_copy_redirect_uri(browser, tmp_path):
     page.click("[data-setup=spotify]")
     # cada valor para pegar tiene su botón Copiar, al lado del paso donde va
     copies = page.eval_on_selector_all("#setup-spotify [data-copy]", "bs => bs.map(b => b.dataset.copy)")
-    assert copies == ["PlaylistTransfer", "Pasar mis playlists entre servicios", "http://127.0.0.1/callback"]
-    page.click("#setup-spotify [data-copy='http://127.0.0.1/callback']")
+    assert copies == ["PlaylistTransfer", "Pasar mis playlists entre servicios", "http://127.0.0.1:8973/callback"]
+    page.click("#setup-spotify [data-copy='http://127.0.0.1:8973/callback']")
     page.wait_for_selector("text=Copiado.")
-    assert page.evaluate("navigator.clipboard.readText()") == "http://127.0.0.1/callback"
-    redirect_step = page.locator("#setup-spotify li", has=page.locator("[data-copy='http://127.0.0.1/callback']"))
+    assert page.evaluate("navigator.clipboard.readText()") == "http://127.0.0.1:8973/callback"
+    redirect_step = page.locator("#setup-spotify li", has=page.locator("[data-copy='http://127.0.0.1:8973/callback']"))
     assert "Redirect URIs" in redirect_step.inner_text() and redirect_step.locator(".step-n").inner_text() == "2.6"
     # cada paso trae su link, y cada uno abre la página justa
     links = page.eval_on_selector_all("#setup-spotify [data-link]", "bs => bs.map(b => b.dataset.link)")
