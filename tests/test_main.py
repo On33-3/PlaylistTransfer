@@ -71,3 +71,12 @@ def test_the_smoke_test_notices_a_module_missing_from_the_package(monkeypatch):
         return real(name)
     monkeypatch.setattr(importlib, "import_module", fake)
     assert main.missing_modules() == ["tidalapi"]
+
+
+def test_the_smoke_test_never_waits_for_a_click(data_dir, monkeypatch):
+    """El cuadro de error esperaría un clic para siempre: la prueba automática colgaría sin decir por qué."""
+    shown = []
+    monkeypatch.setattr(ctypes, "windll", NS(user32=NS(MessageBoxW=lambda *a: shown.append(a))), raising=False)
+    monkeypatch.setenv("PT_SMOKE", "1")
+    main.show_startup_error(RuntimeError("x"))
+    assert shown == []

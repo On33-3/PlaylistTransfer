@@ -57,7 +57,7 @@ jobs:
           $psi.EnvironmentVariables["PATH"] = ($env:PATH -split ";" | Where-Object { $_ -notmatch "Python|hostedtoolcache" }) -join ";"
           $psi.EnvironmentVariables["PT_SMOKE"] = "1"
           $p = [System.Diagnostics.Process]::Start($psi)
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "The .exe did not exit within 2 minutes" }
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 40; throw "The .exe did not exit within 2 minutes" }
           if ($p.ExitCode -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "The .exe did not load the UI (exit code $($p.ExitCode))" }
           "El .exe abrió y cargó la UI"
 

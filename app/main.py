@@ -46,6 +46,9 @@ def show_startup_error(e: BaseException) -> None:
     from app.i18n import t as tr
     logging.getLogger(__name__).exception("No se pudo abrir la app")
     msg = tr("err.startup_failed", detail=f"{type(e).__name__}: {e}", log=paths.data_dir() / "app.log")
+    if os.environ.get("PT_SMOKE") == "1":      # en la prueba automática nadie va a tocar "Aceptar"
+        print(msg, file=sys.stderr, flush=True)
+        return
     try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(None, msg, TITLE, 0x10)    # 0x10: ícono de error
