@@ -164,6 +164,16 @@ def check_no_personal_data(folder: Path) -> None:
         raise SystemExit(f"Hay archivos personales en el paquete, no se publica: {leaked[:5]}")
 
 
+MAX_ZIP_MB = 15     # tope: si algo nuevo infla el paquete, el armado avisa en vez de pasar inadvertido
+
+
+def check_size(zip_path: Path) -> float:
+    size = zip_path.stat().st_size / 1e6
+    if size > MAX_ZIP_MB:
+        raise SystemExit(f"El paquete pesa {size:.1f} MB (tope: {MAX_ZIP_MB}): revisá qué se sumó")
+    return size
+
+
 def main() -> Path:
     shutil.rmtree(BUILD, ignore_errors=True)
     shutil.rmtree(DIST, ignore_errors=True)
@@ -187,7 +197,7 @@ def main() -> Path:
         for f in sorted(app_dir.rglob("*")):
             z.write(f, f.relative_to(DIST))
     digest = write_checksum(zip_path)
-    size = zip_path.stat().st_size / 1e6
+    size = check_size(zip_path)
     print(f"\nListo: {zip_path.name} ({size:.1f} MB)\nSHA-256: {digest}")
     return zip_path
 

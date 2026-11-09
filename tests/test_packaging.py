@@ -115,3 +115,18 @@ def test_user_readmes_have_clean_windows_paths(name):
     text = getattr(load("build"), name).format(version="9.9.9")
     assert "\t" not in text and "\\\\" not in text                    # ni tabs (por un "\t" suelto) ni barras dobles
     assert r"%LOCALAPPDATA%\PlaylistTransfer" in text and r"_internal\tidalapi" in text
+
+
+def test_what_the_window_needs_is_never_excluded_from_the_package():
+    """clr_loader (la ventana de pywebview) usa cffi y este a pycparser: excluirlos parece inofensivo."""
+    spec = (ROOT / "packaging" / "PlaylistTransfer.spec").read_text(encoding="utf-8")
+    unused = re.search(r"UNUSED = \[(.*?)\]", spec, re.S).group(1)
+    assert not {"cffi", "pycparser", "ssl", "sqlite3"} & set(re.findall(r'"(\w+)"', unused))
+
+
+def test_the_build_stops_if_the_package_grows(tmp_path):
+    build = load("build")
+    big = tmp_path / "x.zip"
+    big.write_bytes(b"0" * (int(build.MAX_ZIP_MB * 1e6) + 1))
+    with pytest.raises(SystemExit, match="tope"):
+        build.check_size(big)
