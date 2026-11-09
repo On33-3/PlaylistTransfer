@@ -181,3 +181,51 @@ def test_same_duplicates_as_legacy_script_on_the_real_playlist(video_playlist):
             assert same_song(a, b) == (old["same_song"][i][j] == "1"), (a.title, b.title)
             assert classify(score(a, b)) in (old["classify"][i][j], NOT_FOUND), (a.title, b.title)  # solo más estricto
     assert [d.index for d in find_duplicates(songs)] == old["duplicates"]
+
+
+# ---------------------------------------------------------------- SongIndex: lo mismo que recorrer la lista
+
+def _library(seed, size):
+    """Biblioteca inventada y difícil: títulos casi iguales, versiones, sin artista, ids e ISRC repetidos."""
+    import random
+    from app.core.models import Song
+    r = random.Random(seed)
+    words = ["love", "night", "fire", "city", "dream", "blue", "river", "amor", "noche", "x", "intro"]
+    extras = ["", " (Live)", " (Remastered 2011)", " - Remaster", " Pt. 2", " II", " (Official Video)", " [Mono]", " feat. Ana"]
+    out = []
+    for _ in range(size):
+        title = " ".join(r.choices(words, k=r.randint(1, 4)))
+        if r.random() < .4:                                # un error de tipeo: el caso del parecido de 0,92
+            i = r.randrange(len(title))
+            title = title[:i] + r.choice("aeiouz") + title[i + 1:]
+        if r.random() < .15:
+            title = f"Artista {r.randint(1, 4)} - {title}"
+        artists = r.choice([[], [f"Artista {r.randint(1, 4)}"], [f"Artista {r.randint(1, 4)} & Otro"]])
+        out.append(Song(title + r.choice(extras), artists, duration=r.choice([None, 200, 203, 240]),
+                        isrc=r.choice([None, None, "usabc1", "USABC2"]), id=r.choice([None, f"i{r.randint(1, 60)}"])))
+    return out
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_the_index_finds_exactly_what_walking_the_list_finds(seed):
+    """El índice solo evita comparaciones imposibles: el primer resultado es siempre el mismo objeto."""
+    from app.core.matching import SongIndex, same_song
+    songs = _library(seed, 200)
+    index = SongIndex(songs[:100])
+    for s in songs[100:]:
+        walked = next((k for k in songs[:100] if same_song(s, k)), None)
+        assert index.first_match(s) is walked, s
+
+
+def test_a_big_library_does_not_compare_every_song_with_every_other(monkeypatch):
+    """Lo que hacía tardar 11 minutos con 5000 temas: se cuenta (no se cronometra, no falla por una PC lenta)."""
+    from app.core import matching
+    from app.core.models import Song
+    real, calls = matching.same_song, []
+    monkeypatch.setattr(matching, "same_song", lambda a, b: calls.append(1) or real(a, b))
+    import random
+    r = random.Random(1)
+    title = lambda: "".join(r.choices("abcdefghijklmnopqrstuvwxyz ", k=24))     # títulos que no se parecen
+    songs = [Song(title(), [f"Artista {i}"], id=f"s{i}") for i in range(2000)]
+    assert matching.find_duplicates(songs) == []
+    assert len(calls) < len(songs)                         # eran casi 2 millones

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable, Iterator
 from difflib import SequenceMatcher
 from functools import lru_cache
 
@@ -25,6 +26,7 @@ SCORE_OK = 0.75      # desde acá se agrega sin dudas
 SCORE_MIN = 0.60     # entre MIN y OK se agrega, pero queda marcado como dudoso
 ARTIST_MIN = 0.60    # parecido mínimo de artista: por debajo, es otro artista
 TITLE_MIN = 0.75     # parecido mínimo de título: por debajo, es otro tema
+SAME_TITLE = 0.92    # parecido de título desde el que dos temas pueden ser la misma canción (repetidos)
 NO_MATCH_CAP = 0.50  # tope cuando es otra canción (queda como no encontrado)
 VERSION_CAP = 0.70   # tope cuando es otra versión de la misma canción (queda como dudoso)
 
@@ -386,20 +388,80 @@ def same_song(a: Song, b: Song) -> bool:
     if _different_song(a, b) or not _same_artist(a, b):
         return False
     ka, kb = title_keys(a), title_keys(b)
-    return bool(ka & kb) or any(_ratio(x, y) >= 0.92 for x in ka for y in kb)
+    return bool(ka & kb) or any(_ratio(x, y) >= SAME_TITLE for x in ka for y in kb)
+
+
+class SongIndex:
+    """Busca "¿ya está esta canción?" sin comparar contra toda la lista (con 5000 temas eran 11 minutos).
+
+    Es exacto: da lo mismo que recorrer la lista con `same_song`. Para ser la misma canción hay que compartir
+    id, ISRC o un título casi igual (`SAME_TITLE`), así que solo se descartan los pares que no pueden
+    llegar: `SAME_TITLE` limita cuántos caracteres pueden quedar sin pareja entre los dos títulos, y eso
+    limita cuánto pueden diferir su largo y las letras que usan. A los que quedan se les aplica `same_song`,
+    en el orden de la lista: gana el primero, como siempre."""
+
+    def __init__(self, songs: Iterable[Song] = ()):
+        self._songs: list[Song] = []
+        self._ids: dict[str, list[int]] = {}
+        self._isrcs: dict[str, list[int]] = {}
+        self._keys: dict[str, list[int]] = {}
+        self._by_length: dict[int, dict[str, int]] = {}      # largo → {título base: letras que usa}
+        for s in songs:
+            self.add(s)
+
+    def add(self, song: Song) -> None:
+        at = len(self._songs)
+        self._songs.append(song)
+        if song.id:
+            self._ids.setdefault(song.id, []).append(at)
+        if song.isrc:
+            self._isrcs.setdefault(song.isrc.upper(), []).append(at)
+        for key in _title_keys(song.title or ""):
+            if key not in self._keys:
+                self._by_length.setdefault(len(key), {})[key] = _letters(key)
+            self._keys.setdefault(key, []).append(at)
+
+    def _similar_keys(self, key: str) -> Iterator[str]:
+        """Los títulos base guardados que pueden llegar a `SAME_TITLE` con `key`, y lo llegan."""
+        letters, size = _letters(key), len(key)
+        for other_size, bucket in self._by_length.items():
+            total = size + other_size
+            # Lo que sobra de largo y las letras que tiene uno solo se quedan sin pareja: ratio = 1 - sin pareja / total
+            unmatched = int((1 - SAME_TITLE) * total + 1e-9)
+            if abs(size - other_size) > unmatched:
+                continue
+            for other, other_letters in bucket.items():
+                if (letters ^ other_letters).bit_count() <= unmatched and (other == key or _ratio(key, other) >= SAME_TITLE):
+                    yield other
+
+    def first_match(self, song: Song) -> Song | None:
+        """La primera canción de la lista que es la misma que `song`, o None."""
+        spots = set(self._ids.get(song.id or "", ())) | set(self._isrcs.get((song.isrc or "").upper(), ()))
+        for key in _title_keys(song.title or ""):
+            for other in self._similar_keys(key):
+                spots.update(self._keys[other])
+        return next((self._songs[i] for i in sorted(spots) if same_song(song, self._songs[i])), None)
+
+
+def _letters(key: str) -> int:
+    """Qué letras usa un texto, como bits (dos letras pueden compartir bit: solo acerca, nunca aleja)."""
+    bits = 0
+    for c in set(key):
+        bits |= 1 << (ord(c) % 61)
+    return bits
 
 
 def find_duplicates(songs: list[Song]) -> list[Duplicate]:
     """Copias repetidas de una playlist. Queda siempre la que está primero. Cada copia dice si es
     la misma grabación (SAME) u otra versión (OTHER_VERSION: en vivo, remix...), para que la UI
     deje sin tildar estas últimas."""
-    kept: list[Song] = []
+    kept = SongIndex()
     dups: list[Duplicate] = []
     for i, s in enumerate(songs):
-        twin = next((k for k in kept if same_song(s, k)), None)
+        twin = kept.first_match(s)
         if twin:
             kind = SAME if version_tags(s, twin) == version_tags(twin, s) else OTHER_VERSION
             dups.append(Duplicate(i, s, twin, kind))
         else:
-            kept.append(s)
+            kept.add(s)
     return dups

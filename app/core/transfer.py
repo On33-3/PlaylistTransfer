@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Callable
 
 from app.connectors.base import Connector, ConnectorError
-from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, alternatives, best_match,
-                               classify, same_song)
+from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, SongIndex, alternatives, best_match,
+                               classify)
 from app.core.models import Song
 from app.core.models import Cancelled  # noqa: F401  (se importa también desde acá)
 from app.i18n import t as tr
@@ -102,10 +102,11 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
     to_add: list[Song] = []
     already: list[Song] = []
     versions: list[tuple[Song, Song, str]] = []
+    in_destination, queued = SongIndex(current), SongIndex()
     for m in found:
-        twin = next((c for c in current if same_song(m, c)), None)
+        twin = in_destination.first_match(m)
         if twin is None:
-            twin = next((a for a in to_add if same_song(m, a)), None)
+            twin = queued.first_match(m)
             if twin is not None:
                 versions.append((m, twin, REPEATED_IN_SOURCE))
                 continue
@@ -116,6 +117,7 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
             versions.append((m, twin, ALREADY_THERE))
             continue
         to_add.append(m)
+        queued.add(m)
     return to_add, already, versions
 
 
