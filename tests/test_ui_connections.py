@@ -1,6 +1,8 @@
 """Conexiones: pasos de cada servicio, conectar, cancelar y configurar Spotify."""
 from __future__ import annotations
 
+import pytest
+
 from tests.ui_helpers import check, make_api, open_page, shot, with_spotify
 
 
@@ -180,4 +182,31 @@ def test_login_can_be_cancelled_from_connections(browser, tmp_path):
     page.wait_for_selector("text=Cancelaste el inicio de sesión.")
     assert page.locator("#cancel-login").count() == 0 and page.is_hidden("#wait-tidal")
     assert not tidal.connected and page.is_enabled("[data-connect=tidal]")
+    assert errors == []
+
+
+@pytest.mark.parametrize("redraw", ["otra pantalla", "otro navegador"])
+def test_the_login_controls_survive_a_redraw(browser, tmp_path, redraw):
+    """Un usuario abrió el login, cerró la ventana y quedó con todo gris y sin ningún botón: si la pantalla
+    se redibujaba mientras esperaba (cambiar de sección o de navegador), «Abrir de nuevo» y «Cancelar»
+    desaparecían y la espera seguía hasta 10 minutos."""
+    api, tidal, yt = make_api(tmp_path, connected=False)
+    tidal.login_hangs = True
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=conexiones]")
+    page.click("[data-connect=tidal]")
+    page.wait_for_selector("#reopen-login")
+    if redraw == "otra pantalla":
+        page.click("nav [data-go=ajustes]")
+        page.click("nav [data-go=conexiones]")
+    else:
+        page.click("#browser-list input >> nth=1")
+        page.wait_for_function("document.querySelector('#toast').textContent.includes('Brave')")
+    page.wait_for_selector("#reopen-login")
+    assert page.is_enabled("#reopen-login") and page.is_enabled("#cancel-login")
+    assert page.is_hidden("[data-connect=tidal]")
+    page.click("#cancel-login")
+    page.wait_for_selector("text=Cancelaste el inicio de sesión.")
+    page.wait_for_selector("[data-connect=tidal]:enabled")
+    assert page.locator("#reopen-login").count() == 0 and page.locator("#cancel-login").count() == 0
     assert errors == []
