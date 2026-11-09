@@ -122,7 +122,10 @@ def diff(a_path, b_path):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "--diff":
-        diff(sys.argv[2], sys.argv[3])
+    args = sys.argv[1:]
+    if len(args) == 3 and args[0] == "--diff":
+        diff(args[1], args[2])
+    elif len(args) == 1 and not args[0].startswith("-"):     # "--help" no es un nombre de archivo (pasó: 100 MB)
+        dump(args[0])
     else:
-        dump(sys.argv[1])
+        sys.exit(__doc__)
