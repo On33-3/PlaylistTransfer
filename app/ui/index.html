@@ -28,10 +28,6 @@
   <main>
     <!-- ================= INICIO ================= -->
     <section class="screen active" id="inicio" aria-labelledby="t-inicio">
-      <div class="notice" id="home-connect" hidden>
-        <p><b data-i18n="home.connect_title">Para empezar, conectá tus servicios.</b> <span class="muted" data-i18n="home.connect_text">Hacen falta dos para pasar música; uno para quitar repetidos.</span></p>
-        <button class="btn primary" data-go="conexiones" data-i18n="home.connect_btn">Conectar</button>
-      </div>
       <h1 id="t-inicio" data-i18n="home.title">Tus playlists, en el servicio que quieras.</h1>
       <p class="lede" id="home-lede"></p>
       <ul class="features">
@@ -40,8 +36,10 @@
         <li><b data-i18n="home.f_dedupe_title">Quitar repetidos.</b> <span data-i18n="home.f_dedupe">Encuentra la misma canción dos veces.</span></li>
         <li><b data-i18n="home.f_history_title">Historial.</b> <span data-i18n="home.f_history">Cada transferencia queda guardada.</span></li>
       </ul>
+      <!-- Mientras falte conectar, el primer paso es el botón principal (el texto "Conexiones" dice para qué) -->
       <div class="actions">
-        <button class="btn primary" data-go="transferir" data-i18n="home.transfer">Transferir música</button>
+        <button class="btn primary" id="home-connect" data-go="conexiones" data-i18n="home.connect_btn" hidden>Ir a Conexiones</button>
+        <button class="btn primary" id="home-transfer" data-go="transferir" data-i18n="home.transfer">Transferir música</button>
         <button class="btn ghost" data-go="repetidos" data-i18n="home.dedupe">Quitar repetidos</button>
       </div>
 

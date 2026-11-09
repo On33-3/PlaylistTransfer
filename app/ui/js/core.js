@@ -124,7 +124,10 @@ async function refreshStatus() {
   }).join("");
   // Para pasar música hacen falta dos servicios. Con dos o más no se reclama nada: cada uno usa los que
   // quiere, y quien no usa uno de ellos no tiene por qué verlo reclamado para siempre
-  $("#home-connect").hidden = USABLE.filter(connected).length >= 2;
+  const missing = USABLE.filter(connected).length < 2;
+  $("#home-connect").hidden = !missing;
+  $("#home-transfer").classList.toggle("primary", !missing);       // un solo botón principal
+  $("#home-transfer").classList.toggle("ghost", missing);
 }
 
 /* ---------------------------------------------------------------- textos con formato y pasos numerados */

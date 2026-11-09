@@ -7,8 +7,13 @@ from tests.ui_helpers import make_api, open_page, shot, with_spotify
 def test_first_run_everything_empty(browser, tmp_path):
     api, *_ = make_api(tmp_path, connected=False)
     page, errors = open_page(browser, api)
-    assert page.is_visible("#home-connect")
-    page.click("#home-connect >> text=Ir a Conexiones")                # el aviso lleva a Conexiones
+    # Sin conectar, el botón principal es "Ir a Conexiones" (en la fila de botones, no un recuadro aparte
+    # encima del título, que se veía encimado); "Transferir música" pasa a secundario: uno solo principal
+    assert page.inner_text("#home-connect") == "Ir a Conexiones"
+    assert page.locator("#inicio .btn.primary:visible").count() == 1
+    assert "ghost" in page.get_attribute("#home-transfer", "class")
+    assert page.evaluate("document.querySelector('main').scrollHeight <= document.querySelector('main').clientHeight")
+    page.click("#home-connect")
     assert page.is_visible("#conexiones")
     page.click("nav [data-go=inicio]")
     assert "sin conectar" in page.inner_text("#chips")
@@ -33,11 +38,11 @@ def test_home_only_asks_to_connect_when_fewer_than_two(browser, tmp_path):
     sp.connect()
     page, errors = open_page(browser, api)
     page.wait_for_selector("#chips .chip.ok >> text=Spotify")
-    assert page.is_hidden("#home-connect")
+    assert page.is_hidden("#home-connect") and "primary" in page.get_attribute("#home-transfer", "class")
     yt.connected = False
     page.reload(); page.wait_for_selector("#chips .chip.ok >> text=Spotify")
     page.wait_for_selector("#home-connect:not([hidden])")
-    assert "Hacen falta dos" in page.inner_text("#home-connect")
+    assert page.locator("#inicio .btn.primary:visible").count() == 1
     assert errors == []
 
 
