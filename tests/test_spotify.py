@@ -30,7 +30,7 @@ def make(tmp_path, api, client_id=CID, logged=True, **kw):
     if client_id:
         c.set_client_id(client_id)
     if logged:
-        c._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)
+        c._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600, "scope": sp.SCOPES}, first=True)
     return c
 
 
@@ -444,3 +444,20 @@ def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
     assert t.target.name == "Canciones que te gustan" and not t.created
     assert [s.id for s in t.added] == [a["uri"], cc["uri"]] and [s.id for s in t.already] == [b["uri"]]
     assert api.liked == [a["uri"], cc["uri"], b["uri"]]
+
+
+def test_a_session_from_before_liked_songs_asks_to_reconnect(tmp_path, api):
+    """Una sesión de una versión anterior no tiene permiso para "Me gusta": se veía conectada, pero la lista
+    no aparecía hasta desconectar y conectar. Ahora dice que hay que reconectar."""
+    c = make(tmp_path, api, logged=False)
+    c._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)       # como las viejas
+    assert make(tmp_path, api, logged=False).status() is Status.EXPIRED
+    c._store({"access_token": "tok1", "refresh_token": "ref", "expires_in": 3600, "scope": "user-library-read"}, first=True)
+    assert make(tmp_path, api, logged=False).status() is Status.EXPIRED     # falta el de guardar
+
+
+def test_refreshing_the_token_keeps_the_permissions_it_had(tmp_path, api):
+    """Al renovar, Spotify puede no repetir los permisos: no por eso hay que volver a pedirlos."""
+    c = make(tmp_path, api)
+    c._store({"access_token": "tok2", "expires_in": 3600})
+    assert c.status() is Status.CONNECTED

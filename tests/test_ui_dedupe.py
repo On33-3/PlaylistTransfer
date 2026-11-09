@@ -1,6 +1,7 @@
 """Quitar repetidos: elegir la playlist, revisar y confirmar."""
 from __future__ import annotations
 
+from app.connectors import spotify
 from tests.fakes import S
 from tests.ui_helpers import check, make_api, open_page, shot, with_spotify
 
@@ -64,7 +65,7 @@ def test_spotify_duplicates_warn_before_removing_every_copy(browser, tmp_path):
     api, *_ = make_api(tmp_path)
     sp, fake = with_spotify(api, tmp_path)
     sp.set_client_id("0123456789abcdef0123456789abcdef")
-    sp._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)
+    sp._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600, "scope": spotify.SCOPES}, first=True)
     a, b = track(7, "Virtual Insanity", "Jamiroquai", dur=228), track(8, "Take On Me", "a-ha", dur=226)
     fake.add_tracks(a, b)
     fake.add_playlist("d" * 22, "Repetidos en Spotify", [a["uri"], b["uri"], a["uri"]])

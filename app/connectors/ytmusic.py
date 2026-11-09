@@ -170,7 +170,16 @@ class YTMusicConnector(Connector):
                 liked = parse_count(p.get("count"))
             elif p.get("playlistId") not in SKIP_PLAYLISTS:
                 out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
-        return [liked_info(liked)] + out
+        return [liked_info(liked if liked is not None else self._liked_count())] + out
+
+    def _liked_count(self) -> int | None:
+        """La lista "Me gusta" es automática: en la biblioteca no trae cantidad (se veía como vacía)."""
+        try:
+            count = self._ready().get_playlist(LIKED_LIST, limit=1).get("trackCount")
+        except Exception as e:
+            log.info("YouTube Music: no pude contar los Me gusta: %s", e)
+            return None
+        return count if isinstance(count, int) else None
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
         pl = self._ready().get_playlist(LIKED_LIST if playlist_id == LIKED else playlist_id, limit=None)

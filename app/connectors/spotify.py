@@ -45,6 +45,7 @@ REDIRECT_URI = f"http://127.0.0.1:{CALLBACK_PORT}{loopback.CALLBACK_PATH}"
 # user-library-*: las canciones que te gustan (leer, guardar y quitar)
 SCOPES = ("playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public "
           "user-library-read user-library-modify")
+LIBRARY_SCOPES = {"user-library-read", "user-library-modify"}
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
 _PLAYLIST_ID = re.compile(r"(?:playlist[/:])?([A-Za-z0-9]{22})(?:\b|$)")
 
@@ -185,7 +186,8 @@ class SpotifyConnector(Connector):
         tok = {"access_token": body["access_token"],
                "refresh_token": body.get("refresh_token") or old.get("refresh_token"),
                "expires_at": time.time() + int(body.get("expires_in", 3600)),
-               "authorized_at": time.time() if first else old.get("authorized_at", time.time())}
+               "authorized_at": time.time() if first else old.get("authorized_at", time.time()),
+               "scope": body.get("scope") or old.get("scope")}
         self._token = tok
         self._write_json(self.session_file, tok)
 
@@ -254,9 +256,16 @@ class SpotifyConnector(Connector):
 
     # ---- sesión
 
+    def _lacks_library_permission(self) -> bool:
+        """Sesión de antes de "Me gusta": se ve conectada, pero Spotify no da la lista hasta volver a autorizar."""
+        tok = self._token or self._read_json(self.session_file)
+        return bool(tok) and not LIBRARY_SCOPES <= set((tok.get("scope") or "").split())
+
     def status(self) -> Status:
         if not self.client_id:
             return Status.SETUP
+        if self._lacks_library_permission():
+            return Status.EXPIRED
         if self._me is not None:
             return Status.CONNECTED
         if not self.session_file.exists():

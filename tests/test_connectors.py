@@ -268,7 +268,7 @@ class FakeYT:
         self.added, self.removed, self.searches = [], [], []
 
     def get_library_playlists(self, limit=25):
-        return [{"playlistId": "LM", "title": "Me gusta", "count": "500 canciones"},
+        return [{"playlistId": "LM", "title": "Me gusta"},      # como la real: es automática, sin cantidad
                 {"playlistId": "SE", "title": "Episodios"},
                 {"playlistId": "PL1", "title": "Old songs", "count": "1.234 canciones"},
                 {"playlistId": "PL2", "title": None, "count": None}]
@@ -276,7 +276,7 @@ class FakeYT:
     def get_playlist(self, pid, limit=None):
         self.read_ids = getattr(self, "read_ids", []) + [pid]
         if pid == "LM":
-            return {"title": "Liked Music", "tracks": self.tracks}
+            return {"title": "Liked Music", "tracks": self.tracks, "trackCount": 500}
         return {"title": "Old songs", "tracks": self.tracks}
 
     def rate_song(self, vid, rating):
@@ -593,3 +593,13 @@ def test_a_rate_limit_that_never_ends_gives_up():
     finally:
         base.time.sleep = real
     assert len(calls) == len(base.RATE_LIMIT_WAITS) + 1
+
+
+@pytest.mark.parametrize("answer, expected", [({"trackCount": None}, None), (RuntimeError("401"), None)])
+def test_yt_liked_songs_without_a_count_are_still_offered(answer, expected):
+    class NoCount(FakeYT):
+        def get_playlist(self, pid, limit=None):
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+    assert ytc(NoCount()).list_playlists()[0].count is expected

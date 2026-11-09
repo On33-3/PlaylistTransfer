@@ -293,3 +293,15 @@ def test_another_transfer_shows_the_current_source_too(browser, tmp_path):
     page.click("#again")
     page.wait_for_selector("#src-list input[value=nueva]")
     assert errors == []
+
+
+def test_an_unknown_count_does_not_look_empty(browser, tmp_path):
+    """"Me gusta" con 1600 temas se veía sin número, como si no tuviera ninguno."""
+    from app.core.models import PlaylistInfo
+    api, tidal, yt = make_api(tmp_path)
+    tidal.list_playlists = lambda: [PlaylistInfo("src", "Favoritas", None)]
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.wait_for_selector("#src-list input[value=src]")
+    assert page.inner_text("#src-list li .count") == "cantidad desconocida"
+    assert errors == []
