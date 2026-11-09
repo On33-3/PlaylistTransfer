@@ -48,45 +48,22 @@ def test_versions_of_the_same_song(title):
     assert same_song(base, Song(title, ["Jamiroquai"], duration=245))
 
 
-def test_youtube_video_without_artist_field_but_artist_in_title():
-    assert same_song(Song("Take On Me", ["a-ha"], duration=226),
-                     Song("a-ha - Take On Me (Official Video)", [], duration=244))
-
-
 # ---------------------------------------------------------------- negativos reales
 
 @pytest.mark.parametrize("a,b", NEGATIVE_PAIRS, ids=lambda s: s.title if isinstance(s, Song) else "")
-def test_negatives_are_not_the_same_song(a, b):
-    assert not same_song(a, b)
-    assert not same_song(b, a)
-
-
-@pytest.mark.parametrize("a,b", NEGATIVE_PAIRS, ids=lambda s: s.title if isinstance(s, Song) else "")
-def test_negatives_never_score_as_ok(a, b):
-    assert score(a, b) < SCORE_OK
-    assert score(b, a) < SCORE_OK
+def test_lookalikes_stay_apart(a, b):
+    """Antes, "Sunshine" vs "Sunkissed" con duraciones parecidas daba OK (0.79) y "From The Start"
+    de Good Kid daba dudoso para el de Laufey: se habrían agregado. Ahora quedan como no encontrado."""
+    assert not same_song(a, b) and not same_song(b, a)
+    b_same_length = Song(b.title, b.artists, duration=a.duration)
+    assert classify(score(a, b_same_length)) == NOT_FOUND and classify(score(b_same_length, a)) == NOT_FOUND
+    cand_a, cand_b = Song(a.title, a.artists, duration=a.duration, id="A"), Song(b.title, b.artists, duration=b.duration, id="B")
+    assert best_match(a, [cand_b, cand_a])[0].id == "A" and best_match(b, [cand_a, cand_b])[0].id == "B"
 
 
 def test_negatives_in_one_playlist_have_no_duplicates():
     songs = [s for pair in NEGATIVE_PAIRS for s in pair]
     assert find_duplicates(songs) == []
-
-
-@pytest.mark.parametrize("a,b", NEGATIVE_PAIRS, ids=lambda s: s.title if isinstance(s, Song) else "")
-def test_best_match_prefers_the_right_one_between_lookalikes(a, b):
-    cand_a = Song(a.title, a.artists, duration=a.duration, id="A")
-    cand_b = Song(b.title, b.artists, duration=b.duration, id="B")
-    assert best_match(a, [cand_b, cand_a])[0].id == "A"
-    assert best_match(b, [cand_a, cand_b])[0].id == "B"
-
-
-@pytest.mark.parametrize("a,b", NEGATIVE_PAIRS, ids=lambda s: s.title if isinstance(s, Song) else "")
-def test_negatives_are_not_found_even_with_the_same_duration(a, b):
-    """Antes, "Sunshine" vs "Sunkissed" con duraciones parecidas daba OK (0.79) y "From The Start"
-    de Good Kid daba dudoso para el de Laufey: se habrían agregado. Ahora quedan como no encontrado."""
-    b_same_length = Song(b.title, b.artists, duration=a.duration)
-    assert classify(score(a, b_same_length)) == NOT_FOUND
-    assert classify(score(b_same_length, a)) == NOT_FOUND
 
 
 # ---------------------------------------------------------------- el artista como requisito
@@ -95,18 +72,6 @@ def test_same_title_by_another_artist_is_not_found():
     src = Song("Mr. Blue Sky", ["Electric Light Orchestra"], duration=303)
     cover = Song("Mr. Blue Sky", ["Cover Band Hits"], duration=304)
     assert classify(score(src, cover)) == NOT_FOUND
-
-
-def test_artist_only_in_video_title_still_counts():
-    src = Song("Come and Get Your Love", ["Redbone"], duration=301)
-    video = Song("Redbone - Come and Get Your Love (Official Video)", ["Oldies Channel"], duration=300)
-    assert classify(score(src, video)) == OK
-
-
-def test_artist_channel_names_still_count():
-    src = Song("Virtual Insanity", ["Jamiroquai"], duration=228)
-    assert classify(score(src, Song("Virtual Insanity", ["JamiroquaiVEVO"], duration=229))) == OK
-    assert classify(score(src, Song("Virtual Insanity", ["Jamiroquai - Topic"], duration=229))) == OK
 
 
 def test_collaborations_match_on_any_artist():

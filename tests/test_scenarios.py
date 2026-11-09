@@ -14,8 +14,8 @@ from typing import NamedTuple
 
 import pytest
 
-from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, alternatives, best_match, classify,
-                               find_duplicates, same_song, score)
+from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, alternatives, artist_names, artist_sim, best_match, classify,
+                               find_duplicates, numbers, same_song, score, title_sim)
 from app.core.models import OTHER_VERSION, SAME, Song
 
 
@@ -380,3 +380,57 @@ def test_limit_number_on_one_side_only():
     assert classify(score(S("Song 2", "Blur", dur=122), S("Song", "Blur", dur=122))) == OK
     assert classify(score(S("Bohemian Rhapsody", "Queen", dur=354),
                           S("Bohemian Rhapsody - Live at Wembley '86", "Queen", dur=360))) == DOUBTFUL
+
+
+# ================================================================ Los límites de cada regla
+# Encontrados con errores introducidos a propósito (mutation testing): un cambio chico en estos números o
+# condiciones pasaba sin que ningún test lo notara.
+
+@pytest.mark.parametrize("seconds, same", [(5, True), (6, False)])
+def test_without_artist_the_duration_decides_up_to_5_seconds(seconds, same):
+    assert same_song(S("Tema Largo", dur=200), S("Tema Largo", "Alguien", dur=200 + seconds)) is same
+
+
+@pytest.mark.parametrize("a, b, same", [
+    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", album="Disco Uno (Deluxe)", dur=90), True),
+    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", album="Otra Cosa", dur=60), False),
+    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", dur=63), True),       # falta un álbum: decide la duración
+    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", dur=64), False),
+])
+def test_a_generic_title_needs_the_same_album_or_length(a, b, same):
+    assert same_song(a, b) is same
+
+
+def test_a_movement_only_counts_if_both_titles_have_one():
+    assert same_song(S("Spring: I. Allegro", "Vivaldi"), S("Spring Allegro", "Vivaldi"))
+    assert not same_song(S("Spring: I. Allegro", "Vivaldi"), S("Spring: II. Allegro", "Vivaldi"))
+
+
+@pytest.mark.parametrize("seconds, expected", [(3, 1.0), (4, 0.994), (17, 0.922), (60, 0.85)])
+def test_the_length_weighs_little_and_gradually(seconds, expected):
+    assert score(S("Tema", "Artista", dur=200), S("Tema", "Artista", dur=200 + seconds)) == expected
+
+
+def test_a_missing_length_counts_half():
+    assert score(S("Tema", "Artista"), S("Tema", "Artista", dur=200)) == 0.925
+
+
+def test_noise_around_the_title_and_a_longer_artist_name_score_high_but_not_perfect():
+    assert title_sim(S("Dynamite", "BTS"), S("BTS Dynamite Official MV", "BTS")) == 0.95
+    assert artist_sim(S("X", "Queen"), S("X", "Queen Band")) == 0.9
+
+
+@pytest.mark.parametrize("year, counts", [(1899, True), (1900, False), (2099, False), (2100, True)])
+def test_a_year_in_the_title_is_not_a_track_number(year, counts):
+    assert bool(numbers(S(f"Tema {year}", "A"))) is counts
+
+
+def test_very_short_pieces_of_an_artist_name_do_not_count():
+    assert dict(artist_names(S("X", "Al & Queen")))["al and queen"] == {"queen"}
+    assert dict(artist_names(S("X", "Ana & Queen")))["ana and queen"] == {"ana", "queen"}
+
+
+def test_at_most_three_other_artists_are_offered():
+    src = S("Hallelujah", "Jeff Buckley")
+    others = [S("Hallelujah", name, id=name) for name in ("Leonard Cohen", "Pentatonix", "Rufus Wainwright", "John Cale")]
+    assert [a.id for a in alternatives(src, others)] == ["Leonard Cohen", "Pentatonix", "Rufus Wainwright"]
