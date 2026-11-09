@@ -345,6 +345,7 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
 .counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
 .route { font-weight: 600; min-width: 0; }
+.eta { margin: 14px 0 0; line-height: 22px; }     /* alto entero: lo de abajo queda en píxel exacto */
 
 .tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }
 .tracks li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
