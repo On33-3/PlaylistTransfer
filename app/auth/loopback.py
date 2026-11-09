@@ -36,6 +36,12 @@ class LoginFailed(Exception):
     """El servicio devolvió un error en la redirección (por ejemplo, el usuario tocó "Cancelar")."""
 
 
+class _Server(http.server.HTTPServer):
+    # En Windows, SO_REUSEADDR deja que dos programas escuchen el mismo puerto: con un puerto fijo,
+    # la respuesta de Spotify podría llegarle a otro. Sin eso, si está ocupado, falla al abrirlo.
+    allow_reuse_address = False
+
+
 class CallbackServer:
     """Espera una sola redirección a /callback. Uso:
 
@@ -70,7 +76,7 @@ class CallbackServer:
             def log_message(self, *args):              # sin imprimir en la consola
                 pass
 
-        self._server = http.server.HTTPServer(("127.0.0.1", port), Handler)
+        self._server = _Server(("127.0.0.1", port), Handler)
         self._server.timeout = 0.5
         self.port = self._server.server_address[1]
         self._thread = threading.Thread(target=self._serve, name="oauth-callback", daemon=True)

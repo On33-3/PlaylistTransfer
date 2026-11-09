@@ -37,7 +37,11 @@ TOKEN = "https://accounts.spotify.com/api/token"
 DASHBOARD = "https://developer.spotify.com/dashboard"     # "tus apps"
 CREATE_APP = DASHBOARD + "/create"
 PREMIUM = "https://www.spotify.com/premium/"
-REDIRECT_URI = "http://127.0.0.1/callback"     # lo que el usuario registra en su app (sin puerto)
+# Lo que el usuario registra en su app. Con puerto fijo: el panel de Spotify rechaza "http://127.0.0.1/callback"
+# (sin puerto) con "This redirect URI is not secure" y no deja guardar, aunque su documentación diga que vale
+# (comprobado por un usuario el 2026-11-08). Con puerto, sí lo acepta.
+CALLBACK_PORT = 8973
+REDIRECT_URI = f"http://127.0.0.1:{CALLBACK_PORT}{loopback.CALLBACK_PATH}"
 SCOPES = "playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public"
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
 _PLAYLIST_ID = re.compile(r"(?:playlist[/:])?([A-Za-z0-9]{22})(?:\b|$)")
@@ -268,7 +272,11 @@ class SpotifyConnector(Connector):
         if not cid:
             raise ConnectorError(tr("err.spotify_setup_first"))
         verifier, state = loopback.make_verifier(), secrets.token_urlsafe(16)
-        with self._callback_server() as cb:
+        try:
+            server = self._callback_server(port=CALLBACK_PORT)
+        except OSError as e:                 # otro programa usa el puerto
+            raise ConnectorError(tr("err.spotify_port_busy", port=CALLBACK_PORT)) from e
+        with server as cb:
             self._open_browser(AUTHORIZE + "?" + urlencode({
                 "client_id": cid, "response_type": "code", "redirect_uri": cb.redirect_uri,
                 "code_challenge_method": "S256", "code_challenge": loopback.challenge(verifier),

@@ -56,7 +56,7 @@ def test_needs_a_client_id_first(tmp_path, api):
     links = [st["link"] for st in steps if "link" in st]
     assert links == [sp.PREMIUM, sp.CREATE_APP, sp.DASHBOARD]
     assert all(registry.is_allowed_link(u) for u in links)                 # la app los deja abrir
-    assert [st.get("copy") for st in steps if st.get("copy")] == ["http://127.0.0.1/callback"]
+    assert [st.get("copy") for st in steps if st.get("copy")] == ["http://127.0.0.1:8973/callback"]
     assert sum(1 for st in steps if st.get("input")) == 1                  # un solo lugar para pegar el Client ID
 
 
@@ -84,6 +84,8 @@ def test_login_with_pkce_through_the_local_server(tmp_path, api):
         seen.update(q)
         assert url.startswith(sp.AUTHORIZE) and q["client_id"] == CID and q["code_challenge_method"] == "S256"
         assert urlparse(q["redirect_uri"]).hostname == "127.0.0.1"          # nunca "localhost"
+        # exactamente la que el usuario registró en su app (con el puerto): si no, Spotify la rechaza
+        assert q["redirect_uri"] == sp.REDIRECT_URI == "http://127.0.0.1:8973/callback"
         back = f"{q['redirect_uri']}?code=CODE123&state={q['state']}"
         threading.Thread(target=lambda: seen.setdefault("page", urllib.request.urlopen(back).read().decode())).start()
 
@@ -370,3 +372,25 @@ def test_without_internet_the_search_stops_with_a_clear_message(tmp_path, api):
     with pytest.raises(sp.NoNetwork, match="No hay conexión con Spotify"):
         c.search(Song("Take On Me", ["a-ha"]))
     assert Offline.calls == 1
+
+
+def test_the_redirect_uri_has_a_fixed_port(tmp_path, api):
+    """El panel de Spotify rechaza "http://127.0.0.1/callback" (sin puerto) como "not secure" y no deja
+    guardar: la dirección que se registra lleva puerto, y la app espera siempre en ese."""
+    assert urlparse(sp.REDIRECT_URI).port == sp.CALLBACK_PORT
+    steps = [st for sec in make(tmp_path, api).setup_info()["sections"] for st in sec["steps"]]
+    assert [st["copy"] for st in steps if "copy" in st] == [sp.REDIRECT_URI]
+
+
+def test_if_the_port_is_taken_the_message_says_so(tmp_path, api):
+    """Otro programa escucha en el puerto: la app no lo abre y explica qué pasa (no "algo salió mal")."""
+    import socket
+    other = socket.socket()
+    other.bind(("127.0.0.1", sp.CALLBACK_PORT))
+    other.listen()
+    try:
+        c = make(tmp_path, api, logged=False, open_browser=lambda *a: pytest.fail("no tenía que abrir nada"))
+        with pytest.raises(ConnectorError, match="puerto 8973"):
+            c.connect(None)
+    finally:
+        other.close()
