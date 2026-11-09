@@ -1,80 +1,83 @@
 # PlaylistTransfer
 
-Una app de escritorio para Windows que **pasa tus playlists entre Tidal, YouTube Music y Spotify** y **quita temas repetidos**. Gratis, open source y sin cuentas propias: todo pasa en tu compu.
+**English** · [Castellano](README.es.md)
 
-![Inicio](docs/img/inicio.png)
+A Windows desktop app that **moves your playlists between Tidal, YouTube Music and Spotify** and **removes duplicate songs**. Free, open source and with no accounts of its own: everything happens on your computer.
 
-## Descargar
+![Home](docs/img/en/inicio.png)
 
-1. Entrá a [**Releases**](../../releases/latest) y bajá `PlaylistTransfer-<versión>-windows.zip`.
-2. Descomprimilo donde quieras (por ejemplo, en Documentos).
-3. Abrí `PlaylistTransfer.exe`. No hace falta instalar Python.
+## Download
 
-> **Windows protegió su PC:** aparece porque el programa todavía no está firmado digitalmente. Tocá **Más información → Ejecutar de todas formas**. Si querés verificar el archivo, cada release trae su código SHA-256.
+1. Go to [**Releases**](../../releases/latest) and download `PlaylistTransfer-<version>-windows.zip`.
+2. Unzip it anywhere (for example, in Documents).
+3. Open `PlaylistTransfer.exe`. You don't need to install Python.
 
-Funciona en Windows 10 y 11.
+> **Windows protected your PC:** this shows up because the program isn't digitally signed yet. Click **More info → Run anyway**. If you want to verify the file, every release includes its SHA-256 checksum.
 
-## Qué hace
+Works on Windows 10 and 11.
 
-**Transferir.** Elegís una playlist de origen y una o varias de destino (o una nueva). Ves cada tema en vivo: ✓ agregado, ? puede ser otra versión (decidís vos al final), ✗ no encontrado y ≈ ya estaba. Con *Probar sin cambiar nada* ves el resultado antes de tocar tus playlists.
+## What it does
 
-![Transferir](docs/img/transferir.png)
+**Transfer.** Pick a source playlist and one or more destinations (or a new one). You see every song live: ✓ added, ? may be another version (you decide at the end), ✗ not found and ≈ already there. With *Preview without changes* you see the result before touching your playlists.
 
-**Quitar repetidos.** Encuentra la misma canción dos veces aunque sea otro video, un remaster u otra portada. Las versiones en vivo o remix aparecen sin tildar, y nada se quita sin que lo confirmes.
+![Transfer](docs/img/en/transferir.png)
 
-![Quitar repetidos](docs/img/repetidos.png)
+**Remove duplicates.** Finds the same song twice even if it's another video, a remaster or another cover. Live versions and remixes are left unchecked, and nothing is removed until you confirm.
 
-**Historial.** Cada transferencia y cada limpieza quedan registradas con el detalle de cada tema. Si querés, lo descargás como un archivo de texto liviano, fácil de leer o de pasarle a una IA.
+![Remove duplicates](docs/img/en/repetidos.png)
 
-![Historial](docs/img/historial.png)
+**History.** Every transfer and every cleanup is recorded, song by song. If you want, you can download it as a lightweight text file, easy to read or to hand to an AI.
+
+![History](docs/img/en/historial.png)
 
 ## Spotify
 
-Spotify es opcional y pide dos cosas (las exige Spotify desde 2026, no la app):
+Spotify is optional and requires two things (Spotify has required them since 2026, not the app):
 
 1. **Spotify Premium.**
-2. **Tu propia app de Spotify**, gratis: en **Conexiones › Spotify › Configurar** la app te guía paso por paso, con un botón para cada página y para copiar cada dato que hay que pegar. La usan solo vos y hasta 5 personas que agregues.
+2. **Your own Spotify app**, free: in **Connections › Spotify › Set up** the app guides you step by step, with a button for each page and for copying each value you need to paste. Only you and up to 5 people you add can use it.
 
-> **Todavía en prueba:** la conexión con Spotify está probada contra una simulación de su API, pero nadie la probó aún con una cuenta Premium real. Si la probás, contanos cómo te fue (y si algún nombre de botón de los pasos no coincide con lo que ves en Spotify).
+> **Still being tested:** the Spotify connection is tested against a simulation of its API, but nobody has tried it with a real Premium account yet. If you do, let us know how it went (and whether any button name in the steps doesn't match what you see on Spotify).
 
-Detalles: Spotify solo deja leer tus playlists y las colaborativas; cada 6 meses pide volver a conectar. Para quitar un repetido exacto, Spotify saca todas las copias, así que la app vuelve a poner la que queda en su lugar (aparece como agregada de nuevo) y lo verifica. Entre Tidal y Spotify las coincidencias suelen ser exactas (las dos usan el código ISRC de cada grabación).
+Details: Spotify only lets apps read your own and collaborative playlists, and asks you to reconnect every 6 months. To remove an exact duplicate, Spotify removes every copy, so the app puts the remaining one back in its place (it shows up as added again) and checks it. Between Tidal and Spotify matches are usually exact (both use each recording's ISRC code).
 
-## Cómo decide si es "la misma canción"
+## How it decides it's "the same song"
 
-- Tiene que coincidir **el artista**. Una canción puede tenerla más de un artista: si buscás el *Hallelujah* de Jeff Buckley y solo está el de Leonard Cohen, no se agrega solo; la app te lo ofrece y decidís vos.
-- Covers, karaokes y tributos no cuentan como el original.
-- Partes y secuelas son temas distintos (*Pt. 1* ≠ *Pt. 2*, *The Unforgiven* ≠ *The Unforgiven II*), y un *Intro* de otro álbum también.
-- Una versión en vivo, acústica o remix del mismo tema queda marcada con **?** y **no se agrega sola**: al final decidís con "+ Agregar igual".
+- **The artist** has to match. A song can be recorded by more than one artist: if you're looking for Jeff Buckley's *Hallelujah* and only Leonard Cohen's is there, it isn't added on its own; the app offers it and you decide.
+- Covers, karaoke and tribute versions don't count as the original.
+- Parts and sequels are different songs (*Pt. 1* ≠ *Pt. 2*, *The Unforgiven* ≠ *The Unforgiven II*), and so is an *Intro* from another album.
+- A live, acoustic or remix version of the same song is marked with **?** and **isn't added on its own**: at the end you decide with "+ Add anyway".
 
-Los umbrales se pueden ajustar en **Ajustes › Coincidencias**.
+The thresholds can be adjusted in **Settings › Matching**.
 
-La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez usa el idioma de Windows. / *The app is available in Spanish and English (Settings › Language).*
+The app is available in **English and Spanish** (Settings › Language). The first time, it uses your Windows language.
 
-## Privacidad
+## Privacy
 
-- Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, cerrá la app y borrá esa carpeta.
-- La app no tiene servidores ni estadísticas: solo habla con Tidal, YouTube Music y Spotify.
-- Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen. Spotify usa su API oficial, con la app que creás vos.
+- You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, close the app and delete that folder.
+- The app has no servers and no analytics: it only talks to Tidal, YouTube Music and Spotify.
+- It uses **unofficial** libraries ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, it may stop working until they're updated. Spotify uses its official API, with the app you create.
 
-No está afiliado a Tidal, Google ni Spotify.
+Not affiliated with Tidal, Google or Spotify.
 
-## Para desarrollar
+## Development
 
-Necesitás Windows y Python 3.14.
+You need Windows and Python 3.14.
 
 ```powershell
 py -m pip install -r requirements-dev.txt
-py -m pytest -q                 # tests (los de la UI necesitan playwright y Edge)
-py -m app                       # abre la app
-py packaging/build.py           # arma dist/PlaylistTransfer-<versión>-windows.zip
+py -m pytest -q                 # tests (the UI ones need playwright and Edge)
+py -m app                       # opens the app
+py packaging/build.py           # builds dist/PlaylistTransfer-<version>-windows.zip
 ```
 
-- `app/core/`: el motor (coincidencias, repetidos, transferencias). Cada regla tiene su escenario en `tests/test_scenarios.py`.
-- `app/connectors/`: un conector por servicio, con la misma interfaz. Todos se declaran en `registry.py`: de ahí salen la API y la ventana.
-- `app/ui/`: la interfaz (HTML, CSS y JS, sin frameworks), dentro de una ventana de [pywebview](https://pywebview.flowrl.com/).
-- [`SPEC.md`](SPEC.md): el plan, las fases y por qué se decidió cada cosa.
-- Publicar una versión: subí el número en `app/__init__.py` y creá el tag `vX.Y.Z`. GitHub Actions corre los tests, compila el `.exe`, prueba que abra y lo publica en Releases.
+- `app/core/`: the engine (matching, duplicates, transfers). Each rule has its scenario in `tests/test_scenarios.py`.
+- `app/connectors/`: one connector per service, all with the same interface. They're all declared in `registry.py`: the API and the window are built from there.
+- `app/ui/`: the interface (HTML, CSS and JS, no frameworks), inside a [pywebview](https://pywebview.flowrl.com/) window.
+- [`SPEC.md`](SPEC.md): the plan, the phases and why each decision was made (in Spanish).
+- Code comments are still in Spanish; translating them is planned.
+- Releasing a version: bump the number in `app/__init__.py` and `pyproject.toml` and push the tag `vX.Y.Z`. GitHub Actions runs the tests, builds the `.exe`, checks that it opens and publishes it in Releases.
 
-## Licencia
+## License
 
-[MIT](LICENSE). Las librerías incluidas tienen sus propias licencias (ver `THIRD-PARTY-NOTICES.txt` dentro del zip). tidalapi es LGPL-3.0: en la app va como archivos `.py` sueltos en `_internal\tidalapi`, así se puede reemplazar por otra versión.
+[MIT](LICENSE). The bundled libraries have their own licenses (see `THIRD-PARTY-NOTICES.txt` inside the zip). tidalapi is LGPL-3.0: the app ships it as plain `.py` files in `_internal\tidalapi`, so it can be replaced with another version.

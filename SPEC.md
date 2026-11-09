@@ -70,7 +70,7 @@ PlaylistTransfer/
 ├── tests/                      # pytest: matching, transfer con conectores falsos, history, browsers
 ├── legacy/transfer_playlist.py # script de consola original (referencia)
 ├── .github/workflows/build.yml
-├── LICENSE, README.md, SPEC.md, CLAUDE.md
+├── LICENSE, README.md (inglés), README.es.md, SPEC.md, CLAUDE.md
 ```
 
 **Interfaz `Connector`** (todos los servicios la cumplen):
