@@ -64,6 +64,7 @@ class TargetResult:
     versions: list[tuple[Song, Song, str]] = field(default_factory=list)   # (match, el que estaba, por qué)
     created: bool = False
     url: str | None = None
+    history_id: int | None = None     # su operación en el historial: lo que se agrega después va ahí
 
 
 @dataclass

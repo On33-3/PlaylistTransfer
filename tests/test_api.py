@@ -128,7 +128,11 @@ def test_add_the_version_of_another_artist_only_when_asked(app):
     assert hallelujah["alternatives"][0]["artist"] == "Leonard Cohen"
     a = wait(api, api.add_alternative(r["result"]["transfer"], 2, 0)["job"])
     assert a["state"] == "done" and [s.id for s in yt.songs("dst")] == ["y1", "y2"]
-    assert len(api.history()) == 2
+    assert "error" in api.add_alternative(r["result"]["transfer"], 2, 0)    # un tema se agrega una sola vez
+    assert a["result"]["summary"]["not_found"] == 0 and a["result"]["targets"][0]["added"] == 2
+    ops = api.history()                                                     # es la misma transferencia: una sola fila
+    assert len(ops) == 1 and (ops[0]["added"], ops[0]["not_found"]) == (2, 0)
+    assert "ok" in ops[0]["tiles"] and "no_encontrado" not in ops[0]["tiles"]
 
 
 def test_alternatives_are_not_offered_after_a_dry_run(app):
@@ -413,8 +417,8 @@ def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
     assert [s.id for s in yt.songs("dst")] == ["y1", "ylive"]
     assert "error" in api.add_doubtful(key, [1])                            # ya no se ofrece de nuevo
     ops = api.history()
-    assert ops[0]["added"] == 1 and ops[0]["doubtful"] == 1
-    assert ops[1]["skipped"] == 1
+    assert len(ops) == 1 and (ops[0]["added"], ops[0]["doubtful"], ops[0]["skipped"]) == (2, 1, 0)
+    assert a["result"]["summary"]["skipped"] == 0 and a["result"]["targets"][0]["added"] == 2
 
 
 def test_add_later_does_not_duplicate_what_is_already_there(doubtful_app):

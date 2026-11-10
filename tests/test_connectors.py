@@ -603,3 +603,30 @@ def test_yt_liked_songs_without_a_count_are_still_offered(answer, expected):
                 raise answer
             return answer
     assert ytc(NoCount()).list_playlists()[0].count is expected
+
+
+class FlakyYT(FakeYT):
+    """YouTube a veces contesta vacío: ytmusicapi falla al interpretarlo."""
+    def __init__(self, bad):
+        super().__init__([{"title": "Uno", "videoId": "v1", "artists": [{"name": "A"}]}])
+        self.bad, self.reads = bad, 0
+
+    def get_playlist(self, pid, limit=None):
+        self.reads += 1
+        if self.reads <= self.bad:
+            raise json.JSONDecodeError("Expecting value", "", 0)
+        return super().get_playlist(pid, limit)
+
+
+def test_yt_a_bad_answer_while_reading_a_long_list_is_retried(monkeypatch):
+    monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
+    client = FlakyYT(bad=2)
+    assert [s.id for s in ytc(client).read("PL1")[1]] == ["v1"] and client.reads == 3
+
+
+def test_a_service_that_keeps_answering_badly_gets_a_readable_message(monkeypatch):
+    from app.jobs import Jobs
+    monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
+    jobs = Jobs()
+    done = jobs.wait(jobs.start("scan", lambda emit, cancel: ytc(FlakyYT(bad=99)).read("PL1")))
+    assert done["state"] == "error" and done["error"].startswith("El servicio contestó") and "char" not in done["error"]

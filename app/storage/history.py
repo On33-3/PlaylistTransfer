@@ -162,3 +162,18 @@ class History:
                              for t in tracks])
         con.close()
         return op.id
+
+    def amend(self, operation_id: int, tracks: list[TrackRecord], **deltas: int) -> None:
+        """Lo que la persona decide después sobre una transferencia cambia esa misma operación:
+        el estado de esos temas y las cantidades (`added=1, not_found=-1`)."""
+        allowed = {"added", "already", "doubtful", "not_found", "skipped"}
+        if not deltas.keys() <= allowed:
+            raise ValueError(deltas)
+        con = self._connect(create=True)
+        with con:
+            for k, v in deltas.items():
+                con.execute(f"UPDATE operations SET {k} = MAX(0, {k} + ?) WHERE id = ?", (v, operation_id))
+            con.executemany("UPDATE operation_tracks SET status = ?, match_title = ?, match_artist = ?, score = ? "
+                            "WHERE operation_id = ? AND n = ?",
+                            [(t.status, t.match_title, t.match_artist, t.score, operation_id, t.n) for t in tracks])
+        con.close()

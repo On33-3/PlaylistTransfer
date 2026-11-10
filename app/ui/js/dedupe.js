@@ -4,6 +4,7 @@
 /* ---------------------------------------------------------------- quitar repetidos */
 
 async function renderDupControls() {
+  const turn = renderDupControls.turn = (renderDupControls.turn || 0) + 1;   // solo cuenta el último pedido
   const avail = USABLE.filter(connected);
   $("#dup-connect").hidden = avail.length > 0;
   $("#dup-controls").hidden = avail.length === 0;
@@ -13,17 +14,23 @@ async function renderDupControls() {
   $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
   // Con menos de 2 temas no puede haber repetidos (las de cantidad desconocida quedan)
   const all = await getPlaylists(state.dupService) || [];
+  if (turn !== renderDupControls.turn) return;
   const pls = all.filter(p => p.count == null || p.count >= 2);
   $("#dup-playlist").innerHTML = pls.length ? pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
     : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`;
+  // Redibujar no cambia la playlist elegida (antes, después de quitar temas se volvía a revisar otra)
+  const chosen = pls.some(p => String(p.id) === state.dupPlaylist);
+  if (chosen) $("#dup-playlist").value = state.dupPlaylist;
+  else if (state.dupPlaylist) clearDups();
+  state.dupPlaylist = $("#dup-playlist").value;
   const scan = $("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
 }
 
 $("#dup-svc").addEventListener("click", e => {
   const b = e.target.closest("[data-svc]"); if (!b || b.disabled) return;
-  state.dupService = b.dataset.svc; clearDups(); renderDupControls();
+  state.dupService = b.dataset.svc; state.dupPlaylist = null; clearDups(); renderDupControls();
 });
-$("#dup-playlist").addEventListener("change", clearDups);
+$("#dup-playlist").addEventListener("change", () => { state.dupPlaylist = $("#dup-playlist").value; clearDups(); });
 
 function clearDups() { state.scan = null; $("#dups").innerHTML = ""; $("#dup-summary").hidden = true; $("#dup-actions").hidden = true; }
 
@@ -74,6 +81,9 @@ $("#confirm-yes").addEventListener("click", async () => {
   const done = await follow(r.job);
   if (done.state === "done") {
     toast(t("dedupe.removed_toast", { songs: songs(done.result.removed), name: done.result.name }));
-    delete state.playlists[state.dupService]; await renderDupControls(); scanDups();
+    // Si le quedó menos de 2 temas sale de la lista: no hay que ponerse a revisar otra
+    const same = state.dupPlaylist;
+    forgetPlaylists(state.dupService); await renderDupControls();
+    if ($("#dup-playlist").value === same) scanDups();
   } else toast(done.error || t("dedupe.remove_error"));
 });

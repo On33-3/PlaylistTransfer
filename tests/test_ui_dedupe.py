@@ -1,6 +1,8 @@
 """Quitar repetidos: elegir la playlist, revisar y confirmar."""
 from __future__ import annotations
 
+import pytest
+
 from app.connectors import spotify
 from tests.fakes import S
 from tests.ui_helpers import check, make_api, open_page, shot, with_spotify
@@ -110,4 +112,66 @@ def test_playlists_that_cannot_have_duplicates_are_not_offered(browser, tmp_path
     page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
     values = page.eval_on_selector_all("#dup-playlist option", "os => os.map(o => o.value)")
     assert "uno" not in values and "cero" not in values and "dups" in values
+    assert errors == []
+
+
+def two_playlists(yt, keeps_enough=True):
+    uno = [S("Uno", "X", id="u1"), S("Uno", "X", id="u2")] + ([S("Otra", "X", id="o1")] if keeps_enough else [])
+    yt.add_playlist("aaa", "Primera", [S("Dos", "X", id="d1"), S("Dos", "X", id="d2")])
+    yt.add_playlist("bbb", "Segunda", uno)
+
+
+def open_dedupe(page):
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=bbb]", state="attached")
+
+
+@pytest.mark.parametrize("keeps_enough", [True, False])
+def test_after_removing_it_never_checks_another_playlist(browser, tmp_path, keeps_enough):
+    """Al redibujar la lista se volvía a la primera: después de quitar se revisaba otra playlist.
+    Si le queda un solo tema, sale de la lista y no se revisa ninguna."""
+    api, tidal, yt = make_api(tmp_path)
+    two_playlists(yt, keeps_enough)
+    page, errors = open_page(browser, api)
+    open_dedupe(page)
+    page.select_option("#dup-playlist", "bbb")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dups li")
+    page.click("#remove")
+    page.click("#confirm-yes")
+    page.wait_for_selector("text=«Segunda»")
+    page.wait_for_function("!state.busy")
+    page.wait_for_timeout(500)
+    assert (page.input_value("#dup-playlist") == "bbb") is keeps_enough
+    assert page.locator("#dups li").count() == 0                       # "Primera" tiene repetidos: no se miró
+    assert len(yt.songs("bbb")) == (2 if keeps_enough else 1) and len(yt.songs("aaa")) == 2
+    assert errors == []
+
+
+def test_a_new_playlist_shows_up_on_the_screen_being_watched(browser, tmp_path):
+    """Una transferencia que termina (o un servicio que se conecta) actualiza lo que se está viendo."""
+    api, tidal, yt = make_api(tmp_path)
+    two_playlists(yt)
+    page, errors = open_page(browser, api)
+    open_dedupe(page)
+    page.select_option("#dup-playlist", "bbb")
+    yt.add_playlist("ccc", "Recién creada", [S("Tres", "X", id="t1"), S("Cuatro", "X", id="t2")])
+    page.evaluate("serviceChanged('ytmusic')")
+    page.wait_for_selector("#dup-playlist option[value=ccc]", state="attached")
+    assert page.input_value("#dup-playlist") == "bbb"             # lo elegido no se pierde
+    assert errors == []
+
+
+def test_a_slow_answer_does_not_overwrite_the_service_chosen_later(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    two_playlists(yt)
+    page, errors = open_page(browser, api)
+    open_dedupe(page)
+    page.evaluate("""() => { const real = api.playlists; api.playlists = key => key === 'tidal'
+        ? new Promise(ok => setTimeout(() => real.call(api, key).then(ok), 400)) : real.call(api, key); }""")
+    page.click("#dup-svc [data-svc=tidal]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_timeout(700)
+    assert page.locator("#dup-playlist option[value=bbb]").count() == 1
     assert errors == []

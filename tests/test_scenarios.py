@@ -375,9 +375,9 @@ def test_classical_playlist_keeps_every_piece():
 
 
 def test_limit_number_on_one_side_only():
-    """Límite conocido: "Song 2" vs "Song" (Blur) se toma como coincidencia al transferir, porque
-    solo uno tiene número; distinguirlo rompería "Live at Wembley '86" vs el original. Es raro."""
-    assert classify(score(S("Song 2", "Blur", dur=122), S("Song", "Blur", dur=122))) == OK
+    """"Song 2" vs "Song" (Blur): solo uno tiene número, y separarlos por eso rompería "Live at Wembley
+    '86" vs el original. Antes se agregaba solo; ahora el "2" de más lo deja para revisar."""
+    assert classify(score(S("Song 2", "Blur", dur=122), S("Song", "Blur", dur=122))) == DOUBTFUL
     assert classify(score(S("Bohemian Rhapsody", "Queen", dur=354),
                           S("Bohemian Rhapsody - Live at Wembley '86", "Queen", dur=360))) == DOUBTFUL
 
@@ -434,3 +434,60 @@ def test_at_most_three_other_artists_are_offered():
     src = S("Hallelujah", "Jeff Buckley")
     others = [S("Hallelujah", name, id=name) for name in ("Leonard Cohen", "Pentatonix", "Rufus Wainwright", "John Cale")]
     assert [a.id for a in alternatives(src, others)] == ["Leonard Cohen", "Pentatonix", "Rufus Wainwright"]
+
+
+# Casos de una transferencia real de 1684 temas: se ofrecían artistas que no tenían nada que ver
+@pytest.mark.parametrize("src, cand", [
+    (S("Roncan RKT - REMIX", "Alan Gomez RMX"), S("INTRO MATADOR - SORE MIX", "BRIANMIX")),
+    (S("Bad Bunny", "Pê"), S("Bad Bunny - Tití Me Preguntó", "Skyline")),
+    (S("Trap Nation", "Bass Boosted HD"), S("Trap Nation - Best Of 2020", "Beats Gang")),
+    (S("Shrek", "Maaguz"), S("Shrek", "Skyline Lyrics")),
+])
+def test_unrelated_songs_are_not_offered_as_alternatives(src, cand):
+    assert alternatives(src, [cand]) == []
+
+
+@pytest.mark.parametrize("src, cand", [
+    (S("Sade - Smooth Operator (RICHIE ROZEX Remix)", "Stay See"), S("Smooth Operator", "RICHIE ROZEX")),   # elegida por el usuario
+    (S("Sub Urban - Cradles (slowed Reverb)", "iji macu"), S("Cradles", "Sub Urban")),
+    (S("Roncan RKT - REMIX", "Alan Gomez RMX"), S("Roncan RKT - REMIX", "BRIANMIX")),
+])
+def test_the_same_song_by_someone_else_is_still_offered(src, cand):
+    assert alternatives(src, [cand]) == [cand]
+
+
+def test_alternatives_do_not_repeat_and_the_closest_length_comes_first():
+    src = S("Mar de Luces", "Palmar", dur=200)
+    far, near = S("Mar de Luces", "Isabel Pantoja", dur=300, id="far"), S("Mar de Luces", "Romina", dur=205, id="near")
+    twin = S("Mar de Luces", "Isabel Pantoja", dur=301, id="twin")
+    assert [a.id for a in alternatives(src, [far, twin, near])] == ["near", "far"]
+
+
+# Coincidencias que se agregaban como buenas en una transferencia real de 1684 temas
+@pytest.mark.parametrize("src, cand, expected", [
+    # Karaoke, 8-bit o cover: el título nombra al original, pero la canta otro
+    (S("Gentleman", "PSY"), S("Gentleman (made popular by Psy) [backing version]", "Party Tyme"), NOT_FOUND),
+    (S("Mine All Day", "pewdiepie", "Party in Backyard"),
+     S("Mine All Day (8-Bit PewDiePie Emulation)", "8-Bit Arcade"), NOT_FOUND),
+    # "(feat. Sean Paul)" en el título no dice quién la subió
+    (S("Cheap Thrills (feat. Sean Paul)", "Sia", "Sean Paul"), S("Cheap Thrills (feat. Sean Paul)", "Vermillon League"),
+     NOT_FOUND),
+    # Una palabra de verdad de más, o lo que no comparten no se parece: para revisar
+    (S("Gettin' Over (feat. Chris Willis & Fergie)", "David Guetta", "Chris Willis", "Fergie"),
+     S("Gettin' Over You (feat. Fergie & LMFAO)", "David Guetta", "Chris Willis"), DOUBTFUL),
+    (S("God Mission - Español Version", "Teté Llosas & Melodyne MLD"),
+     S("Alone (Español Version)", "Lucho Gonzalez", "Teté Llosas & Melodyne MLD"), DOUBTFUL),
+    # El edit de otro es otra versión; el de un artista del tema o el "Radio Edit", no
+    (S("Help Me Lose My Mind", "Disclosure", "London Grammar"),
+     S("Disclosure - Help Me Lose My Mind (Coyote Paul Schranz Edit)", "Coyote Paul"), DOUBTFUL),
+    (S("It's A Killa (Shermanology Edit)", "Fisher (OZ)"), S("It's A Killa", "FISHER", "Shermanology"), OK),
+    (S("Intoxicated - Radio Edit", "Martin Solveig", "Good Times Ahead"),
+     S("Intoxicated (Edit)", "Martin Solveig", "Good Times Ahead"), OK),
+    # El remixer entre corchetes sí es artista del tema ("GTA" es Good Times Ahead)
+    (S("Red Lips (feat. Sam Bruno) - Skrillex Remix", "Good Times Ahead", "Sam Bruno", "Skrillex"),
+     S("Red Lips [Skrillex Remix] (feat. Sam Bruno)", "GTA"), OK),
+    # Erratas y restos cortos siguen siendo el mismo tema
+    (S("The Way You Make Me Feel", "Michael Jackson"), S("The Way U Make Me Feel", "Michael Jackson"), OK),
+])
+def test_what_a_real_transfer_added_by_mistake(src, cand, expected):
+    assert classify(score(src, cand)) == expected

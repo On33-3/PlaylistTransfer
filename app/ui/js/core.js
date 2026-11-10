@@ -97,6 +97,25 @@ function setBusy(b) {
 
 const connected = key => state.status[key] === "connected";
 
+/* ---------------------------------------------------------------- que todas las pantallas digan lo mismo */
+
+let playlistsVersion = 0;   // una respuesta pedida antes de olvidar las listas ya no se guarda
+
+function forgetPlaylists(key = null) {
+  playlistsVersion++;
+  if (key) delete state.playlists[key]; else state.playlists = {};
+}
+
+/** Cambió algo en un servicio (se agregaron temas, se creó una playlist, se conectó o se desconectó):
+ *  se olvida lo guardado y la pantalla que se está viendo se actualiza, sin perder lo elegido. */
+function serviceChanged(key) {
+  forgetPlaylists(key);
+  const screen = $(".screen.active")?.id;
+  if (screen === "repetidos") renderDupControls();
+  if (screen === "transferir" && !state.transfer) loadPickers();
+  if (screen === "historial") renderHistory();
+}
+
 /* ---------------------------------------------------------------- navegación */
 
 function go(id) {
@@ -105,7 +124,7 @@ function go(id) {
   $("main").scrollTop = 0;
   // Al entrar a elegir, las playlists se piden de nuevo: pudieron cambiar en el servicio ("Me gusta" nuevos).
   // Lo guardado solo evita repetir el pedido dentro de la misma pantalla (cambiar origen y destino)
-  if (id === "repetidos" || (id === "transferir" && !state.transfer)) state.playlists = {};
+  if (id === "repetidos" || (id === "transferir" && !state.transfer)) forgetPlaylists();
   if (id === "transferir" && !state.transfer) loadPickers();
   if (id === "repetidos") renderDupControls();
   if (id === "historial") renderHistory();
