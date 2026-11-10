@@ -630,3 +630,34 @@ def test_a_service_that_keeps_answering_badly_gets_a_readable_message(monkeypatc
     jobs = Jobs()
     done = jobs.wait(jobs.start("scan", lambda emit, cancel: ytc(FlakyYT(bad=99)).read("PL1")))
     assert done["state"] == "error" and done["error"].startswith("El servicio contestó") and "char" not in done["error"]
+
+
+def test_yt_a_bad_answer_when_checking_the_session_is_not_an_expired_session(tmp_path, monkeypatch):
+    """Una respuesta ilegible de paso, al abrir la app, hacía pedir reconectar sin motivo."""
+    monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
+    answers = iter([json.JSONDecodeError("Expecting value", "", 0), []])
+
+    class OnceBad:
+        def __init__(self, path): pass
+
+        def get_library_playlists(self, limit=None):
+            a = next(answers)
+            if isinstance(a, Exception):
+                raise a
+            return a
+    monkeypatch.setattr("ytmusicapi.YTMusic", OnceBad)
+    f = tmp_path / "browser.json"
+    f.write_text("{}")
+    assert YTMusicConnector(f, tmp_path).status() is Status.CONNECTED
+
+
+def test_yt_a_rejected_session_is_still_expired(tmp_path, monkeypatch):
+    class Rejected:
+        def __init__(self, path): pass
+
+        def get_library_playlists(self, limit=None):
+            raise Exception("Server returned HTTP 401: Unauthorized.")
+    monkeypatch.setattr("ytmusicapi.YTMusic", Rejected)
+    f = tmp_path / "browser.json"
+    f.write_text("{}")
+    assert YTMusicConnector(f, tmp_path).status() is Status.EXPIRED
