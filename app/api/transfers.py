@@ -7,7 +7,7 @@ import sqlite3
 from app.api.base import ApiBase, _artist, _remember
 from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError
-from app.core.matching import DOUBTFUL
+from app.core.matching import DOUBTFUL, NOT_FOUND, OK
 from app.core.transfer import (ALREADY, ALREADY_THERE, DOUBTFUL_SKIPPED, REPEATED, REPEATED_IN_SOURCE, PartialTransfer,
                                Target, TargetResult, TransferResult, already_there, ensure_playlist, plan_target,
                                run_transfer, song_dict, summary)
@@ -45,14 +45,18 @@ class TransfersApi(ApiBase):
                 self._record_transfer(result)
             key = f"transfer-{next(self._ids)}"
             _remember(self._transfers, key, result)      # para "agregar la versión de otro artista"
-            return {"transfer": key, "summary": summary(result), "source_name": result.source_name,
-                    "dry_run": result.dry_run,
-                    "targets": [{"name": t.target.name, "id": t.target.id, "url": t.url, "added": len(t.added),
-                                 "already": len(t.already), "versions": already_there(t) - len(t.already),
-                                 "created": t.created}
-                                for t in result.targets]}
+            return {"transfer": key, "source_name": result.source_name, "dry_run": result.dry_run, **self._outcome(result)}
 
         return self._start("transfer", work)
+
+    @staticmethod
+    def _outcome(result: TransferResult) -> dict:
+        """Las cantidades de la pantalla de resultado (cambian si después se agrega algo)."""
+        return {"summary": summary(result),
+                "targets": [{"name": t.target.name, "id": t.target.id, "url": t.url, "added": len(t.added),
+                             "already": len(t.already), "versions": already_there(t) - len(t.already),
+                             "created": t.created}
+                            for t in result.targets]}
 
     def add_alternative(self, transfer: str, n: int, k: int) -> dict:
         """El usuario eligió agregar la versión de otro artista (tema `n`, alternativa `k`)."""
@@ -62,6 +66,8 @@ class TransfersApi(ApiBase):
         track = next((t for t in result.tracks if t.n == int(n)), None)
         if track is None or not (0 <= int(k) < len(track.alternatives)):
             return {"error": tr("err.version_not_found")}
+        if track.status != NOT_FOUND:        # ya se eligió una: un tema no se agrega dos veces
+            return {"error": tr("err.version_not_found")}
         alt = track.alternatives[int(k)]
 
         def work(emit, cancel):
@@ -70,10 +76,12 @@ class TransfersApi(ApiBase):
             for t in result.targets:
                 self._ensure_playlist(dst, t, result)
                 dst.add(t.target.id, [alt])
+                t.added.append(alt)
                 done.append(t.target.name)
-                self._history.record(self._transfer_op(result, t, added=1),
-                                     [TrackRecord(1, "ok", track.source.title, _artist(track.source), alt.title, _artist(alt))])
-            return {"added": song_dict(alt), "targets": done}
+                self._amend_history(t, [TrackRecord(track.n, OK, track.source.title, _artist(track.source), alt.title, _artist(alt))],
+                                    added=1, not_found=-1)
+            track.status, track.match = OK, alt
+            return {"added": song_dict(alt), "names": done, **self._outcome(result)}
         return self._start("alternative", work)
 
     def add_doubtful(self, transfer: str, ns: list[int]) -> dict:
@@ -100,11 +108,14 @@ class TransfersApi(ApiBase):
                     self._ensure_playlist(dst, t, result)
                     dst.add(t.target.id, to_add)
                 present = {id(m) for m in to_add}
-                records = [TrackRecord(i, DOUBTFUL if id(x.match) in present else ALREADY, x.source.title,
+                records = [TrackRecord(x.n, DOUBTFUL if id(x.match) in present else ALREADY, x.source.title,
                                        _artist(x.source), x.match.title, _artist(x.match), round(x.score, 3))
-                           for i, x in enumerate(tracks, 1)]
-                self._history.record(self._transfer_op(result, t, added=len(to_add), doubtful=len(to_add),
-                                                       already=len(already) + len(versions)), records)
+                           for x in tracks]
+                t.added.extend(to_add)
+                t.already.extend(already)
+                t.versions.extend(versions)
+                self._amend_history(t, records, added=len(to_add), doubtful=len(to_add),
+                                    already=len(already) + len(versions), skipped=-len(tracks))
                 added_total += len(to_add)
                 added_ns |= {x.n for x in tracks if id(x.match) in present}
                 already_total += len(already) + len(versions)
@@ -112,7 +123,7 @@ class TransfersApi(ApiBase):
                 x.status = DOUBTFUL
             return {"ns": [x.n for x in tracks], "added_ns": sorted(added_ns), "added": added_total,
                     "already": already_total,
-                    "url": next((t.url for t in result.targets if t.url), None)}
+                    "url": next((t.url for t in result.targets if t.url), None), **self._outcome(result)}
         return self._start("add_doubtful", work)
 
     @staticmethod
@@ -154,8 +165,17 @@ class TransfersApi(ApiBase):
 
     def _record_transfer(self, result: TransferResult) -> None:
         """El historial es un registro: si no se puede escribir, la transferencia igual salió bien."""
-        for op, tracks in self._transfer_operations(result):
+        for t, (op, tracks) in zip(result.targets, self._transfer_operations(result)):
             try:
-                self._history.record(op, tracks)
+                t.history_id = self._history.record(op, tracks)
             except (sqlite3.Error, OSError):
                 log.exception("No pude guardar en el historial")
+
+    def _amend_history(self, t: TargetResult, tracks: list[TrackRecord], **deltas: int) -> None:
+        """Lo agregado después es parte de la misma transferencia: corrige su fila, no suma otra."""
+        if t.history_id is None:
+            return
+        try:
+            self._history.amend(t.history_id, tracks, **deltas)
+        except (sqlite3.Error, OSError):
+            log.exception("No pude guardar en el historial")

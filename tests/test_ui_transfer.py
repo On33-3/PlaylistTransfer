@@ -20,14 +20,18 @@ def test_transfer_live_then_add_another_artist(browser, tmp_path):
     done = page.inner_text("#done")
     assert "«Para correr»" in done and "agregaste 1 tema; 1 ya estaba en otra versión" in done
     tracks = page.inner_text("#run")                                # lista y "Para revisar"
-    assert "No está la de Jeff Buckley" in tracks and "Ya estaba como «Mr. Blue Sky - 2012 Remaster»" in tracks
+    assert "No está esa versión" in tracks and "Jeff Buckley. No está" in tracks and "+ Hallelujah · Leonard Cohen" in tracks and "Ya estaba como «Mr. Blue Sky - 2012 Remaster»" in tracks
     shot(page, "4-transferir-resultado")
     page.click("[data-alt='3:0']")
     page.wait_for_selector("text=Agregada la de Leonard Cohen")
     assert [s.id for s in yt.songs("dst")] == ["y2old", "y1", "y3"]          # el en vivo (?) no se agregó solo
+    # La pantalla dice lo que quedó: se pasó al "agregado", y no se puede elegir otra para el mismo tema
+    assert [page.inner_text(f"#n-{k}") for k in ("ok", "doubt", "miss", "dup")] == ["2", "1", "0", "1"]
+    assert "agregaste 2 temas" in page.inner_text("#done")
+    assert "ok" in page.get_attribute("#mosaic i:nth-child(3)", "class")
     page.click("nav [data-go=historial]")
     page.wait_for_selector("#hist li[data-op]")
-    page.click("#hist button.row >> nth=1")
+    page.click("#hist button.row")
     page.wait_for_selector("#hist li.open .detail .badge")
     assert "Hallelujah" in page.inner_text("#hist")
     shot(page, "5-historial")
@@ -322,4 +326,33 @@ def test_the_remaining_time_is_shown_while_searching(browser, tmp_path):
     assert check(page, "transferir") == []
     shot(page, "transferir-tiempo-restante")
     assert page.evaluate(eta, [100, 100, 100000]) is None               # el último
+    assert errors == []
+
+
+def test_a_redraw_keeps_what_was_chosen(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    page.check("input[name=src][value=src]")
+    page.check("input[name=dst][value=dst]")
+    yt.add_playlist("nueva", "Recién creada", [S("Uno", "X", id="n1")])
+    page.evaluate("serviceChanged('ytmusic')")
+    page.wait_for_selector("input[name=dst][value=nueva]")
+    assert page.is_checked("input[name=src][value=src]") and page.is_checked("input[name=dst][value=dst]")
+    assert page.is_enabled("#go") and errors == []
+
+
+def test_the_history_shows_one_row_after_deciding_later(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    page.click("[data-alt='3:0']")
+    page.wait_for_selector("text=Agregada la de Leonard Cohen")
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist li[data-op]")
+    assert page.locator("#hist li[data-op]").count() == 1
+    page.click("#hist button.row")
+    page.wait_for_selector("#hist li.open .detail .badge")
+    sizes = page.evaluate("[...document.querySelectorAll('#hist .detail .badge')].map(b => b.getBoundingClientRect().width)")
+    assert set(sizes) == {20}                                          # con texto largo tampoco se achica
     assert errors == []

@@ -108,8 +108,7 @@ async function connectService(key) {
   if (done.state === "done") toast(t("settings.connected_toast", { service: NAMES[key] }));
   else if (done.state === "cancelled") toast(t("settings.login_cancelled"));
   else toast(done.error || t("settings.connect_error"));
-  delete state.playlists[key];
-  await refreshStatus(); renderConnections();
+  await refreshStatus(); renderConnections(); serviceChanged(key);
 }
 
 /** Mientras espera el inicio de sesión: si la persona cerró la ventana del navegador, la app no se entera
@@ -160,7 +159,7 @@ $("#svc-list").addEventListener("click", async e => {
     const key = d.dataset.disconnect;
     if (await call("disconnect", key)) {
       toast(t("settings.disconnected_toast", { service: NAMES[key] }));
-      delete state.playlists[key]; await refreshStatus(); renderConnections();
+      await refreshStatus(); renderConnections(); serviceChanged(key);
     }
   }
 });

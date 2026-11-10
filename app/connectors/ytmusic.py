@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import threading
@@ -12,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from app.auth import cdp_login, firefox
 from app.auth.browsers import Browser
 from app.auth.cdp_login import LoginError
-from app.connectors.base import (BATCH, LIKED, Connector, ConnectorError, NotConnectedError, NotOwnerError,
+from app.connectors.base import (BATCH, LIKED, RATE_LIMIT_WAITS, Connector, ConnectorError, NotConnectedError, NotOwnerError,
                                  Status, liked_info, require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
@@ -165,12 +166,23 @@ class YTMusicConnector(Connector):
     def list_playlists(self) -> list[PlaylistInfo]:
         """Las canciones que te gustan (primero) y las playlists de la biblioteca."""
         liked, out = None, []
-        for p in self._ready().get_library_playlists(limit=None):
+        for p in self._steady(self._ready().get_library_playlists, None):
             if p.get("playlistId") == LIKED_LIST:
                 liked = parse_count(p.get("count"))
             elif p.get("playlistId") not in SKIP_PLAYLISTS:
                 out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
         return [liked_info(liked if liked is not None else self._liked_count())] + out
+
+    def _steady(self, call, *args):
+        """Leer una lista larga son muchos pedidos seguidos, y YouTube a veces contesta uno vacío o sin JSON
+        (ytmusicapi falla al interpretarlo, antes de mirar el código HTTP). Se reintenta la lectura entera."""
+        for wait in RATE_LIMIT_WAITS:
+            try:
+                return self.patient(call, *args)
+            except json.JSONDecodeError as e:
+                log.warning("YouTube Music: respuesta ilegible (%d caracteres); reintento en %s s", len(e.doc), wait)
+                time.sleep(wait)
+        return self.patient(call, *args)
 
     def _liked_count(self) -> int | None:
         """La lista "Me gusta" es automática: en la biblioteca no trae cantidad (se veía como vacía)."""
@@ -182,7 +194,7 @@ class YTMusicConnector(Connector):
         return count if isinstance(count, int) else None
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
-        pl = self._ready().get_playlist(LIKED_LIST if playlist_id == LIKED else playlist_id, limit=None)
+        pl = self._steady(self._ready().get_playlist, LIKED_LIST if playlist_id == LIKED else playlist_id, None)
         songs = [self.to_song(t) for t in pl.get("tracks", []) if t.get("title")]
         if playlist_id == LIKED:
             return tr("playlist.liked"), songs

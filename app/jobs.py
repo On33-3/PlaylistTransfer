@@ -6,6 +6,7 @@ desde varios hilos a la vez, y la UI no deja empezar otra mientras hay una en cu
 from __future__ import annotations
 
 import itertools
+import json
 import logging
 import threading
 import traceback
@@ -43,6 +44,8 @@ def unexpected_message(e: BaseException) -> str:
     """Lo que ve el usuario ante un error no previsto: sin internet se dice así; lo demás, con su detalle."""
     if is_network_error(e):
         return tr("err.no_network_generic")
+    if isinstance(e, json.JSONDecodeError):          # el servicio contestó algo que no es lo que debía
+        return tr("err.bad_answer")
     return tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
 
 
@@ -85,14 +88,15 @@ class Jobs:
             except Cancelled:
                 with job.lock:
                     job.state = CANCELLED
-            except USER_ERRORS as e:
+            except Exception as e:
+                # JSONDecodeError es un ValueError, pero su texto no le dice nada a nadie
+                if isinstance(e, USER_ERRORS) and not isinstance(e, json.JSONDecodeError):
+                    message = str(e)
+                else:                   # error inesperado: se registra completo y se avisa corto
+                    log.error("Falló %s:\n%s", job.id, traceback.format_exc())
+                    message = unexpected_message(e)
                 with job.lock:
-                    job.error, job.state = str(e), ERROR
-            except Exception as e:      # error inesperado: se registra completo y se avisa corto
-                log.error("Falló %s:\n%s", job.id, traceback.format_exc())
-                with job.lock:
-                    job.error = unexpected_message(e)
-                    job.state = ERROR
+                    job.error, job.state = message, ERROR
 
         t = threading.Thread(target=run, name=job.id, daemon=True)
         self._threads[job.id] = t

@@ -50,13 +50,33 @@ function updateSwapTitle() {
 
 async function getPlaylists(key, force = false) {
   if (!force && state.playlists[key]) return state.playlists[key];
+  const version = playlistsVersion;
   const r = await call("playlists", key);
-  if (Array.isArray(r)) state.playlists[key] = r;
+  if (Array.isArray(r) && version === playlistsVersion) state.playlists[key] = r;
   return Array.isArray(r) ? r : null;
 }
 
+/** Lo marcado en las listas, para redibujarlas sin perderlo (si sigue siendo la misma ruta). */
+function rememberPicks(route) {
+  if (!$("#src-list input")) return;
+  state.picked = { route, src: $("input[name=src]:checked")?.value, dst: $$("input[name=dst]:checked").map(i => i.value),
+                   isNew: !!$("#dst-new")?.checked, newName: $("#dst-new-name")?.value || "", touched: $("#dst-new-name")?.dataset.touched };
+}
+
+function restorePicks(route) {
+  const p = state.picked; if (!p || p.route !== route) return;
+  $$("input[name=src]").forEach(i => { i.checked = i.value === p.src; });
+  $$("input[name=dst]").forEach(i => { i.checked = p.dst.includes(i.value); });
+  const name = $("#dst-new-name");
+  if ($("#dst-new")) $("#dst-new").checked = p.isNew;
+  name.hidden = !p.isNew; name.value = p.newName;
+  if (p.touched) name.dataset.touched = p.touched;
+}
+
 async function loadPickers() {
-  const { from, to } = state;
+  const turn = loadPickers.turn = (loadPickers.turn || 0) + 1;     // solo cuenta el último pedido
+  const { from, to } = state, route = `${from}>${to}`;
+  rememberPicks(route);
   $("#route-lede").textContent = t("transfer.lede");
   $("#src-title").textContent = t("transfer.src_title", { service: NAMES[from] });
   $("#dst-title").textContent = t("transfer.dst_title", { service: NAMES[to] });
@@ -69,6 +89,7 @@ async function loadPickers() {
   }
   $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">${esc(t("transfer.loading"))}</li>`;
   const [all, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
+  if (turn !== loadPickers.turn) return;
   // De origen, solo las que tienen algo para pasar (las de cantidad desconocida quedan: el servicio no la dice)
   const src = all && all.filter(p => p.count !== 0);
   // El nombre va en su propio span: si es muy largo se corta con "…" y se ve completo al pasar el mouse
@@ -83,6 +104,7 @@ async function loadPickers() {
   const withFilter = Math.max((src || []).length, (dst || []).length) > FILTER_FROM;
   addFilter("#src-list", withFilter, t("transfer.src_title", { service: NAMES[from] }));
   addFilter("#dst-list", withFilter, t("transfer.dst_title", { service: NAMES[to] }));
+  restorePicks(route);
   updateGo();
 }
 
@@ -148,12 +170,12 @@ function trackHTML(e) {
   if (e.status === "dudoso_omitido" && m) {
     note = t(state.transfer?.dryRun ? "transfer.note_skipped_dry" : "transfer.note_skipped", { title: m.title, artist: m.artist || "?" });
   }
-  if (e.status === "no_encontrado") note = e.alternatives?.length ? t("transfer.note_miss_alts", { artist: s.artist }) : t("transfer.note_miss");
+  if (e.status === "no_encontrado") note = e.alternatives?.length ? t("transfer.note_miss_alts") : t("transfer.note_miss");
   if (e.status === "repetido") note = e.as ? t("transfer.note_repeated_as", { title: e.as.title }) : t("transfer.note_repeated");
   else if (e.as) note = t("transfer.note_already_as", { title: e.as.title });
   else if (e.status === "ya_estaba") note = t("transfer.note_already");
   let alts = e.status === "no_encontrado" && e.alternatives?.length
-    ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="${esc(t("transfer.alt_title"))}">+ ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
+    ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="${esc(t("transfer.alt_title", { title: a.title, artist: a.artist || "?" }))}">+ ${esc(a.title)} · ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
   if (e.status === "dudoso_omitido" && m && !state.transfer?.dryRun) {   // el usuario decide: "+ Agregar igual"
     alts = `<div class="alts"><button data-add-doubtful="${e.n}" disabled title="${esc(t("transfer.add_anyway_title", { title: m.title, artist: m.artist || "?" }))}">${esc(t("transfer.add_anyway"))}</button></div>`;
   }
@@ -166,7 +188,7 @@ async function startTransfer(dryRun) {
   if (!src || !targets.length) return;
   const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
-  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {} };
+  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {}, to: state.to };
   $("#add-all").hidden = true;
   $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#review-list").innerHTML = ""; $("#review").hidden = true;
@@ -181,6 +203,7 @@ async function startTransfer(dryRun) {
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
   $("#run-actions").hidden = true; $("#eta").hidden = true; setStep(2);
+  if (!dryRun) serviceChanged(tr.to);          // aun si falló o se canceló: pudo haber escrito algo
   if (done.state === "done") {
     showTransferResult(tr, done.result);
   } else {
@@ -257,6 +280,14 @@ $("#mosaic").addEventListener("click", e => {
 
 function showTransferResult(tr, res) {
   tr.result = res;
+  showDoneText(tr, res);
+  if (!res.dry_run) $$("#tracks [data-alt], #tracks [data-add-doubtful]").forEach(b => { b.disabled = false; });
+  showReview(tr, res);
+  updateAddAll();
+}
+
+/** El recuadro de resultado. Se vuelve a escribir si la persona agrega algo después. */
+function showDoneText(tr, res) {
   const lines = res.targets.map(x => {
     const extras = [];
     if (x.already) extras.push(t("transfer.extra_already", { n: x.already }));
@@ -277,9 +308,24 @@ function showTransferResult(tr, res) {
   $("#open-dest").textContent = t("transfer.open", { service: NAMES[state.to] });
   $("#open-dest").onclick = () => first && call("open_url", first.url);
   $("#done").classList.add("show");
-  if (!res.dry_run) $$("#tracks [data-alt], #tracks [data-add-doubtful]").forEach(b => { b.disabled = false; });
-  showReview(tr, res);
-  updateAddAll();
+}
+
+/** La persona decidió sobre un tema: cuadrado, ícono y cantidades pasan a decir lo que quedó. */
+function markDecided(tr, n, status) {
+  const prev = tr.tracks[n]; if (!prev) return;
+  tr.n[CLASS[prev.status]]--; tr.n[CLASS[status]]++;
+  tr.tracks[n] = { ...prev, status };
+  setBigTile(n, status, prev.song);
+  const badge = $(".badge", tr.rows[n]);
+  if (badge) { badge.className = `badge ${CLASS[status]}`; badge.textContent = SYMBOL[CLASS[status]]; }
+  showCounts(tr);
+}
+
+/** Después de agregar algo: el resultado y lo que muestran las otras pantallas. */
+function afterDecision(tr, outcome) {
+  Object.assign(tr.result, outcome);
+  showDoneText(tr, tr.result);
+  serviceChanged(tr.to);
 }
 
 /** "Para revisar": los temas en los que la persona puede hacer algo (un "?" para agregar igual, o la
@@ -315,9 +361,9 @@ async function addDoubtful(ns) {
     const b = $(`#run [data-add-doubtful="${n}"]`); if (!b) continue;
     b.classList.add("done");
     b.textContent = t(added.has(n) ? "transfer.added_anyway" : "transfer.add_anyway_already");
-    const prev = state.transfer.tracks[n];
-    if (prev && added.has(n)) setBigTile(n, "dudoso", prev.song);
+    markDecided(state.transfer, n, added.has(n) ? "ok" : "ya_estaba");
   }
+  afterDecision(state.transfer, { summary: done.result.summary, targets: done.result.targets });
   toast(added.size ? t("transfer.add_doubtful_toast", { n: added.size }) : t("transfer.add_doubtful_already"));
   updateAddAll();
 }
@@ -332,15 +378,19 @@ async function onTrackClick(e) {
   if (one && !one.disabled && !one.classList.contains("done") && state.transfer?.result) { addDoubtful([Number(one.dataset.addDoubtful)]); return; }
   const b = e.target.closest("[data-alt]"); if (!b || b.disabled || !state.transfer?.result) return;
   const [n, k] = b.dataset.alt.split(":").map(Number);
-  b.disabled = true;
+  const siblings = $$("[data-alt]", b.parentElement);       // un tema se agrega una sola vez
+  const enable = on => siblings.forEach(x => { x.disabled = !on; });
+  enable(false);
   const r = await call("add_alternative", state.transfer.result.transfer, n, k);
-  if (!r) { b.disabled = false; return; }
+  if (!r) { enable(true); return; }
   const done = await follow(r.job);
   if (done.state === "done") {
     const a = done.result.added;
     b.textContent = t("transfer.alt_added", { artist: a.artist });
     toast(t("transfer.alt_toast", { title: a.title, artist: a.artist }));
-  } else { b.disabled = false; toast(done.error || t("transfer.alt_error")); }
+    markDecided(state.transfer, n, "ok");
+    afterDecision(state.transfer, { summary: done.result.summary, targets: done.result.targets });
+  } else { enable(true); toast(done.error || t("transfer.alt_error")); }
 }
 $("#tracks").addEventListener("click", onTrackClick);
 $("#review-list").addEventListener("click", onTrackClick);
@@ -354,5 +404,5 @@ $("#cancel").addEventListener("click", () => {
 $("#again").addEventListener("click", () => {
   state.transfer = null;
   $("#cancel").disabled = false; $("#cancel").textContent = t("transfer.cancel");
-  state.playlists = {}; resetTransferView();
+  state.picked = null; $("#src-list").innerHTML = ""; forgetPlaylists(); resetTransferView();
 });
