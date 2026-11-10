@@ -76,11 +76,12 @@ class YTMusicConnector(Connector):
     # ---- sesión
 
     def _open(self):
-        """Abre browser.json y prueba la sesión con un pedido liviano. None si no sirve."""
+        """Abre browser.json y prueba la sesión con un pedido liviano. None si no sirve.
+        Una respuesta ilegible de paso no es una sesión vencida (pasó: se pedía reconectar sin motivo)."""
         from ytmusicapi import YTMusic
         try:
             yt = YTMusic(str(self.browser_file))
-            yt.get_library_playlists(limit=1)
+            self._steady(yt.get_library_playlists, 1)
             return yt
         except Exception as e:
             log.info("YouTube Music rechazó la sesión: %s: %s", type(e).__name__, e)
