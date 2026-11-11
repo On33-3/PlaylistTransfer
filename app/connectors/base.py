@@ -10,7 +10,7 @@ from enum import Enum
 
 from app.auth.browsers import Browser
 from app.core.matching import SCORE_OK, best_match
-from app.core.models import Duplicate, PlaylistInfo, Song
+from app.core.models import Cancelled, Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
 
 log = logging.getLogger(__name__)
@@ -42,6 +42,26 @@ def rate_limit_pause(e: BaseException) -> float | None:
                 pass
         return 0
     return None
+
+
+def human_wait(seconds: float) -> str:
+    """"45 s", "12 min", "3 h 20 min": cuánto pidió esperar un servicio."""
+    s = max(1, round(seconds))
+    if s < 60:
+        return tr("time.seconds", n=s)
+    m = -(-s // 60)
+    if m < 60:
+        return tr("time.minutes", n=m)
+    h, m = divmod(m, 60)
+    return tr("time.hours_minutes", h=h, m=m) if m else tr("time.hours", h=h)
+
+
+def clock_after(seconds: float, now=None) -> str:
+    """La hora a la que termina la espera ("18:40"); con fecha si es otro día ("11/11 18:40")."""
+    from datetime import datetime, timedelta
+    now = now or datetime.now()
+    end = now + timedelta(seconds=seconds)
+    return f"{end:%H:%M}" if end.date() == now.date() else f"{end:%d/%m %H:%M}"
 
 
 class Status(str, Enum):
@@ -125,8 +145,7 @@ class Connector(ABC):
         self._count_search_failure(tried > 0 and answered == 0)
         return found
 
-    @staticmethod
-    def patient(call: Callable, *args):
+    def patient(self, call: Callable, *args):
         """Hace un pedido; si el servicio pide frenar (muy común al marcar miles de "Me gusta" o buscar
         mucho), espera y reintenta unas veces en vez de dar el tema por fallado."""
         for wait in RATE_LIMIT_WAITS:
@@ -136,9 +155,33 @@ class Connector(ABC):
                 asked = rate_limit_pause(e)
                 if asked is None:
                     raise
-                log.warning("El servicio pidió frenar: espero %s s", min(asked or wait, MAX_RATE_LIMIT_WAIT))
-                time.sleep(min(asked or wait, MAX_RATE_LIMIT_WAIT))
+                self.pause(min(asked or wait, MAX_RATE_LIMIT_WAIT))
         return call(*args)
+
+    # ---- esperas: siempre se avisan (la persona ve una cuenta regresiva) y se pueden cancelar
+
+    _listener: Callable[[dict], None] | None = None
+    _cancel: threading.Event | None = None
+
+    def listen(self, emit: Callable[[dict], None] | None, cancel: threading.Event | None = None) -> None:
+        """Mientras dura una tarea: a dónde avisar las esperas y qué mirar para cortarlas. (None, None) al final."""
+        self._listener, self._cancel = emit, cancel
+
+    def pause(self, seconds: float, why: str = "rate") -> None:
+        """Espera lo que hace falta avisando por qué: "rate" (el servicio pidió una pausa) o "retry"
+        (contestó mal y se reintenta). Mira Cancelar cada medio segundo."""
+        log.warning("%s: %s, espero %s s", self.name, why, round(seconds, 1))
+        if self._listener is not None:
+            self._listener({"type": "waiting", "service": self.name, "why": why, "seconds": round(seconds)})
+        left = float(seconds)
+        while left > 0:
+            if self._cancel is not None and self._cancel.is_set():
+                raise Cancelled()
+            step = min(0.5, left)
+            time.sleep(step)
+            left -= step
+        if self._listener is not None:
+            self._listener({"type": "waited", "service": self.name})
 
     def _count_search_failure(self, failed: bool) -> None:
         """Una búsqueda que falla de vez en cuando se saltea. Pero si varios temas seguidos fallan en

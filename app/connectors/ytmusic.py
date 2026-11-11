@@ -181,8 +181,8 @@ class YTMusicConnector(Connector):
             try:
                 return self.patient(call, *args)
             except json.JSONDecodeError as e:
-                log.warning("YouTube Music: respuesta ilegible (%d caracteres); reintento en %s s", len(e.doc), wait)
-                time.sleep(wait)
+                log.warning("YouTube Music: respuesta ilegible (%d caracteres)", len(e.doc))
+                self.pause(wait, "retry")
         return self.patient(call, *args)
 
     def _liked_count(self) -> int | None:

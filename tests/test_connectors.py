@@ -575,12 +575,12 @@ def test_a_rate_limit_waits_and_retries_instead_of_losing_the_song(monkeypatch, 
             raise error
         return [S("A", "B", id="ok")]
     assert list(svc.collect(S("A", "B"), ["a"], fetch)) == ["ok"]
-    assert asked == ["a", "a"] and [w for w in slept if w] == waited
+    assert asked == ["a", "a"] and sum(slept) == sum(waited)          # en pedazos: se puede cancelar
 
 
 def test_a_rate_limit_that_never_ends_gives_up():
-    from app.connectors.base import Connector
     from app.connectors import base
+    from tests.fakes import FakeService
     calls = []
 
     def always():
@@ -589,7 +589,7 @@ def test_a_rate_limit_that_never_ends_gives_up():
     real, base.time.sleep = base.time.sleep, lambda _: None
     try:
         with pytest.raises(Exception, match="429"):
-            Connector.patient(always)
+            FakeService("x", "X").patient(always)
     finally:
         base.time.sleep = real
     assert len(calls) == len(base.RATE_LIMIT_WAITS) + 1

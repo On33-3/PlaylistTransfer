@@ -24,7 +24,8 @@ from urllib.parse import urlencode
 from app.auth import loopback
 from app.auth.browsers import Browser, open_url
 from app.connectors.base import (LIKED, Connector, ConnectorError, NoNetwork, NotConnectedError, NotOwnerError,
-                                 Status, is_network_error, liked_info, require_confirmation)
+                                 Status, clock_after, human_wait, is_network_error, liked_info,
+                                 require_confirmation)
 from app.core.matching import queries_for
 from app.core.models import Duplicate, PlaylistInfo, Song
 from app.i18n import t as tr
@@ -53,7 +54,11 @@ PAGE = 50              # temas o playlists por pedido (máximo de Spotify)
 ADD_BATCH = 100        # temas por pedido al agregar (máximo de Spotify)
 LIBRARY_BATCH = 40     # temas por pedido al guardar o quitar de "Me gusta" (/me/library, desde 2026)
 SEARCH_LIMIT = 10      # máximo desde febrero de 2026
-MAX_WAIT = 30          # segundos: si Spotify pide esperar más, se avisa en vez de esperar
+MAX_WAIT = 300         # segundos: hasta 5 minutos se espera (con cuenta regresiva); más, se corta y se avisa
+# Más despacio que los otros: las apps en modo desarrollo (cada persona crea la suya) tienen un límite bajo,
+# y con miles de temas se llegaba (se pedían horas de pausa). Cada pedido de pausa lo baja más.
+SEARCH_PAUSE_SPOTIFY = 0.8
+MAX_SEARCH_PAUSE = 4.0
 
 
 class TokenExpired(ConnectorError):
@@ -78,6 +83,7 @@ def valid_client_id(value: str) -> str:
 class SpotifyConnector(Connector):
     key = "spotify"
     name = "Spotify"
+    search_pause = SEARCH_PAUSE_SPOTIFY
     needs_setup = True
     removes_all_copies = True
 
@@ -225,13 +231,16 @@ class SpotifyConnector(Connector):
                     self._refresh()
                 continue
             if code == 429:
-                wait = int(r.headers.get("Retry-After", "1") or 1)
+                wait = _retry_after(r)
+                self.search_pause = min(max(self.search_pause, SEARCH_PAUSE_SPOTIFY) * 2, MAX_SEARCH_PAUSE)                     if self.search_pause else 0      # de acá en adelante, más despacio
+                log.warning("Spotify pidió esperar %s s (%s); pausa entre búsquedas: %s s", wait,
+                            _json(r).get("error") or "", self.search_pause)
                 if wait > MAX_WAIT or attempt == 3:
-                    raise RateLimited(tr("err.spotify_wait", seconds=wait))
-                time.sleep(wait)
+                    raise RateLimited(tr("err.spotify_wait", wait=human_wait(wait), clock=clock_after(wait)))
+                self.pause(wait)
                 continue
             if code >= 500 and attempt < 2:
-                time.sleep(1 + attempt)
+                self.pause(1 + attempt, "retry")
                 continue
             msg = (_json(r).get("error") or {})
             msg = msg.get("message", "") if isinstance(msg, dict) else str(msg)
@@ -441,6 +450,14 @@ class SpotifyConnector(Connector):
             self._call("POST", f"/playlists/{playlist_id}/items", body={"uris": lost})
             titles = {s.id: s.title for s in now}
             raise ConnectorError(tr("err.spotify_readded", titles=", ".join(dict.fromkeys(titles.get(u, u) for u in lost))))
+
+
+def _retry_after(r) -> int:
+    """Los segundos que pide Spotify (1 si no lo dice o no se entiende)."""
+    try:
+        return max(1, int(float(r.headers.get("Retry-After") or 1)))
+    except (TypeError, ValueError):
+        return 1
 
 
 def _json(r) -> dict:

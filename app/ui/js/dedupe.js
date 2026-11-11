@@ -40,7 +40,12 @@ async function scanDups() {
   $("#dup-summary").hidden = false; $("#dup-summary").innerHTML = `<span class="muted">${esc(t("dedupe.reading"))}</span>`;
   const r = await call("scan_duplicates", state.dupService, pid);
   if (!r) { $("#dup-summary").hidden = true; return; }
-  const done = await follow(r.job);
+  const reading = $("#dup-summary .muted");
+  const done = await follow(r.job, e => {                 // si el servicio pide esperar, se ve la cuenta regresiva
+    if (e.type === "waiting") showWaiting(reading, e);
+    if (e.type === "waited") { stopWaiting(reading); reading.textContent = t("dedupe.reading"); }
+  });
+  stopWaiting(reading);
   if (done.state !== "done") { $("#dup-summary").innerHTML = `<span class="error">${esc(done.error || t("dedupe.read_error"))}</span>`; return; }
   const res = state.scan = done.result;
   if (!res.duplicates.length) {

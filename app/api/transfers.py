@@ -14,6 +14,7 @@ from app.core.transfer import (ALREADY, ALREADY_THERE, DOUBTFUL_SKIPPED, REPEATE
 from app.i18n import t as tr
 from app.jobs import unexpected_message
 from app.storage.history import Operation, TrackRecord
+from app.storage.progress import SearchProgress
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ class TransfersApi(ApiBase):
             tgts = [Target(str(x.get("name") or "").strip() or tr("playlist.default_name"), x.get("id") or None) for x in targets]
             try:
                 result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
-                                      score_ok=p["score_ok"], score_min=p["score_min"])
+                                      score_ok=p["score_ok"], score_min=p["score_min"],
+                                      progress=SearchProgress(self._data_dir / "busquedas", source, source_id, target))
             except PartialTransfer as partial:          # lo que ya se pasó queda en el historial
                 if not partial.result.dry_run:
                     self._record_transfer(partial.result)

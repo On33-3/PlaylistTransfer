@@ -188,7 +188,9 @@ async function startTransfer(dryRun) {
   if (!src || !targets.length) return;
   const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
-  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {}, to: state.to };
+  const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {}, to: state.to,
+    cached: 0, pausedMs: 0, saved: null };
+  stopWaiting($("#eta")); $("#run-note").hidden = true;
   $("#add-all").hidden = true;
   $("#pick").hidden = true; $("#run").hidden = false; $("#done").classList.remove("show"); setStep(1);
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#review-list").innerHTML = ""; $("#review").hidden = true;
@@ -202,14 +204,22 @@ async function startTransfer(dryRun) {
   $('#run .legend [data-i18n="transfer.legend_skipped"]').textContent = t(`transfer.legend_skipped${dry}`);
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
-  $("#run-actions").hidden = true; $("#eta").hidden = true; setStep(2);
+  stopWaiting($("#eta")); $("#run-actions").hidden = true; $("#eta").hidden = true; $("#run-note").hidden = true; setStep(2);
   if (!dryRun) serviceChanged(tr.to);          // aun si falló o se canceló: pudo haber escrito algo
   if (done.state === "done") {
     showTransferResult(tr, done.result);
   } else {
     const cancelled = done.state === "cancelled";
     $("#done-title").textContent = t(cancelled ? "transfer.cancelled_title" : "transfer.failed_title");
-    $("#done-detail").textContent = cancelled ? t("transfer.cancelled_text") : (done.error || "");
+    // Si se cortó buscando, lo buscado quedó guardado: se dice, así se sabe que no hay que empezar de cero
+    const saved = tr.saved && t("transfer.saved", { done: tr.saved.done, total: tr.saved.total, service: NAMES[tr.to] });
+    $("#done-detail").innerHTML = [cancelled ? t("transfer.cancelled_text") : (done.error || ""), saved]
+      .filter(Boolean).map(esc).join("<br>");
+    // Se cortó buscando: no se agregó nada todavía. La leyenda no dice "Agregado" y el tema que se
+    // estaba buscando no queda como si siguiera
+    if (cancelled || tr.saved) $('#run .legend [data-i18n="transfer.legend_ok"]').textContent = t("transfer.legend_ok_stopped");
+    $$("#tracks .badge.now").forEach(b => b.closest("li").remove());
+    $$("#mosaic i.now").forEach(i => { i.className = ""; });
     $("#open-dest").hidden = true; $("#done").classList.add("show");
     // Si falló porque un servicio dejó de responder (sesión vencida), los chips lo muestran
     if (!cancelled) refreshStatus();
@@ -224,12 +234,14 @@ function showCounts(tr) {
 
 const ETA_AFTER = 5;     // con menos temas, el promedio todavía no dice nada
 
-/** Cuánto falta de búsqueda, según lo que tardó cada tema hasta ahora. */
+/** Cuánto falta de búsqueda, según lo que tardó cada tema buscado hasta ahora (sin los que ya estaban
+ * buscados de una vez anterior ni las pausas que pidió el servicio). */
 function updateEta(tr, n, now = performance.now()) {
-  const el = $("#eta");
-  el.hidden = n < ETA_AFTER || n >= tr.total;
+  const el = $("#eta"), searched = n - (tr.cached || 0);
+  if (el._wait) return;                    // mientras hay una pausa, se ve la cuenta regresiva
+  el.hidden = searched < ETA_AFTER || n >= tr.total;
   if (el.hidden) return;
-  const seconds = (now - tr.started) / 1000 / n * (tr.total - n);
+  const seconds = Math.max(0, now - tr.started - (tr.pausedMs || 0)) / 1000 / searched * (tr.total - n);
   el.textContent = seconds < 60 ? t("transfer.eta_less") : t("transfer.eta", { n: Math.ceil(seconds / 60) });
 }
 
@@ -245,8 +257,16 @@ function onTransferEvent(tr, e) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="badge now">…</span><span><span class="t">${esc(e.song.title)}</span> <span class="a">${esc(t("transfer.searching", { service: NAMES[state.to] }))}</span></span><span></span>`;
     $("#tracks").prepend(li); tr.rows[e.n] = li;
+  } else if (e.type === "resumed") {
+    $("#run-note").textContent = t("transfer.resumed", { done: e.done, total: e.total }); $("#run-note").hidden = false;
+  } else if (e.type === "waiting") {
+    tr.pausedMs += e.seconds * 1000; showWaiting($("#eta"), e);
+  } else if (e.type === "waited") {
+    stopWaiting($("#eta")); $("#eta").hidden = true;
+  } else if (e.type === "saved") {
+    tr.saved = e;
   } else if (e.type === "track") {
-    tr.tracks[e.n] = e;
+    tr.tracks[e.n] = e; if (e.cached) tr.cached++;
     const cls = CLASS[e.status]; tr.n[cls]++;
     setBigTile(e.n, e.status, e.song);
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);

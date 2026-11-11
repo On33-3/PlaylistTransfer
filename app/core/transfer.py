@@ -16,6 +16,7 @@ from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, Son
                                classify)
 from app.core.models import Song
 from app.core.models import Cancelled  # noqa: F401  (se importa también desde acá)
+from app.storage.progress import SearchProgress
 from app.i18n import t as tr
 
 ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
@@ -85,24 +86,45 @@ def song_dict(s: Song | None) -> dict | None:
 
 def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.Event | None = None,
               score_ok: float = SCORE_OK, score_min: float = SCORE_MIN,
-              include_doubtful: bool = False) -> list[TrackResult]:
+              include_doubtful: bool = False, progress: SearchProgress | None = None) -> list[TrackResult]:
+    """Busca cada tema en el destino. Con `progress`, lo que ya se buscó en una transferencia que no
+    terminó no se vuelve a buscar, y si esta se corta (pausa larga, cancelar, sin internet) lo buscado
+    queda guardado: se avisa en los dos casos."""
     results = []
     dest.reset_search_failures()
-    for n, src in enumerate(songs, 1):
-        if cancel is not None and cancel.is_set():
-            raise Cancelled()
-        emit({"type": "searching", "n": n, "song": song_dict(src)})
-        candidates = dest.search(src)
-        match, sc = best_match(src, candidates)
-        status = classify(sc, score_ok, score_min) if match else NOT_FOUND
-        if status == DOUBTFUL and not include_doubtful:
-            status = DOUBTFUL_SKIPPED
-        alts = alternatives(src, candidates) if status == NOT_FOUND else []
-        r = TrackResult(n, src, match if status != NOT_FOUND else None, sc, status, alts)
-        results.append(r)
-        emit({"type": "track", "n": n, "status": status, "score": round(sc, 2), "song": song_dict(src),
-              "match": song_dict(match) if status != NOT_FOUND else None,
-              "alternatives": [song_dict(a) for a in alts]})
+    if progress is not None and (before := progress.done(songs)):
+        emit({"type": "resumed", "done": before, "total": len(songs)})
+    try:
+        for n, src in enumerate(songs, 1):
+            if cancel is not None and cancel.is_set():
+                raise Cancelled()
+            hit = progress.get(src) if progress is not None else None
+            emit({"type": "searching", "n": n, "song": song_dict(src), "cached": hit is not None})
+            if hit is not None:
+                match, sc, saved_alts = hit
+            else:
+                candidates = dest.search(src)
+                match, sc = best_match(src, candidates)
+                saved_alts = None
+            status = classify(sc, score_ok, score_min) if match else NOT_FOUND
+            if status == DOUBTFUL and not include_doubtful:
+                status = DOUBTFUL_SKIPPED
+            if saved_alts is None:
+                alts = alternatives(src, candidates) if status == NOT_FOUND else []
+                if progress is not None:
+                    progress.put(src, match, sc, alts)
+            else:
+                alts = saved_alts if status == NOT_FOUND else []
+            r = TrackResult(n, src, match if status != NOT_FOUND else None, sc, status, alts)
+            results.append(r)
+            emit({"type": "track", "n": n, "status": status, "score": round(sc, 2), "song": song_dict(src),
+                  "match": song_dict(match) if status != NOT_FOUND else None,
+                  "alternatives": [song_dict(a) for a in alts], "cached": hit is not None})
+    except BaseException:
+        if progress is not None and (kept := progress.done(songs)):
+            progress.save()
+            emit({"type": "saved", "done": kept, "total": len(songs)})
+        raise
     return results
 
 
@@ -142,15 +164,38 @@ def ensure_playlist(dest: Connector, target: Target, source_service: str, public
 def run_transfer(source: Connector, dest: Connector, source_id: str, targets: list[Target], *,
                  dry_run: bool = False, emit: Emit = lambda e: None, cancel: threading.Event | None = None,
                  score_ok: float = SCORE_OK, score_min: float = SCORE_MIN, public: bool = False,
-                 include_doubtful: bool = False) -> TransferResult:
+                 include_doubtful: bool = False, progress: SearchProgress | None = None) -> TransferResult:
     if not targets:
         raise ValueError(tr("err.choose_target"))
+    for c in (source, dest):            # las esperas de los servicios se ven en pantalla y se pueden cancelar
+        c.listen(emit, cancel)
+    try:
+        result = _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok, score_min, public,
+                           include_doubtful, progress)
+    except BaseException:
+        if progress is not None:        # también si falló al agregar: la próxima vez no se busca de nuevo
+            progress.save()
+        raise
+    finally:
+        for c in (source, dest):
+            c.listen(None, None)
+    if progress is not None:
+        # Una prueba deja lo buscado para la transferencia de verdad; la de verdad, terminada, no lo necesita
+        if dry_run:
+            progress.save()
+        else:
+            progress.clear()
+    return result
+
+
+def _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok, score_min, public,
+              include_doubtful, progress) -> TransferResult:
     src_name, songs = source.read(source_id)
     if not songs:      # nada para pasar: no es "transferido" (antes daba un resultado positivo vacío)
         raise ConnectorError(tr("err.source_empty", name=src_name))
     emit({"type": "source", "name": src_name, "total": len(songs), "service": source.name})
 
-    tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful)
+    tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful, progress)
 
     found: list[Song] = []                       # sin repetir el mismo id; los "?" omitidos no
     first: dict[str, int] = {}                   # id encontrado → el primer tema del origen que lo usa

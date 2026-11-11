@@ -75,8 +75,32 @@ async function call(method, ...args) {
   }
 }
 
+/* ---------------------------------------------------------------- esperas de los servicios: siempre se avisan */
+
+/** "Spotify pidió una pausa: sigo en 2:40." (o "no contestó bien: pruebo de nuevo en 5 s.") */
+function waitText(e, left) {
+  const time = left < 60 ? `${left} s` : mmss(left);
+  return t(e.why === "retry" ? "wait.retry" : "wait.rate", { service: e.service, time });
+}
+
+/** Cuenta regresiva en `el` mientras un servicio pide esperar. */
+function showWaiting(el, e) {
+  stopWaiting(el);
+  const end = Date.now() + e.seconds * 1000;
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    el.textContent = waitText(e, left);
+    if (!left) stopWaiting(el);
+  };
+  el.hidden = false; tick(); el._wait = setInterval(tick, 1000);
+}
+function stopWaiting(el) { clearInterval(el._wait); el._wait = null; }
+
+/** Lo que hace una tarea sin pantalla de progreso propia (agregar después, quitar) si un servicio pide esperar. */
+const toastWaits = e => { if (e.type === "waiting") toast(waitText(e, e.seconds)); };
+
 /** Sigue una tarea en segundo plano hasta que termina. onEvent recibe cada evento en vivo. */
-async function follow(job, onEvent = () => {}) {
+async function follow(job, onEvent = toastWaits) {
   let since = 0;
   setBusy(true);
   try {

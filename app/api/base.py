@@ -80,8 +80,18 @@ class ApiBase:
         return c
 
     def _start(self, kind: str, fn) -> dict:
+        def watched(emit, cancel):
+            # Mientras corre la tarea, cualquier espera de un servicio se ve en pantalla y se puede cancelar
+            # (corre una tarea por vez: no se pisan)
+            for c in self._connectors.values():
+                c.listen(emit, cancel)
+            try:
+                return fn(emit, cancel)
+            finally:
+                for c in self._connectors.values():
+                    c.listen(None, None)
         try:
-            return {"job": self._jobs.start(kind, fn)}
+            return {"job": self._jobs.start(kind, watched)}
         except BusyError as e:
             return {"error": str(e)}
 

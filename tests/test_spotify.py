@@ -10,7 +10,7 @@ import pytest
 
 from app.auth import loopback
 from app.connectors import spotify as sp
-from app.connectors.base import ConnectorError, NotOwnerError, RemovalNotConfirmedError, Status
+from app.connectors.base import SEARCH_PAUSE, ConnectorError, NotOwnerError, RemovalNotConfirmedError, Status
 from app.connectors.spotify import SpotifyConnector
 from app.core.matching import find_duplicates
 from app.core.models import Cancelled, Duplicate, Song
@@ -162,14 +162,43 @@ def test_forbidden_explains_premium_and_user_list(tmp_path, api):
 
 
 def test_waits_when_spotify_asks(tmp_path, api, monkeypatch):
-    slept = []
+    slept, told = [], []
     monkeypatch.setattr(sp.time, "sleep", slept.append)
     c = make(tmp_path, api)
-    api.forced = [Resp(429, {}, {"Retry-After": "2"})]
-    assert c.status() is Status.CONNECTED and slept == [2]
+    c.listen(told.append)
+    api.forced = [Resp(429, {}, {"Retry-After": "240"})]            # 4 minutos: se espera, con cuenta regresiva
+    assert c.status() is Status.CONNECTED and sum(slept) == 240
+    assert told[0] == {"type": "waiting", "service": "Spotify", "why": "rate", "seconds": 240}
+    assert told[-1]["type"] == "waited"
     c._me = None
-    api.forced = [Resp(429, {}, {"Retry-After": "3600"})]           # una hora: se avisa, no se espera
-    with pytest.raises(ConnectorError, match="3600"):
+    api.forced = [Resp(429, {}, {"Retry-After": "7200"})]           # dos horas: se corta y se dice hasta cuándo
+    with pytest.raises(sp.RateLimited, match=r"2 h\. Se puede seguir desde las \d"):
+        c._call("GET", "/me")
+
+
+def test_after_a_pause_spotify_is_searched_more_slowly(tmp_path, api, monkeypatch):
+    """Con miles de temas se llegaba al límite de las apps en modo desarrollo: más despacio de entrada,
+    y cada pedido de pausa duplica la pausa entre búsquedas (con un tope)."""
+    monkeypatch.setattr(sp.time, "sleep", lambda s: None)
+    assert sp.SpotifyConnector.search_pause > SEARCH_PAUSE           # nunca más rápido que los demás
+    c = make(tmp_path, api)
+    c.search_pause = sp.SEARCH_PAUSE_SPOTIFY
+    for expected in (1.6, 3.2, sp.MAX_SEARCH_PAUSE):
+        api.forced = [Resp(429, {}, {"Retry-After": "1"})]
+        c._me = None
+        c.status()
+        assert c.search_pause == expected
+
+
+def test_cancel_stops_a_long_wait(tmp_path, api, monkeypatch):
+    import threading
+    from app.core.models import Cancelled
+    stop = threading.Event()
+    monkeypatch.setattr(sp.time, "sleep", lambda s: stop.set())      # se cancela durante la espera
+    c = make(tmp_path, api)
+    c.listen(lambda e: None, stop)
+    api.forced = [Resp(429, {}, {"Retry-After": "200"})]
+    with pytest.raises(Cancelled):
         c._call("GET", "/me")
 
 
