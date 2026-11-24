@@ -201,6 +201,7 @@ dialog::backdrop { background: rgba(46, 42, 61, .28); }
 dialog h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
 dialog p { margin: 0; color: var(--ink-soft); }
 dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
+.c-list { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
 .toast { position: fixed; left: 50%; bottom: var(--toast-bottom); min-height: var(--toast-h); box-sizing: border-box; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(--decide-h) + 16px); }   /* no tapa la decisión */
@@ -376,8 +377,10 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 
 /* =========================================================================== Quitar repetidos */
 #dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* no crece con el nombre más largo */
-.dup-summary { margin: var(--gap-actions) 0 0; }
 .dup-pick { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.dup-summary { margin: var(--gap-actions) 0 0; }
+.dup-hint { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; max-width: 760px; }
+.dup-hint b { color: var(--ink); font-weight: 600; }
 /* Antes de revisar: tres tarjetas del mismo alto, con el número arriba a la izquierda */
 .dup-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 28px 0 0; max-width: 760px; }
 .dup-how > div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
@@ -406,15 +409,23 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin: 14px 0 0; max-width: 760px; }
 .dup-group > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; font-weight: 600; }
 .dup-group > header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
-.dup-group > header .muted { flex: none; font-weight: 500; }
-.dup-group .dups { margin: 0; padding: 0 14px; }
-.dup-group .dups li:last-child { border-bottom: 0; }
-.dup-clean { margin: 14px 0 0; font-size: 14px; max-width: 760px; }
-.dup-hint { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; max-width: 760px; }
-.dup-hint b { color: var(--ink); font-weight: 600; }
 .dup-group > header .dup-group-right { flex: none; display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--ink-soft); font-size: 14px; }
 .dup-toggle { height: var(--h-sm); border: 0; background: none; color: var(--lav-strong); font-weight: 600; font-size: 13.5px; padding: 0 6px; border-radius: 8px; cursor: pointer; }
 .dup-toggle:hover { background: var(--pending); }
+.dup-group .dups { margin: 0; padding: 0 14px; }
+.dup-group .dups li:last-child { border-bottom: 0; }
+.dup-clean { margin: 14px 0 0; font-size: 14px; max-width: 760px; }
+/* Cada fila: casilla | se quita | flecha | queda */
+.dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
+.dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) 22px minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
+.dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
+.dups .side { font-size: 14px; min-width: 0; }
+.dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }
+.dups .side .tag.version { background: var(--peach); margin-left: 6px; }
+.dups .remove .tag { background: var(--rose); }
+.dups .keep .tag { background: var(--mint); }
+.dups .t { font-weight: 600; }
+.dups .meta { color: var(--ink-soft); font-size: 13px; }
 /* Cada fila dice lo que va a pasar: tildada, se quita (tachada) → queda; sin tildar, se conservan las dos */
 .dups .arrow { align-self: center; color: var(--ink-soft); font-size: 16px; text-align: center; }
 .dups .side .tag.off { display: none; background: var(--sage); }
@@ -433,17 +444,6 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-decide p { margin: 0; font-size: 14px; color: var(--ink-soft); min-width: 0; }
 .dup-decide p b { color: var(--ink); }
 .dup-decide .btn { flex: none; white-space: nowrap; }
-.c-list { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
-.dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
-.dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) 22px minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
-.dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
-.dups .side { font-size: 14px; min-width: 0; }
-.dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }
-.dups .side .tag.version { background: var(--peach); margin-left: 6px; }
-.dups .remove .tag { background: var(--rose); }
-.dups .keep .tag { background: var(--mint); }
-.dups .t { font-weight: 600; }
-.dups .meta { color: var(--ink-soft); font-size: 13px; }
 
 /* =========================================================================== Historial */
 .hist-controls { margin-bottom: 16px; }
