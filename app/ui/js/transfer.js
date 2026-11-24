@@ -260,11 +260,19 @@ function onTransferEvent(tr, e) {
   } else if (e.type === "resumed") {
     $("#run-note").textContent = t("transfer.resumed", { done: e.done, total: e.total }); $("#run-note").hidden = false;
   } else if (e.type === "waiting") {
-    tr.pausedMs += e.seconds * 1000; showWaiting($("#eta"), e);
+    tr.pausedMs += e.seconds * 1000; if (tr.adding) tr.adding.pausedMs += e.seconds * 1000;
+    showWaiting($("#eta"), e);
   } else if (e.type === "waited") {
     stopWaiting($("#eta")); $("#eta").hidden = true;
   } else if (e.type === "saved") {
     tr.saved = e;
+  } else if (e.type === "writing") {
+    $("#run-actions").hidden = true;          // desde acá se escribe: cortar dejaría una playlist a medias
+  } else if (e.type === "adding_to") {
+    tr.adding = { name: e.name, started: performance.now(), pausedMs: 0 };
+    showAdding(tr, 0, e.total);
+  } else if (e.type === "adding") {
+    showAdding(tr, e.done, e.total);
   } else if (e.type === "track") {
     tr.tracks[e.n] = e; if (e.cached) tr.cached++;
     const cls = CLASS[e.status]; tr.n[cls]++;
@@ -282,6 +290,19 @@ function onTransferEvent(tr, e) {
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(upd);
     showCounts(tr);
   }
+}
+
+/** Mientras se agregan (un servicio que marca "Me gusta" de a uno tarda muchos minutos con miles): cuántos
+ * van y cuánto falta, para que no parezca colgada. */
+function showAdding(tr, done, total, now = performance.now()) {
+  const el = $("#eta"); if (el._wait || !tr.adding) return;   // durante una pausa se ve la cuenta regresiva
+  let text = t("transfer.adding", { name: tr.adding.name, done, total });
+  const ms = Math.max(0, now - tr.adding.started - tr.adding.pausedMs);
+  if (done >= ETA_AFTER && done < total) {
+    const seconds = ms / 1000 / done * (total - done);
+    text += ` · ${seconds < 60 ? t("transfer.adding_left_less") : t("transfer.adding_left", { n: Math.ceil(seconds / 60) })}`;
+  }
+  el.textContent = text; el.hidden = false;
 }
 
 /** Un cuadrado del mosaico grande: color, qué tema es, y se puede tocar para ir a ese tema en la lista. */

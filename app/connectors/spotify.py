@@ -411,12 +411,14 @@ class SpotifyConnector(Connector):
             uris.reverse()
             for i in range(0, len(uris), LIBRARY_BATCH):
                 self._call("PUT", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
+                self.adding(min(i + LIBRARY_BATCH, len(uris)), len(uris))
             return
         for i in range(0, len(uris), ADD_BATCH):
             try:
                 self._call("POST", f"/playlists/{playlist_id}/items", body={"uris": uris[i:i + ADD_BATCH]})
             except Forbidden as e:
                 raise NotOwnerError(tr("err.spotify_not_owner")) from e
+            self.adding(min(i + ADD_BATCH, len(uris)), len(uris))
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         """Quita esas apariciones. Spotify quita por URI (todas las copias): si de una URI tiene que

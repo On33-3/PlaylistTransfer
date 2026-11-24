@@ -145,3 +145,39 @@ def test_a_pause_shows_a_countdown(browser, tmp_path):
     assert page.inner_text("#eta") == "YouTube Music no contestó bien: pruebo de nuevo en 5 s."
     page.evaluate("onTransferEvent(state.transfer, { type: 'waited' })")
     assert page.is_hidden("#eta") and errors == []
+
+
+# ---------------------------------------------------------------- mientras se agrega
+
+def test_cancel_does_not_cut_the_writing_halfway(tmp_path, monkeypatch):
+    """Desde que se empieza a agregar, una pausa del servicio se avisa pero Cancelar ya no la corta:
+    la playlist quedaría a medias y la pantalla diría "no se modificó ninguna playlist"."""
+    monkeypatch.setattr("app.connectors.base.time.sleep", lambda s: None)
+    api, tidal, yt = make_api(tmp_path)
+    real = yt.add
+
+    def add(pid, songs):
+        api._jobs.busy().cancel.set()            # la persona toca Cancelar justo cuando se agrega
+        yt.pause(1)                              # y el servicio pide una pausa
+        real(pid, songs)
+    yt.add = add
+    done = run(api)
+    assert done["state"] == "done" and [s.id for s in yt.songs("dst")] == ["y2old", "y1"]    # se agregó entero
+    types = [e["type"] for e in done["events"]]
+    assert types.index("writing") < types.index("adding_to") < types.index("waiting")
+
+
+def test_the_screen_says_how_many_were_added_and_how_long_is_left(browser, tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=transferir]")
+    texts = page.evaluate("""() => { const tr = state.transfer = { total: 3, cached: 0, pausedMs: 0, n: {}, rows: {}, tracks: {} };
+        document.querySelector('#run').hidden = false; document.querySelector('#run-actions').hidden = false;
+        onTransferEvent(tr, { type: 'writing' });
+        const cancelHidden = document.querySelector('#run-actions').hidden;
+        onTransferEvent(tr, { type: 'adding_to', name: 'Me gusta', total: 1600 });
+        tr.adding.started = -60000;                                  // va 1 minuto
+        showAdding(tr, 400, 1600, 0);
+        return [cancelHidden, document.querySelector('#eta').textContent]; }""")
+    assert texts == [True, "Agregando a «Me gusta»: 400 de 1600 · faltan alrededor de 3 minutos"]
+    assert errors == []

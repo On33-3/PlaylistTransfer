@@ -167,6 +167,12 @@ class Connector(ABC):
         """Mientras dura una tarea: a dónde avisar las esperas y qué mirar para cortarlas. (None, None) al final."""
         self._listener, self._cancel = emit, cancel
 
+    def adding(self, done: int, total: int) -> None:
+        """Cuántos temas ya se agregaron: con miles de "Me gusta" en YouTube Music (van de a uno) son
+        muchos minutos, y sin esto la pantalla parecía colgada."""
+        if self._listener is not None:
+            self._listener({"type": "adding", "service": self.name, "done": done, "total": total})
+
     def pause(self, seconds: float, why: str = "rate") -> None:
         """Espera lo que hace falta avisando por qué: "rate" (el servicio pidió una pausa) o "retry"
         (contestó mal y se reintenta). Mira Cancelar cada medio segundo."""

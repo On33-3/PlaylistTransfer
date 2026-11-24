@@ -226,14 +226,16 @@ class YTMusicConnector(Connector):
         if playlist_id == LIKED:
             # Se marca "Me gusta" uno por uno. Lo último que se marca queda arriba: se marcan al revés,
             # así el primero de la lista queda primero
-            for vid in reversed(ids):
+            for k, vid in enumerate(reversed(ids), 1):
                 self.patient(yt.rate_song, vid, "LIKE")
+                self.adding(k, len(ids))
                 time.sleep(self.search_pause)
             return
         for i in range(0, len(ids), BATCH):
             res = self.patient(lambda: yt.add_playlist_items(playlist_id, ids[i:i + BATCH], duplicates=False))
             if isinstance(res, dict) and res.get("status") not in (None, "STATUS_SUCCEEDED"):
                 raise NotOwnerError(tr("err.yt_add_failed", status=res.get("status")))
+            self.adding(min(i + BATCH, len(ids)), len(ids))
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
         """Hace falta el setVideoId de cada aparición: con el videoId solo se quitarían todas las copias."""

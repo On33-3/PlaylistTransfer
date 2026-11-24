@@ -210,6 +210,10 @@ def _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok,
 
     if cancel is not None and cancel.is_set():   # última oportunidad antes de modificar algo
         raise Cancelled()
+    # Desde acá se escribe: una espera del servicio se sigue avisando, pero Cancelar ya no la corta (la
+    # playlist quedaría a medias y la pantalla diría "no se modificó ninguna")
+    dest.listen(emit, None)
+    emit({"type": "writing"})
 
     results: list[TargetResult] = []
     for target in targets:
@@ -232,6 +236,7 @@ def _write_target(source: Connector, dest: Connector, target: Target, tracks: li
     res = TargetResult(target, to_add, already, versions)
     if not dry_run and to_add:
         res.created = ensure_playlist(dest, target, source.name, public)
+        emit({"type": "adding_to", "name": target.name, "total": len(to_add)})
         dest.add(target.id, to_add)
     if target.id is not None:
         res.url = dest.url(target.id)

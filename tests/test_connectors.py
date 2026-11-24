@@ -661,3 +661,19 @@ def test_yt_a_rejected_session_is_still_expired(tmp_path, monkeypatch):
     f = tmp_path / "browser.json"
     f.write_text("{}")
     assert YTMusicConnector(f, tmp_path).status() is Status.EXPIRED
+
+
+def test_yt_adding_many_liked_songs_says_how_many_went(monkeypatch):
+    """Los "Me gusta" de YouTube Music van de a uno: con 1600 son ~15 minutos sin decir nada."""
+    monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
+    c, told = ytc(FakeYT()), []
+    c.listen(told.append)
+    c.add(LIKED, [Song(f"T{i}", ["A"], id=f"v{i}") for i in range(3)])
+    assert [(e["done"], e["total"]) for e in told if e["type"] == "adding"] == [(1, 3), (2, 3), (3, 3)]
+
+
+def test_yt_adding_to_a_playlist_says_it_per_batch():
+    c, told = ytc(FakeYT()), []
+    c.listen(told.append)
+    c.add("PL1", [Song(f"T{i}", ["A"], id=f"v{i}") for i in range(BATCH + 5)])
+    assert [(e["done"], e["total"]) for e in told if e["type"] == "adding"] == [(BATCH, BATCH + 5), (BATCH + 5, BATCH + 5)]

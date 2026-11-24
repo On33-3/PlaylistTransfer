@@ -5,8 +5,12 @@ name: Test, build and release
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["v*"]          # (los filtros de paths no se aplican a los tags: una versión siempre se arma)
+    # Notas internas del proyecto: no cambian la app ni lo que prueban los tests (el README sí: tiene tests).
+    # Cada corrida son ~6 minutos de la cuota mensual (Windows cuenta doble)
+    paths-ignore: ["CLAUDE.md", "SPEC.md", "docs/*.md"]
   pull_request:
+    paths-ignore: ["CLAUDE.md", "SPEC.md", "docs/*.md"]
   workflow_dispatch:
 
 permissions:
