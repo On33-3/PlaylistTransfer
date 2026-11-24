@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from app.auth import browsers as browsers_mod
@@ -12,6 +13,8 @@ from app.i18n import t as tr
 from app.api.base import ApiBase
 
 log = logging.getLogger(__name__)
+
+SLOW_STATUS = 5     # segundos: un servicio que tarda más en decir si hay sesión queda anotado en el log
 
 
 class ServicesApi(ApiBase):
@@ -41,11 +44,15 @@ class ServicesApi(ApiBase):
         c = self._connectors.get(s.key)
         if c is None:
             return {"key": s.key, "name": s.name, "status": "soon"}
+        started = time.monotonic()
         try:
             st = c.status().value
         except Exception as e:
             log.warning("No pude ver el estado de %s: %s", s.name, e)
             st = Status.EXPIRED.value
+        took = time.monotonic() - started
+        if took > SLOW_STATUS:          # pasó al arrancar (2026-11-24) y no quedaba dicho cuál fue
+            log.warning("%s tardó %.0f s en contestar si hay sesión (%s)", s.name, took, st)
         return {"key": s.key, "name": s.name, "status": st}
 
     def status(self) -> list[dict]:

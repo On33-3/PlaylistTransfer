@@ -564,3 +564,15 @@ def test_several_playlists_stop_at_one_that_changed_and_say_what_was_done(app):
     r = wait(api, api.remove_many([{"scan": g["scan"], "selected": [0]} for g in res["groups"]], True)["job"])
     assert r["state"] == "error" and "Clásicos" in r["error"] and "«Otra lista» cambió" in r["error"]
     assert len(yt.songs("dups")) == 3 and len(yt.songs("otra")) == 4         # la segunda no se tocó
+
+
+def test_a_service_slow_to_answer_its_status_is_written_in_the_log(app, monkeypatch, caplog):
+    """Al arrancar, un servicio tardó y no quedaba registrado cuál: ahora el log lo dice."""
+    import logging
+    from app.api import services
+    api, tidal, yt = app
+    monkeypatch.setattr(services, "SLOW_STATUS", -1)
+    with caplog.at_level(logging.WARNING, logger="app.api.services"):
+        api.status()
+    assert any("YouTube Music tardó" in r.getMessage() for r in caplog.records)
+
