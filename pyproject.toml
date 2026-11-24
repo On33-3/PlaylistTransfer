@@ -1,6 +1,6 @@
 [project]
 name = "playlisttransfer"
-version = "0.3.11"
+version = "0.3.12"
 description = "App de escritorio para pasar playlists entre servicios de música (Tidal, YouTube Music)."
 requires-python = ">=3.12"
 
