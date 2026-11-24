@@ -166,6 +166,7 @@
     "dedupe.lists_other": "{n} playlists",
     "dedupe.all_clean": "Ninguna de las {n} playlists tiene repetidos.",
     "dedupe.clean_many": "Sin repetidos: {names}.",
+    "dedupe.checked_many": "Revisé {names}.",
     "dedupe.and_more": "{names} y {n} más",
     "dedupe.failed": "No se pudieron leer: {names}.",
     "dedupe.remove_many": "Quitar {songs} de {lists}",

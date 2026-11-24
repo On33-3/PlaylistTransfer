@@ -283,3 +283,20 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\n1 repetido"]
     assert page.inner_text("#dup-clean").startswith("Sin repetidos: Primera,")
     assert errors == []
+
+
+def test_when_every_playlist_is_fine_it_says_which_ones_were_checked(browser, tmp_path):
+    """Comprobado con datos reales (7 playlists de Tidal sin repetidos): solo decía "Ninguna tiene repetidos"."""
+    api, tidal, yt = make_api(tmp_path)
+    yt.playlists.pop("dups")
+    for i in range(3):
+        yt.add_playlist(f"ok{i}", f"Limpia {i}", [S(f"A{i}", "X", id=f"a{i}"), S(f"B{i}", "X", id=f"b{i}")])
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=ok0]", state="attached")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dup-clean:not([hidden])")
+    assert page.inner_text("#dup-summary") == "Ninguna de las 3 playlists tiene repetidos."
+    assert page.inner_text("#dup-clean") == "Revisé Limpia 0, Limpia 1, Limpia 2."
+    assert page.locator(".dup-group").count() == 0 and page.is_hidden("#dup-actions") and errors == []

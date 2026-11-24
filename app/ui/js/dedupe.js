@@ -135,10 +135,11 @@ function showDupResults() {
       </ul>
     </section>`).join("");
 
-  // Revisando todas: las que están bien, en una línea; las que no se pudieron leer, dicho
-  const clean = res.many && groups.length ? res.clean : [];
+  // Revisando todas: las que están bien, en una línea (si están todas bien, cuáles se revisaron)
+  const clean = res.many ? res.clean : [];
   $("#dup-clean").hidden = !clean.length;
-  $("#dup-clean").textContent = clean.length ? t("dedupe.clean_many", { names: someNames(clean) }) : "";
+  $("#dup-clean").textContent = !clean.length ? ""
+    : t(groups.length ? "dedupe.clean_many" : "dedupe.checked_many", { names: someNames(clean) });
   $("#dup-failed").hidden = !res.failed?.length;
   $("#dup-failed").textContent = res.failed?.length ? t("dedupe.failed", { names: someNames(res.failed.map(f => f.name)) }) : "";
   if (!res.many && !groups.length) $("#dup-summary").innerHTML += ` <span class="muted">${esc(t("dedupe.checked", { songs: songs(res.songs_checked ?? 0) }))}</span>`;

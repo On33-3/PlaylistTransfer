@@ -166,6 +166,7 @@
     "dedupe.lists_other": "{n} playlists",
     "dedupe.all_clean": "None of the {n} playlists has duplicates.",
     "dedupe.clean_many": "No duplicates: {names}.",
+    "dedupe.checked_many": "Checked {names}.",
     "dedupe.and_more": "{names} and {n} more",
     "dedupe.failed": "Couldn't be read: {names}.",
     "dedupe.remove_many": "Remove {songs} from {lists}",

@@ -35,6 +35,7 @@ Proyecto open source pensado para GitHub. El plan completo, con decisiones y fas
 - Matching contra tus reportes reales: `py tools/check_reports.py`
 
 ## Cosas que no se deducen leyendo el código (aprendidas a los golpes)
+- **La ventana guardaba copias viejas de la UI** (comprobado el 2026-11-24): pywebview sirve `app/ui/` con su servidor local (siempre `http://127.0.0.1:42001`) sin `Cache-Control`, y WebView2 reusaba un `index.html` del 8/11 con el JavaScript nuevo: Quitar repetidos no mostraba sus pasos y se colgaba. Por eso `forget_page_cache()` (`app/main.py`) borra `Cache` y `Code Cache` de la ventana antes de abrirla. Los tests no lo ven (abren el archivo directo): si algo se ve distinto en la app que en las capturas, sospechar de esto primero.
 - **Sin shebang** en los `.py`: el launcher `py` de Windows lo respeta y abre otro Python, que no tiene las librerías instaladas.
 - **ytmusicapi** solo reconoce una sesión de navegador si los headers incluyen `authorization: SAPISIDHASH …`. Sin ese header la toma como OAuth y falla con "oauth_credentials not provided". Ver `sapisid_hash()` y `build_browser_json()`.
 - **Vivaldi reabre las pestañas del perfil aparte** (comprobado: 1, 2, 3 al abrir tres veces): antes de abrirlo se borra `Default/Sessions` (`forget_previous_tabs`); las cookies están en otra carpeta.

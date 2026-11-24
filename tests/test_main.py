@@ -80,3 +80,16 @@ def test_the_smoke_test_never_waits_for_a_click(data_dir, monkeypatch):
     monkeypatch.setenv("PT_SMOKE", "1")
     main.show_startup_error(RuntimeError("x"))
     assert shown == []
+
+
+def test_the_window_never_reuses_old_copies_of_the_ui(tmp_path):
+    """Al actualizar, la ventana mezclaba un index.html viejo (de su caché) con el JavaScript nuevo."""
+    from app.main import forget_page_cache
+    default = tmp_path / "EBWebView" / "Default"
+    for name in ("Cache/Cache_Data", "Code Cache/js", "Local Storage"):
+        (default / name).mkdir(parents=True)
+        (default / name / "f").write_text("x")
+    forget_page_cache(tmp_path)
+    assert not (default / "Cache").exists() and not (default / "Code Cache").exists()
+    assert (default / "Local Storage" / "f").exists()          # lo demás de la ventana queda
+    forget_page_cache(tmp_path / "no-existe")                   # la primera vez no hay nada: no falla

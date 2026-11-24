@@ -61,6 +61,21 @@ def show_startup_error(e: BaseException) -> None:
 LOADED_LATER = ("tidalapi", "ytmusicapi", "requests", "ssl", "sqlite3")
 
 
+# Lo que la ventana (WebView2) guarda de las páginas que carga. pywebview sirve la UI con un servidor local
+# (siempre http://127.0.0.1:42001) sin decir que no se guarde: la ventana usaba copias viejas de algunos
+# archivos y nuevas de otros. Pasó al actualizar (2026-11-24): un index.html del 8/11 con el JavaScript
+# nuevo, y Quitar repetidos no mostraba sus pasos y se colgaba al revisar.
+PAGE_CACHES = ("Cache", "Code Cache")
+
+
+def forget_page_cache(webview_dir: Path) -> None:
+    """Antes de abrir la ventana: que cargue siempre los archivos de esta versión. Solo son copias de la UI
+    de la app (no hay sesiones ahí: el login pasa en el navegador de la persona)."""
+    import shutil
+    for name in PAGE_CACHES:
+        shutil.rmtree(Path(webview_dir) / "EBWebView" / "Default" / name, ignore_errors=True)
+
+
 def missing_modules() -> list[str]:
     import importlib
     missing = []
@@ -115,6 +130,7 @@ def run() -> None:
         logging.getLogger(__name__).info("Prueba de arranque: %s", "UI lista" if ok else "la UI no cargó")
         window.destroy()
 
+    forget_page_cache(paths.data_dir() / "webview")
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
                   storage_path=str(paths.data_dir() / "webview"), icon=str(ui_dir() / "icon.ico"))
     if getattr(api, "_wiped", False):          # Ajustes › Borrar todo: lo que estaba en uso, ahora que se cerró
