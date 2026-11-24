@@ -12,7 +12,8 @@ async function renderDupControls() {
   $("#dup-controls").hidden = avail.length === 0;
   if (!avail.length) { $("#dup-how").hidden = true; return; }
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
-  $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" ${connected(k) ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
+  // Quietos mientras hay algo en curso: si no, el resultado de un servicio aparecía bajo el nombre de otro
+  $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" data-needs-idle data-blocked="${connected(k) ? 0 : 1}" ${connected(k) && !state.busy ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
   $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
   // Con menos de 2 temas no puede haber repetidos (las de cantidad desconocida quedan)
   const all = await getPlaylists(state.dupService) || [];

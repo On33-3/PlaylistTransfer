@@ -25,8 +25,8 @@ KEEP_DAYS = 7
 SAVE_EVERY = 20      # temas buscados entre una escritura y la siguiente (si la app se cierra, se pierden pocos)
 
 
-def _song(d: dict | None) -> Song | None:
-    if not d:
+def _song(d) -> Song | None:
+    if not isinstance(d, dict) or not isinstance(d.get("title"), str):
         return None
     fields = {f.name for f in dataclasses.fields(Song)}
     return Song(**{k: v for k, v in d.items() if k in fields})
@@ -62,9 +62,13 @@ class SearchProgress:
     def get(self, song: Song) -> tuple[Song | None, float, list[Song]] | None:
         """(mejor coincidencia, puntaje, alternativas) si ya se buscó; None si no."""
         d = self._songs.get(self.song_key(song))
-        if d is None:
+        try:
+            match, score, alts = _song(d["match"]) if d["match"] else None, float(d["score"]), d.get("alts") or []
+            if d["match"] and match is None or not isinstance(alts, list):
+                raise ValueError("coincidencia rota")
+        except (TypeError, ValueError, KeyError):         # nada guardado, o una entrada rota: se busca de nuevo
             return None
-        return _song(d.get("match")), float(d.get("score") or 0), [a for a in map(_song, d.get("alts") or []) if a]
+        return match, score, [a for a in map(_song, alts) if a]
 
     def put(self, song: Song, match: Song | None, score: float, alts: list[Song]) -> None:
         self._songs[self.song_key(song)] = {"match": _plain(match), "score": round(score, 3),

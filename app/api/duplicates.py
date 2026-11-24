@@ -93,18 +93,25 @@ class DuplicatesApi(ApiBase):
         nada de esa. Después vuelve a revisar las playlists que cambiaron, así la pantalla dice lo que quedó."""
         if confirmed is not True:
             return {"error": tr("err.need_confirmation")}
+        if not isinstance(choices, list) or not all(isinstance(c, dict) for c in choices):
+            return {"error": tr("err.bad_selection")}
+        wanted: dict[str, list[int]] = {}               # la misma revisión dos veces cuenta una sola vez
+        for choice in choices:
+            selected = choice.get("selected")
+            if not isinstance(selected, list) or not all(type(i) is int and i >= 0 for i in selected):
+                return {"error": tr("err.bad_selection")}
+            picks = wanted.setdefault(str(choice.get("scan")), [])
+            picks += [i for i in selected if i not in picks]
         plan = []
-        for choice in choices or []:
-            found = self._find_scan(str((choice or {}).get("scan")))
+        for scan_id, picks in wanted.items():
+            found = self._find_scan(scan_id)
             if found is None:
                 return {"error": tr("err.scan_again")}
             batch, scan = found
-            try:
-                chosen: list[Duplicate] = [scan["dups"][int(i)] for i in dict.fromkeys(choice.get("selected") or [])]
-            except (IndexError, ValueError, TypeError):
+            if any(i >= len(scan["dups"]) for i in picks):
                 return {"error": tr("err.bad_selection")}
-            if chosen:
-                plan.append((choice["scan"], batch, scan, chosen))
+            if picks:
+                plan.append((scan_id, batch, scan, [scan["dups"][i] for i in picks]))
         if not plan:
             return {"error": tr("err.nothing_selected")}
 

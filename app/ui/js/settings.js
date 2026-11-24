@@ -61,7 +61,9 @@ $("#wipe-yes").addEventListener("click", async () => {
   $("#wipe-confirm").close();
   const r = await call("wipe_data", true);         // true: la persona confirmó en el diálogo
   if (!r) return;
-  state.status = {}; forgetPlaylists(); state.transfer = null; state.picked = null;
+  // Nada de antes queda a la vista: ni un resultado de repetidos ni una transferencia
+  state.status = {}; forgetPlaylists(); state.transfer = null; state.picked = null; state.dupPlaylist = null;
+  clearDups(); resetTransferView();
   await refreshStatus();
   toast(t(r.left?.length ? "settings.wiped_left" : "settings.wiped"));
 });
