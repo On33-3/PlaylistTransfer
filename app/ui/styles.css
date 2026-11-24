@@ -376,12 +376,12 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .dup-summary { margin: var(--gap-actions) 0 0; }
 .dup-pick { display: flex; gap: 14px; align-items: center; min-width: 0; }
 /* Antes de revisar: tres tarjetas del mismo alto, con el número arriba a la izquierda */
-.dup-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: var(--gap-actions) 0 0; max-width: 760px; }
+.dup-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 28px 0 0; max-width: 760px; }
 .dup-how > div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
 .dup-how-n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--lav); font-weight: 700; font-size: 13px; line-height: 1; margin-bottom: 8px; }
 .dup-how h4 { margin: 0 0 4px; font-size: 15px; }
 .dup-how p { margin: 0; color: var(--ink-soft); font-size: 13.5px; line-height: 1.45; }
-.dup-how-tags { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.dup-how-tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
 .dup-tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
 .dup-tag.remove { background: var(--rose); }
 .dup-tag.keep { background: var(--mint); }
