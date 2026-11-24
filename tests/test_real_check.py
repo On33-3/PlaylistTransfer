@@ -1,6 +1,7 @@
 """La prueba con cuentas reales (tools/real_check.py) nunca escribe: lo comprueba con los servicios falsos."""
 from __future__ import annotations
 
+from tests.fakes import S
 from tests.ui_helpers import make_api
 from tools.real_check import BLOCKED_API, WRITES, guard
 
@@ -23,6 +24,20 @@ def test_nothing_that_writes_reaches_a_service(tmp_path):
     assert yt.calls == [] and tidal.calls == [] and len(yt.songs("dups")) == 4
     assert {"api.remove_many", "api.wipe_data", "api.disconnect", "api.start_transfer (de verdad)"} <= set(attempts)
     assert all(hasattr(api, n) for n in BLOCKED_API)          # si se renombra uno, este test lo dice
+
+
+def test_removing_is_only_possible_in_the_test_playlist(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    yt.add_playlist("other", "Mía", [S("Uno", "X", id="o1"), S("Uno", "X", id="o2")])
+    sandbox: set[str] = set()
+    attempts = guard(api, sandbox)
+    scans = {g["name"]: g["scan"] for g in api._jobs.wait(api.scan_duplicates("ytmusic", "__all__")["job"])["result"]["groups"]}
+    assert "error" in api.remove_many([{"scan": scans["Clásicos"], "selected": [0]}], True)   # sin playlist de prueba
+    sandbox.add("dups")
+    r = api._jobs.wait(api.remove_many([{"scan": scans["Clásicos"], "selected": [0]}], True)["job"])
+    assert r["state"] == "done" and len(yt.songs("dups")) == 3
+    r = api._jobs.wait(api.remove_many([{"scan": scans["Mía"], "selected": [0]}], True)["job"])
+    assert r["state"] == "error" and len(yt.songs("other")) == 2 and "ytmusic.remove" in attempts
 
 
 def test_a_dry_run_still_works_and_changes_nothing(tmp_path):

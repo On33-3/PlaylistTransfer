@@ -14,10 +14,15 @@ y tus sesiones:
   5. El resultado: otras versiones sin tildar, «Se conserva» al destildar, la barra siempre a la vista,
      «Destildar todos», y la pantalla alineada también en la ventana mínima
   6. La confirmación se abre con lo que diría, y se cancela
-  7. Ajustes: «Privacidad y datos» se lee (nunca toca «Borrar todo»)
+  7. Quitar de verdad: crea «PlaylistTransfer · prueba (se borra sola)» con tres canciones tuyas
+     repetidas a propósito (A, B, C, A, B), la pantalla encuentra los dos repetidos, se quitan con la
+     confirmación, queda A, B, C y el historial lo anota. Después la borra, aunque algo haya fallado
+     (y al empezar, borra la de una corrida cortada)
+  8. Ajustes: «Privacidad y datos» se lee (nunca toca «Borrar todo»)
 
-Nunca escribe en tus cuentas: antes de abrir la página, agregar, crear, quitar, desconectar, borrar todo
-y transferir de verdad quedan bloqueados (`guard`), y al final se comprueba que nadie lo intentó.
+Fuera de esa playlist de prueba nunca escribe en tus cuentas: antes de abrir la página, agregar, crear,
+quitar, desconectar, borrar todo y transferir de verdad quedan bloqueados (`guard`), y al final se
+comprueba que nadie lo intentó. Las tres canciones se copian; tus playlists solo se leen.
 El historial, las búsquedas guardadas y las preferencias de esta prueba van a una carpeta temporal: tu
 historial no cambia. Las capturas tienen tus datos reales: quedan en esa carpeta, nunca en el repo.
 """
@@ -45,13 +50,20 @@ BLOCKED_API = ("remove_many", "remove_duplicates", "wipe_data", "disconnect", "c
 
 # ---------------------------------------------------------------- nada se escribe
 
-def guard(api) -> list[str]:
+def guard(api, sandbox: set[str] | None = None) -> list[str]:
     """Bloquea todo lo que cambia algo en las cuentas o en la app. Devuelve la lista de intentos
-    (tiene que quedar vacía): cada uno también falla, así que nunca llega al servicio."""
+    (tiene que quedar vacía): cada uno también falla, así que nunca llega al servicio.
+    La única excepción es quitar de una playlist de prueba (`sandbox`, los ids que creó este script):
+    la UI puede quitar de verdad ahí y en ningún otro lado."""
     attempts: list[str] = []
+    sandbox = sandbox if sandbox is not None else set()
 
     def block_connector(c, name):
+        real = getattr(c, name)
+
         def blocked(*args, **kwargs):
+            if name == "remove" and args and args[0] in sandbox:
+                return real(*args, **kwargs)
             attempts.append(f"{c.key}.{name}")
             raise RuntimeError(f"prueba real: {c.key}.{name} está bloqueado")
         setattr(c, name, blocked)
@@ -61,7 +73,12 @@ def guard(api) -> list[str]:
             block_connector(c, name)
 
     def block_api(name):
+        real = getattr(api, name)
+
         def blocked(*args, **kwargs):
+            # Quitar pasa solo con una playlist de prueba creada: el conector igual deja quitar solo de ella
+            if name in ("remove_many", "remove_duplicates") and sandbox:
+                return real(*args, **kwargs)
             attempts.append(f"api.{name}")
             return {"error": f"prueba real: {name} está bloqueado"}
         setattr(api, name, blocked)
@@ -78,6 +95,64 @@ def guard(api) -> list[str]:
         return real_transfer(source, target, source_id, targets, True)
     api.start_transfer = only_dry
     return attempts
+
+
+# ---------------------------------------------------------------- la playlist de prueba
+
+SANDBOX_NAME = "PlaylistTransfer · prueba (se borra sola)"
+SANDBOX_TEXT = "La creó la prueba automática de PlaylistTransfer y la borra al terminar."
+SETTLE = 30             # segundos: un servicio puede tardar en mostrar lo recién creado o borrado
+
+
+def add_with_repeats(c, pid: str, songs) -> None:
+    """Agrega aunque ya estén: la app nunca lo hace (Tidal y YouTube Music los saltean), la prueba sí."""
+    ids = [s.id for s in songs]
+    if c.key == "tidal":
+        c._editable(pid).add(ids, allow_duplicates=True)
+    elif c.key == "ytmusic":
+        c._ready().add_playlist_items(pid, ids, duplicates=True)
+    else:                                       # Spotify acepta repetidos
+        type(c).add(c, pid, songs)
+
+
+def delete_playlist(c, pid: str) -> None:
+    """Borra la playlist de prueba. Solo existe acá: la app no puede borrar playlists."""
+    if c.key == "tidal":
+        c._editable(pid).delete()
+    elif c.key == "ytmusic":
+        c._ready().delete_playlist(pid)
+    else:                                       # en Spotify, borrar es dejar de seguirla (como su app)
+        c._call("DELETE", f"/playlists/{pid}/followers")
+
+
+def leftovers(c) -> list[str]:
+    """Playlists de prueba que quedaron de una corrida cortada."""
+    return [p.id for p in c.list_playlists() if p.name == SANDBOX_NAME]
+
+
+def three_songs(c):
+    """Tres canciones distintas de tu playlist más chica que tenga al menos tres (solo se leen)."""
+    from app.connectors.base import LIKED
+    from app.core.matching import same_song
+    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 3),
+                   key=lambda p: p.count)
+    for p in lists:
+        picked = []
+        for s in c.read(p.id)[1]:
+            usable = s.id and (c.key != "spotify" or s.id.startswith("spotify:track:"))
+            if usable and not any(same_song(s, x) for x in picked):
+                picked.append(s)
+            if len(picked) == 3:
+                return p.name, picked
+    return None, []
+
+
+def settle(check, what: str):
+    """Espera a que el servicio muestre el cambio (YouTube Music puede tardar unos segundos)."""
+    until = time.monotonic() + SETTLE
+    while not check():
+        assert time.monotonic() < until, f"después de {SETTLE} s, {what}"
+        time.sleep(2)
 
 
 def real_api(work: Path):
@@ -280,6 +355,58 @@ def confirm_dialog(run, page, attempts):
     return f"«{said}», cancelado"
 
 
+def sandbox_remove(run, page, api, c, sandbox, created):
+    """Una playlist nueva con A, B, C, A, B: la pantalla real encuentra los dos repetidos, se quitan de
+    verdad (con la confirmación) y queda A, B, C."""
+    old = leftovers(c)
+    for pid in old:                              # de una corrida cortada
+        delete_playlist(c, pid)
+    source, songs = three_songs(c)
+    if not songs:
+        return Skip("ninguna playlist con tres canciones distintas para copiar")
+    a, b, x = songs
+    pid = type(c).create(c, SANDBOX_NAME, SANDBOX_TEXT, False)
+    created.append(pid)
+    sandbox.add(pid)
+    add_with_repeats(c, pid, [a, b, x, a, b])
+    settle(lambda: len(c.read(pid)[1]) == 5, "la playlist de prueba no tiene los 5 temas")
+
+    def listed():
+        page.evaluate("(k) => forgetPlaylists(k)", c.key)
+        to_dedupe(page, c.key)
+        return page.locator(f"#dup-playlist option[value='{pid}']").count() > 0
+    settle(listed, "la playlist de prueba no aparece en Quitar repetidos")
+    page.select_option("#dup-playlist", pid)
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group", timeout=120000)
+    rows = page.evaluate("""() => [...document.querySelectorAll('.dups li')].map(li => ({
+        checked: li.querySelector('input').checked, title: li.querySelector('.side.remove .t').textContent }))""")
+    assert [r["title"] for r in rows] == [a.title, b.title] and all(r["checked"] for r in rows), \
+        f"esperaba «{a.title}» y «{b.title}» tildados, y encontró {rows}"
+    run.shot(page, f"prueba-repetidos-{c.key}")
+    page.click("#remove")
+    page.wait_for_selector("#confirm[open]")
+    page.click("#confirm-yes")
+    page.wait_for_function("!state.busy && !document.querySelector('.dup-group')", timeout=180000)
+    run.shot(page, f"prueba-quitados-{c.key}")
+    settle(lambda: [s.id for s in c.read(pid)[1]] == [a.id, b.id, x.id], "la playlist de prueba no quedó con A, B, C")
+    h = api.history(limit=1)[0]
+    assert h["kind"] == "dedupe" and h["removed"] == 2 and h["source_name"] == SANDBOX_NAME, f"el historial no lo anotó: {h}"
+    again = f"; antes borré {len(old)} que había quedado de otra prueba" if old else ""
+    return f"copié 3 de «{source}», agregué A, B, C, A, B y quedó A, B, C{again}"
+
+
+def sandbox_delete(c, sandbox, created):
+    if not created:
+        return Skip("no se creó ninguna")
+    for pid in created:
+        delete_playlist(c, pid)
+    settle(lambda: not any(p.id in created for p in c.list_playlists()),
+           f"«{SANDBOX_NAME}» sigue apareciendo en {c.name}: borrala a mano")
+    sandbox.difference_update(created)
+    return ""
+
+
 def settings(run, page, design):
     page.click("nav [data-go=ajustes]")
     text = page.inner_text("[data-i18n='settings.data_text']")
@@ -306,7 +433,8 @@ def main() -> int:
     run.step("La ventana de verdad abre y cierra", smoke)
 
     api = real_api(out / "datos")
-    attempts = guard(api)
+    sandbox: set[str] = set()
+    attempts = guard(api, sandbox)
     status = {s["key"]: s["status"] for s in api.status()}
     connected = [k for k, st in status.items() if st == "connected"]
     names = {s["key"]: s["name"] for s in api.services()}
@@ -328,12 +456,19 @@ def main() -> int:
                 run.step(f"Repetidos en {n}: el resultado", result_checks, run, page, check)
                 run.step(f"Repetidos en {n}: ventana mínima", smallest_window, run, page, check)
                 run.step(f"Repetidos en {n}: la confirmación", confirm_dialog, run, page, attempts)
+            # De verdad, en una playlist que crea y borra la prueba
+            c, created = api._connectors[key], []
+            try:
+                run.step(f"Repetidos en {n}: quitar de verdad en una playlist de prueba", sandbox_remove,
+                         run, page, api, c, sandbox, created)
+            finally:
+                run.step(f"Repetidos en {n}: borrar la playlist de prueba", sandbox_delete, c, sandbox, created)
         if not keys:
             run.results.append(("Quitar repetidos", "SALTEADO", "ningún servicio conectado", 0))
         run.step("Ajustes: privacidad", settings, run, page, check)
         browser.close()
 
-    run.results.append(("Nada se escribió en tus cuentas", "FALLA" if attempts else "OK", ", ".join(attempts), 0))
+    run.results.append(("Nada se escribió fuera de las playlists de prueba", "FALLA" if attempts else "OK", ", ".join(attempts), 0))
     run.results.append(("Sin errores de JavaScript", "FALLA" if errors else "OK", "; ".join(errors[:3]), 0))
 
     print("\n" + "\n".join(f"{state:9} {name}{'  — ' + detail if detail and state != 'OK' else ''}"
