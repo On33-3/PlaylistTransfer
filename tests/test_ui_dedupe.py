@@ -351,3 +351,40 @@ def test_each_row_says_what_will_happen_and_the_decision_is_always_in_sight(brow
     t, b = page.evaluate("[document.querySelector('#toast').getBoundingClientRect().bottom, document.querySelector('#dup-actions').getBoundingClientRect().top]")
     assert t <= b, (t, b)
     assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == [] and errors == []
+
+
+def test_a_long_check_can_be_cancelled(browser, tmp_path):
+    """Revisar muchas playlists largas tarda: se puede cortar, y dice que no se quitó nada."""
+    import threading
+    api, tidal, yt = all_api(tmp_path)
+    real, gate = yt.read, threading.Event()
+
+    def slow(pid):
+        gate.wait(5)                                   # la primera lectura espera a que se toque Cancelar
+        return real(pid)
+    yt.read = slow
+    page, errors = open_page(browser, api)
+    open_all(page)
+    page.click("#dup-scan")
+    page.wait_for_selector("#dup-cancel:visible")
+    page.click("#dup-cancel")
+    assert page.inner_text("#dup-cancel") == "Cancelando…"
+    gate.set()
+    page.wait_for_selector("text=Revisión cancelada: no se quitó nada.")
+    assert yt.calls == [] and errors == []
+
+
+def test_if_removing_stops_halfway_the_screen_says_so_and_drops_the_old_list(browser, tmp_path):
+    api, tidal, yt = all_api(tmp_path)
+    page, errors = open_page(browser, api)
+    open_all(page)
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group + .dup-group")
+    yt.add("aaa", [S("Nueva", "Y", id="n1")])          # "Primera" cambió desde otro lado
+    page.click("#remove")
+    page.click("#confirm-yes")
+    page.wait_for_selector("#dup-summary .error")
+    msg = page.inner_text("#dup-summary")
+    assert "Clásicos" in msg and "«Primera» cambió" in msg                   # de cuál se quitó y cuál revisar
+    assert page.locator(".dup-group").count() == 0 and page.is_hidden("#dup-actions")
+    assert len(yt.songs("dups")) == 3 and len(yt.songs("aaa")) == 4 and errors == []

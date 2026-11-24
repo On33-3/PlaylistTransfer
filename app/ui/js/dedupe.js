@@ -94,13 +94,16 @@ async function scanDups() {
   $("#dup-bar").style.width = "0"; $("#dup-pl").innerHTML = "";
   const r = await call("scan_duplicates", state.dupService, pid);
   if (!r) { clearDups(); return; }
+  state.dupJob = r.job;
+  $("#dup-cancel").disabled = false; $("#dup-cancel").textContent = t("transfer.cancel");
   const progress = {};
   const done = await follow(r.job, e => onScanEvent(progress, e));
+  state.dupJob = null;
   stopWaiting($("#dup-progress-now"));
   $("#dup-progress").hidden = true;
   if (done.state !== "done") {
     $("#dup-summary").hidden = false;
-    $("#dup-summary").innerHTML = `<span class="error">${esc(done.state === "cancelled" ? t("transfer.cancelled_title") : (done.error || t("dedupe.read_error")))}</span>`;
+    $("#dup-summary").innerHTML = `<span class="error">${esc(done.state === "cancelled" ? t("dedupe.cancelled") : (done.error || t("dedupe.read_error")))}</span>`;
     return;
   }
   state.scan = { ...done.result, many: pid === ALL_PLAYLISTS };
@@ -210,6 +213,11 @@ $("#dups").addEventListener("click", e => {
   updateRemove();
 });
 $("#dup-scan").addEventListener("click", scanDups);
+// Una revisión larga (o una pausa que pidió el servicio) se puede cortar: no se quita nada al revisar
+$("#dup-cancel").addEventListener("click", () => {
+  if (!state.dupJob) return;
+  api.cancel(state.dupJob); $("#dup-cancel").disabled = true; $("#dup-cancel").textContent = t("transfer.cancelling");
+});
 $("#remove").addEventListener("click", () => { if (state.scan && dupChoices().length) $("#confirm").showModal(); });
 $("#confirm-no").addEventListener("click", () => $("#confirm").close());
 $("#confirm-yes").addEventListener("click", async () => {
@@ -218,7 +226,16 @@ $("#confirm-yes").addEventListener("click", async () => {
   const r = await call("remove_many", choices, true);   // true: el usuario confirmó en el diálogo
   if (!r) return;
   const done = await follow(r.job);
-  if (done.state !== "done") { toast(done.error || t("dedupe.remove_error")); return; }
+  if (done.state !== "done") {
+    // Pudo haberse quitado algo de las primeras playlists: lo que se ve ya no vale. Se dice qué pasó y se
+    // vuelve a empezar (el error dice de cuáles se quitó y cuál hay que revisar de nuevo)
+    const msg = done.error || t("dedupe.remove_error");
+    forgetPlaylists(state.dupService); clearDups(); await renderDupControls();
+    $("#dup-how").hidden = true; $("#dup-summary").hidden = false;
+    $("#dup-summary").innerHTML = `<span class="error">${esc(msg)}</span>`;
+    toast(msg);
+    return;
+  }
   const res = done.result;
   toast(res.names.length > 1 ? t("dedupe.removed_many_toast", { songs: songs(res.removed), lists: listCount(res.names.length) })
     : t("dedupe.removed_toast", { songs: songs(res.removed), name: res.name }));

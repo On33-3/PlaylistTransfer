@@ -169,6 +169,7 @@
     "dedupe.failed": "No se pudieron leer: {names}.",
     "dedupe.removed_many_toast": "Quitaste {songs} de {lists}.",
     "dedupe.scan_again": "Revisar de nuevo",
+    "dedupe.cancelled": "Revisión cancelada: no se quitó nada.",
     "dedupe.decide_hint": "Lo **tildado se quita** y queda la versión de la derecha. Lo que destildes **queda como está**. Las otras versiones (en vivo, remix, otra duración) vienen sin tildar: decidís vos.",
     "dedupe.tag_keep_both": "Se conserva",
     "dedupe.why_longer": "Dura {time} más: es otra grabación.",
