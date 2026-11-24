@@ -146,7 +146,7 @@
     "dedupe.remove_error": "No se pudo quitar.",
     "dedupe.all_playlists": "Todas las playlists ({n})",
     "dedupe.how1_title": "Revisá",
-    "dedupe.how1_text": "Elegí una playlist o todas a la vez. Busca repetidos dentro de cada una.",
+    "dedupe.how1_text": "Elegí el servicio y la playlist, o todas a la vez. Busca repetidos dentro de cada una.",
     "dedupe.how2_title": "Elegí",
     "dedupe.how2_text": "Ves qué se quita y qué queda. Las otras versiones quedan sin tildar.",
     "dedupe.how3_title": "Confirmá",

@@ -146,7 +146,7 @@
     "dedupe.remove_error": "Couldn't remove them.",
     "dedupe.all_playlists": "All playlists ({n})",
     "dedupe.how1_title": "Check",
-    "dedupe.how1_text": "Pick one playlist or all of them at once. It looks for duplicates inside each one.",
+    "dedupe.how1_text": "Pick the service and the playlist, or all of them at once. It looks for duplicates inside each one.",
     "dedupe.how2_title": "Choose",
     "dedupe.how2_text": "You see what is removed and what stays. Other versions are left unticked.",
     "dedupe.how3_title": "Confirm",
