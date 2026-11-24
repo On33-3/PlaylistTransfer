@@ -1,4 +1,4 @@
-"""Foto del estilo calculado de cada elemento, en cada estado de la app (11 estados: cada pantalla y
+"""Foto del estilo calculado de cada elemento, en cada estado de la app (cada pantalla y
 lo que se abre en ella, en la ventana normal y en la mínima), para comprobar que un refactor del CSS o
 del JavaScript no cambia nada. A diferencia de las capturas, no depende de la hora ni del mouse.
 
@@ -61,10 +61,17 @@ def states(browser):
     page.click("#cancel-login"); page.wait_for_timeout(300)
     page.click("nav [data-go=ajustes]"); page.wait_for_function("document.querySelector('#th-ok').value !== ''")
     yield "ajustes", page
+    page.click("#wipe"); page.wait_for_selector("#wipe-confirm[open]"); page.wait_for_timeout(300)
+    yield "ajustes-borrar-todo", page
+    page.click("#wipe-no")
     page.close()
 
     # 2. Transferir y resultado con "?" y alternativas
     tmp, (api, tidal, yt) = fresh()
+    from tests.fakes import S
+    yt.add_playlist("otra", "Otra lista", [S("Rasputin", "Majestic", "Boney M.", dur=187, id="r1"),
+                                           S("Rasputin", "Boney M.", dur=352, id="r2"),
+                                           S("Take On Me", "a-ha", dur=225, id="t1"), S("Take On Me", "a-ha", dur=226, id="t2")])
     page, errors = open_page(browser, api)
     page.click("nav [data-go=transferir]"); page.wait_for_selector("input[name=src]")
     page.check("input[name=src][value=src]"); page.check("#dst-new")
@@ -74,6 +81,19 @@ def states(browser):
     yield "transferir-resultado", page
     page.click("nav [data-go=repetidos]"); page.click("#dup-svc [data-svc=ytmusic]")
     page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
+    yield "repetidos-antes", page
+    # El avance, armado con eventos fijos (no depende de cuánto tarda la revisión)
+    page.evaluate("""() => { document.querySelector('#dup-how').hidden = true; document.querySelector('#dup-progress').hidden = false;
+        const p = {}; onScanEvent(p, { type: 'scan_list', names: ['Clásicos', 'Otra lista', 'Para correr'] });
+        onScanEvent(p, { type: 'scan_start', k: 0, name: 'Clásicos' }); onScanEvent(p, { type: 'scan_result', k: 0, found: 2 });
+        onScanEvent(p, { type: 'scan_start', k: 1, name: 'Otra lista' }); }""")
+    yield "repetidos-revisando", page
+    page.evaluate("clearDups()")
+    page.click("#dup-scan"); page.wait_for_selector(".dup-group + .dup-group")
+    yield "repetidos-todas", page
+    page.locator(".dups li input >> nth=0").uncheck()
+    page.evaluate("document.querySelector('main').scrollTop = 0")
+    yield "repetidos-destildado", page
     page.select_option("#dup-playlist", "dups"); page.click("#dup-scan"); page.wait_for_selector("#dups li")
     yield "repetidos", page
     page.click("#remove"); page.wait_for_selector("#confirm[open]"); page.wait_for_timeout(300)
