@@ -148,10 +148,13 @@
         <ul class="dup-pl" id="dup-pl"></ul>
       </div>
       <p class="dup-summary" id="dup-summary" hidden></p>
+      <p class="dup-hint" id="dup-hint" hidden></p>
       <div id="dups"></div>
       <p class="dup-clean muted" id="dup-clean" hidden></p>
       <p class="dup-clean error" id="dup-failed" hidden></p>
-      <div class="actions" id="dup-actions" hidden>
+      <!-- La decisión, siempre a la vista mientras se baja por la lista -->
+      <div class="dup-decide" id="dup-actions" hidden>
+        <p id="dup-decide-text"></p>
         <button class="btn danger" id="remove" disabled data-i18n="dedupe.remove">Quitar</button>
       </div>
     </section>
@@ -243,6 +246,7 @@
 
 <dialog id="confirm" aria-labelledby="c-title">
   <h3 id="c-title"></h3>
+  <ul class="c-list" id="c-list" hidden></ul>
   <p data-i18n="dedupe.confirm_text">Queda la versión que estaba primero en la playlist. Lo quitado queda anotado en el historial.</p>
   <p class="muted" id="c-readd" hidden></p>
   <div class="actions">

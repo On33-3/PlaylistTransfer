@@ -36,6 +36,8 @@
   --gap-in-box: 16px;        /* lo mismo, dentro de una caja (resultado, Ajustes) */
   --toast-bottom: 36px;      /* el aviso negro, abajo al centro */
   --toast-h: 44px;
+  --main-pad-b: calc(var(--toast-bottom) + var(--toast-h) + 24px);   /* lugar abajo para que el aviso no tape el final */
+  --decide-h: 68px;         /* la barra de decisión de Quitar repetidos (el aviso negro va arriba de ella) */
 }
 
 /* =========================================================================== base */
@@ -128,7 +130,7 @@ nav .version { padding: 0 14px; font-size: 12.5px; color: var(--ink-soft); }
 
 /* Una palabra larguísima (un nombre de playlist) se corta en vez de empujar */
 /* abajo, lugar para el aviso: al bajar del todo, lo último queda por encima, nunca tapado */
-main { overflow-y: auto; padding: 34px 40px calc(var(--toast-bottom) + var(--toast-h) + 24px); overflow-wrap: anywhere; }
+main { overflow-y: auto; padding: 34px 40px var(--main-pad-b); overflow-wrap: anywhere; }
 .screen { display: none; max-width: 760px; }
 .screen.active { display: block; }
 
@@ -201,6 +203,7 @@ dialog p { margin: 0; color: var(--ink-soft); }
 dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
 .toast { position: fixed; left: 50%; bottom: var(--toast-bottom); min-height: var(--toast-h); box-sizing: border-box; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(--decide-h) + 16px); }   /* no tapa la decisión */
 
 /* ---- mosaico: un cuadrado por tema, con su color */
 .mosaic { display: grid; gap: 5px; }
@@ -407,8 +410,32 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .dup-group .dups { margin: 0; padding: 0 14px; }
 .dup-group .dups li:last-child { border-bottom: 0; }
 .dup-clean { margin: 14px 0 0; font-size: 14px; max-width: 760px; }
+.dup-hint { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; max-width: 760px; }
+.dup-hint b { color: var(--ink); font-weight: 600; }
+.dup-group > header .dup-group-right { flex: none; display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--ink-soft); font-size: 14px; }
+.dup-toggle { height: var(--h-sm); border: 0; background: none; color: var(--lav-strong); font-weight: 600; font-size: 13.5px; padding: 0 6px; border-radius: 8px; cursor: pointer; }
+.dup-toggle:hover { background: var(--pending); }
+/* Cada fila dice lo que va a pasar: tildada, se quita (tachada) → queda; sin tildar, se conservan las dos */
+.dups .arrow { align-self: center; color: var(--ink-soft); font-size: 16px; text-align: center; }
+.dups .side .tag.off { display: none; background: var(--sage); }
+.dups li:has(input:not(:checked)) .side .tag.on { display: none; }
+.dups li:has(input:not(:checked)) .side .tag.off { display: inline-block; }
+.dups li:has(input:checked) .remove .t { text-decoration: line-through; text-decoration-color: #C9858D; text-decoration-thickness: 1.5px; }
+.dups li:has(input:not(:checked)) .arrow { visibility: hidden; }
+.dups li:has(input:not(:checked)) { background: #FBFAFE; }
+.dups .why { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+/* La barra de decisión: pegada abajo mientras se baja por la lista */
+/* bottom negativo: pegada al borde de la ventana, también sobre el lugar que main deja para el aviso */
+.dup-decide { position: sticky; bottom: calc(-1 * var(--main-pad-b)); z-index: 2; margin: 18px 0 0; max-width: 760px; min-height: var(--decide-h); box-sizing: border-box;
+              background: rgba(243, 241, 250, .94); backdrop-filter: blur(6px); border-top: 1px solid var(--line);
+              padding: 12px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.dup-decide[hidden] { display: none; }
+.dup-decide p { margin: 0; font-size: 14px; color: var(--ink-soft); min-width: 0; }
+.dup-decide p b { color: var(--ink); }
+.dup-decide .btn { flex: none; white-space: nowrap; }
+.c-list { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
 .dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
-.dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
+.dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) 22px minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
 .dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
 .dups .side { font-size: 14px; min-width: 0; }
 .dups .side .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px; }

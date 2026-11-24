@@ -6,7 +6,7 @@ import time
 
 from app.api.base import ApiBase, _artist, _remember
 from app.connectors.base import Connector, ConnectorError, NoNetwork, NotConnectedError
-from app.core.matching import find_duplicates
+from app.core.matching import OTHER_LENGTH, find_duplicates
 from app.core.models import Cancelled, Duplicate
 from app.core.transfer import song_dict
 from app.i18n import t as tr
@@ -16,6 +16,11 @@ ALL = "__all__"      # la UI pide revisar todas las playlists del servicio
 
 # Una revisión de varias playlists se recuerda entera (como una sola), con un número por playlist
 _parts = itertools.count(1)
+
+
+def _longer(d: Duplicate) -> int | None:
+    a, b = d.song.duration, d.kept.duration
+    return a - b if d.kind != "misma" and a and b and abs(a - b) > OTHER_LENGTH else None
 
 
 class DuplicatesApi(ApiBase):
@@ -66,6 +71,8 @@ class DuplicatesApi(ApiBase):
         return {"scan": scan_id, "playlist_id": playlist_id, "name": name, "total": len(songs),
                 "duplicates": [{"i": i, "index": d.index, "kind": d.kind, "song": song_dict(d.song),
                                 "kept": song_dict(d.kept),
+                                # Por qué viene sin tildar: dura muy distinto (segundos de más o de menos)
+                                "longer": _longer(d),
                                 # Spotify: la que queda se quita y se vuelve a agregar (se avisa antes)
                                 "readd": c.removes_all_copies and d.song.id is not None and d.song.id == d.kept.id}
                                for i, d in enumerate(dups)]}

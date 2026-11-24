@@ -268,19 +268,24 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     page.evaluate("document.querySelector('#dup-progress').hidden = true; state.scan = saved; showDupResults()")
     summary = page.inner_text("#dup-summary")
     assert summary.startswith("Encontré 3 repetidos en 2 de 10 playlists.")
-    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\n2 repetidos", "Primera\n1 repetido"]
+    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\nse quita 1 de 2\nDestildar todos",
+                                                                   "Primera\nse quita 1 de 1\nDestildar todos"]
     assert page.inner_text("#dup-clean") == "Sin repetidos: Limpia número 0, Limpia número 1, Limpia número 2, Limpia número 3 y 4 más."
-    assert page.inner_text("#remove") == "Quitar 2 temas de 2 playlists"
+    assert "tildado se quita" in page.inner_text("#dup-hint")                # qué significa tildar, antes de la lista
+    assert page.inner_text("#remove") == "Quitar 2 temas" and page.inner_text("#dup-scan") == "Revisar de nuevo"
+    assert page.inner_text("#dup-decide-text") == "Se van a quitar 2 temas de 2 playlists. Queda la versión de la derecha en cada caso."
     shot(page, f"repetidos-resultado-{size}")
     assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == []
     page.click("#remove")
     assert page.inner_text("#c-title") == "¿Quitar 2 temas de 2 playlists?"
+    assert page.locator("#c-list li").all_inner_texts() == ["Clásicos: 1 tema", "Primera: 1 tema"]
     page.click("#confirm-yes")
     page.wait_for_selector("text=Quitaste 2 temas de 2 playlists.")
     page.wait_for_function("!state.busy")
     assert [s.id for s in yt.songs("aaa")] == ["d1", "t3"] and len(yt.songs("dups")) == 3
     # Lo que queda: la "Otra versión" de Clásicos (sin tildar), y Primera pasó a las que están bien
-    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\n1 repetido"]
+    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\nse quitan 0 de 1\nTildar todos"]
+    assert page.inner_text("#dup-decide-text") == "No hay nada tildado: no se va a quitar nada." and page.is_disabled("#remove")
     assert page.inner_text("#dup-clean").startswith("Sin repetidos: Primera,")
     assert errors == []
 
@@ -300,3 +305,49 @@ def test_when_every_playlist_is_fine_it_says_which_ones_were_checked(browser, tm
     assert page.inner_text("#dup-summary") == "Ninguna de las 3 playlists tiene repetidos."
     assert page.inner_text("#dup-clean") == "Revisé Limpia 0, Limpia 1, Limpia 2."
     assert page.locator(".dup-group").count() == 0 and page.is_hidden("#dup-actions") and errors == []
+
+
+
+def test_each_row_says_what_will_happen_and_the_decision_is_always_in_sight(browser, tmp_path):
+    """Pedido del usuario (2026-11-24): no dejar nada a la intuición. Tildada: se quita (tachada) → queda.
+    Sin tildar: se conserva. La barra con la decisión se ve aunque la lista sea larga."""
+    api, tidal, yt = make_api(tmp_path)
+    many = []
+    for i in range(12):
+        many += [S(f"Tema {i}", "X", dur=200, id=f"m{i}"), S(f"Tema {i}", "X", dur=201, id=f"r{i}")]
+    many += [S("Rasputin", "Majestic", "Boney M.", dur=187, id="ras1"), S("Rasputin", "Boney M.", dur=352, id="ras2")]
+    yt.add_playlist("larga", "Larga", many)
+    page, errors = open_page(browser, api)
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=larga]", state="attached")
+    page.select_option("#dup-playlist", "larga")
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group")
+    row = page.locator(".dups li >> nth=0")
+    shown = "el => [...el.querySelectorAll('.remove .tag')].filter(t => t.getBoundingClientRect().width).map(t => t.textContent)"
+    assert row.evaluate(shown) == ["Se quita"] and row.locator(".arrow").is_visible()
+    assert row.locator(".remove .t").evaluate("el => getComputedStyle(el).textDecorationLine") == "line-through"
+    row.locator("input").uncheck()
+    assert row.evaluate(shown) == ["Se conserva"] and not row.locator(".arrow").is_visible()
+    assert "Se van a quitar 11 temas" in page.inner_text("#dup-decide-text")
+    # La otra grabación viene sin tildar y dice por qué
+    ras = page.locator(".dups li", has_text="Rasputin")
+    assert not ras.locator("input").is_checked() and ras.locator(".why").inner_text() == "Dura 2:45 más: es otra grabación."
+    # Con la lista larga, la barra queda pegada abajo de la ventana mientras se baja
+    page.evaluate("document.querySelector('main').scrollTop = 400")
+    page.wait_for_timeout(100)
+    bar = page.evaluate("(() => { const r = document.querySelector('#dup-actions').getBoundingClientRect(); return [r.bottom, document.querySelector('main').getBoundingClientRect().bottom]; })()")
+    assert abs(bar[0] - bar[1]) <= 1, bar
+    shot(page, "repetidos-barra-fija")
+    # "Destildar todos" y vuelta
+    page.click(".dup-toggle")
+    assert page.inner_text("#dup-decide-text") == "No hay nada tildado: no se va a quitar nada."
+    page.click(".dup-toggle")
+    assert "Se van a quitar 13 temas" in page.inner_text("#dup-decide-text")
+    # El aviso negro no tapa la barra de decisión
+    page.add_style_tag(content=".toast { transition: none !important; }")
+    page.evaluate("toast('Quitaste 3 temas de «Larga».')")
+    t, b = page.evaluate("[document.querySelector('#toast').getBoundingClientRect().bottom, document.querySelector('#dup-actions').getBoundingClientRect().top]")
+    assert t <= b, (t, b)
+    assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == [] and errors == []

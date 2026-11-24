@@ -42,8 +42,19 @@ function clearDups() {
   state.scan = null;
   $("#dups").innerHTML = ""; $("#dup-summary").hidden = true; $("#dup-actions").hidden = true;
   $("#dup-clean").hidden = true; $("#dup-failed").hidden = true; $("#dup-progress").hidden = true;
-  $("#dup-how").hidden = false;
+  $("#dup-hint").hidden = true; $("#dup-how").hidden = false;
+  scanButton(false);
 }
+
+/** Antes de revisar, "Revisar" es la acción principal; con el resultado a la vista lo es la barra de abajo. */
+function scanButton(results) {
+  const b = $("#dup-scan");
+  b.classList.toggle("primary", !results); b.classList.toggle("ghost", results);
+  b.textContent = t(results ? "dedupe.scan_again" : "dedupe.scan");
+}
+
+/** Texto con **negritas**: se escapa todo y solo se marcan esas partes. */
+const rich = text => esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 
 /* ---- revisando: cuál va y cómo dio cada una */
 
@@ -112,8 +123,6 @@ function showDupResults() {
   $("#dup-how").hidden = true;
   $("#dup-summary").hidden = false;
   const total = groups.reduce((s, g) => s + g.duplicates.length, 0);
-  const versions = groups.some(g => g.duplicates.some(d => d.kind !== "misma"));
-  const hints = groups.length ? (versions ? `${t("dedupe.versions_hint")} ` : "") + t("dedupe.uncheck_hint") : "";
   let head;
   if (!res.many) {
     const g = groups[0];
@@ -122,15 +131,22 @@ function showDupResults() {
     head = groups.length ? t("dedupe.found_many", { dups: dupCount(total), k: groups.length, total: res.checked })
       : t("dedupe.all_clean", { n: res.checked });
   }
-  $("#dup-summary").innerHTML = `<b>${esc(head)}</b>${hints ? ` <span class="muted">${esc(hints)}</span>` : ""}`;
+  $("#dup-summary").innerHTML = `<b>${esc(head)}</b>`;
+  // Qué significa tildar, dicho antes de la lista: nada queda librado a la intuición
+  $("#dup-hint").hidden = !groups.length; $("#dup-hint").innerHTML = groups.length ? rich(t("dedupe.decide_hint")) : "";
+  scanButton(true);
 
   const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
+  const why = d => d.longer == null ? ""
+    : `<div class="why">${esc(t(d.longer > 0 ? "dedupe.why_longer" : "dedupe.why_shorter", { time: mmss(Math.abs(d.longer)) }))}</div>`;
   $("#dups").innerHTML = groups.map((g, gi) => `
     <section class="dup-group" data-g="${gi}">
-      <header><span>${esc(g.name)}</span><span class="muted">${esc(dupCount(g.duplicates.length))}</span></header>
+      <header><span>${esc(g.name)}</span>
+        <span class="dup-group-right"><span class="dup-group-count"></span><button class="dup-toggle" data-toggle="${gi}"></button></span></header>
       <ul class="dups">${g.duplicates.map(d => `
         <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}">
-          <div class="side remove"><span class="tag">${esc(t("dedupe.tag_remove"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div></div>
+          <div class="side remove"><span class="tag on">${esc(t("dedupe.tag_remove"))}</span><span class="tag off">${esc(t("dedupe.tag_keep_both"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div>${why(d)}</div>
+          <span class="arrow" aria-hidden="true">→</span>
           <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("")}
       </ul>
     </section>`).join("");
@@ -162,17 +178,37 @@ function updateRemove() {
   if (!state.scan) return;
   const choices = dupChoices();
   const c = choices.reduce((s, x) => s + x.selected.length, 0), lists = choices.length;
-  const label = lists > 1 ? t("dedupe.remove_many", { songs: songs(c), lists: listCount(lists) }) : t("dedupe.remove_n", { n: c });
+  const label = t("dedupe.remove_n", { n: c });
   $("#remove").textContent = label; $("#confirm-yes").textContent = label;
   $("#remove").dataset.blocked = c ? "0" : "1"; $("#remove").disabled = !c || state.busy;
   const one = lists === 1 ? state.scan.groups.find(g => g.scan === choices[0].scan) : null;
-  $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name }) : t("dedupe.confirm_title_many", { action: label });
+  $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name })
+    : t("dedupe.confirm_title_lists", { songs: songs(c), lists: listCount(lists) });
+  // La barra dice qué va a pasar si se confirma, siempre a la vista
+  $("#dup-decide-text").innerHTML = !c ? `<b>${esc(t("dedupe.decide_none"))}</b>`
+    : `<b>${esc(one ? t("dedupe.decide_one", { songs: songs(c), name: one.name }) : t("dedupe.decide", { songs: songs(c), lists: listCount(lists) }))}</b> ${esc(t("dedupe.decide_keep"))}`;
+  // Cada playlist: cuántos se quitan y "tildar / destildar todos"
+  $$("#dups .dup-group").forEach(sec => {
+    const boxes = $$("input", sec), on = boxes.filter(b => b.checked).length;
+    $(".dup-group-count", sec).textContent = t("dedupe.group_count", { n: on, total: boxes.length });
+    $(".dup-toggle", sec).textContent = t(on ? "dedupe.untick_all" : "dedupe.tick_all");
+  });
+  // La confirmación, con cuántos de cada playlist si son varias
+  const per = choices.map(x => [state.scan.groups.find(g => g.scan === x.scan)?.name, x.selected.length]);
+  $("#c-list").hidden = per.length < 2;
+  $("#c-list").innerHTML = per.length < 2 ? "" : per.map(([name, n]) => `<li>${esc(t("dedupe.confirm_item", { name, songs: songs(n) }))}</li>`).join("");
   // Spotify quita todas las copias de una canción: la que queda vuelve a agregarse en su lugar
   const readd = $$("#dups input:checked").filter(i => state.scan.groups[Number(i.dataset.g)]?.duplicates[Number(i.dataset.i)]?.readd).length;
   $("#c-readd").hidden = !readd;
   $("#c-readd").textContent = readd ? t("dedupe.confirm_readd", { n: readd, service: NAMES[state.dupService] }) : "";
 }
 $("#dups").addEventListener("change", updateRemove);
+$("#dups").addEventListener("click", e => {
+  const b = e.target.closest("[data-toggle]"); if (!b) return;
+  const boxes = $$("input", b.closest(".dup-group")), any = boxes.some(x => x.checked);
+  boxes.forEach(x => { x.checked = !any; });
+  updateRemove();
+});
 $("#dup-scan").addEventListener("click", scanDups);
 $("#remove").addEventListener("click", () => { if (state.scan && dupChoices().length) $("#confirm").showModal(); });
 $("#confirm-no").addEventListener("click", () => $("#confirm").close());
