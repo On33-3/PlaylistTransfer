@@ -152,8 +152,10 @@ class FakeSpotify:
         for t in tracks:
             self.catalog[t["uri"]] = t
 
-    def add_playlist(self, pid, name, uris, owner="yo", collaborative=False):
-        self.playlists[pid] = {"name": name, "owner": owner, "collaborative": collaborative, "items": list(uris)}
+    def add_playlist(self, pid, name, uris, owner="yo", collaborative=False, listed=None):
+        """`listed`: la cantidad que dice /me/playlists, si no es la real (pasa con una recién creada)."""
+        self.playlists[pid] = {"name": name, "owner": owner, "collaborative": collaborative, "items": list(uris),
+                               "listed": listed}
 
     def uris(self, pid):
         return self.playlists[pid]["items"]
@@ -182,7 +184,8 @@ class FakeSpotify:
             return Resp(200, {"id": self.me})
         if (method, path) == ("GET", "/me/playlists"):
             items = [{"id": k, "name": v["name"], "owner": {"id": v["owner"]}, "collaborative": v["collaborative"],
-                      "items": {"total": len(v["items"])}} for k, v in self.playlists.items()]
+                      "items": {"total": len(v["items"]) if v["listed"] is None else v["listed"]}}
+                     for k, v in self.playlists.items()]
             return self._page(items, params, url)
         if (method, path) == ("POST", "/me/playlists"):
             pid = f"{len(self.playlists) + 1:0>22}"

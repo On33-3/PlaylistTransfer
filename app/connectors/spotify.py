@@ -370,7 +370,12 @@ class SpotifyConnector(Connector):
             if not p or not ((p.get("owner") or {}).get("id") == me or p.get("collaborative")):
                 continue
             items = p.get("items") or p.get("tracks") or {}
-            out.append(PlaylistInfo(p["id"], p.get("name") or "", items.get("total") if isinstance(items, dict) else None))
+            total = items.get("total") if isinstance(items, dict) else None
+            if total is not None and total < 2:
+                # Comprobado el 2026-11-24: esta lista sigue diciendo 0 de una playlist recién creada aunque
+                # ya tenga temas, y Quitar repetidos la escondía. Con 0 o 1 se pregunta la cantidad real
+                total = self._call("GET", f"/playlists/{p['id']}/items", params={"limit": 1}).get("total", total)
+            out.append(PlaylistInfo(p["id"], p.get("name") or "", total))
         return out
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:

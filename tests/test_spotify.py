@@ -204,6 +204,19 @@ def test_cancel_stops_a_long_wait(tmp_path, api, monkeypatch):
 
 # ---------------------------------------------------------------- leer y buscar
 
+def test_a_new_playlist_listed_with_no_songs_gets_its_real_count(tmp_path, api):
+    """Comprobado el 2026-11-24: /me/playlists dice 0 de una playlist recién creada que ya tiene 5 temas,
+    y Quitar repetidos la escondía. Solo se pregunta por las que dicen 0 o 1."""
+    api.add_tracks(track(1, "Uno", "A"), track(2, "Dos", "A"))
+    api.add_playlist("n" * 22, "Nueva", ["spotify:track:1", "spotify:track:2", "spotify:track:1"], listed=0)
+    api.add_playlist("v" * 22, "Vacía", [])
+    api.add_playlist("g" * 22, "Grande", ["spotify:track:1"] * 3)
+    counts = {p.name: p.count for p in make(tmp_path, api).list_playlists()}
+    assert counts["Nueva"] == 3 and counts["Vacía"] == 0 and counts["Grande"] == 3
+    asked = [c[1] for c in api.calls if c[1].endswith("/items") and c[2].get("limit") == 1]
+    assert sorted(asked) == ["/playlists/" + "n" * 22 + "/items", "/playlists/" + "v" * 22 + "/items"]
+
+
 def test_lists_only_own_and_collaborative_playlists_across_pages(tmp_path, api):
     for i in range(60):
         api.add_playlist(f"p{i:0>21}", f"Mía {i}", [])
