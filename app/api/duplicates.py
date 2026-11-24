@@ -1,7 +1,6 @@
 """Quitar repetidos: buscar (en una playlist o en todas) y, con confirmación, quitar."""
 from __future__ import annotations
 
-import itertools
 import time
 
 from app.api.base import ApiBase, _artist, _remember
@@ -13,9 +12,6 @@ from app.i18n import t as tr
 from app.storage.history import Operation, TrackRecord
 
 ALL = "__all__"      # la UI pide revisar todas las playlists del servicio
-
-# Una revisión de varias playlists se recuerda entera (como una sola), con un número por playlist
-_parts = itertools.count(1)
 
 
 def _longer(d: Duplicate) -> int | None:
@@ -55,7 +51,10 @@ class DuplicatesApi(ApiBase):
                     continue
                 checked_songs += group["total"]
                 emit({"type": "scan_result", "k": k, "found": len(group["duplicates"]), "name": group["name"]})
-                (groups if group["duplicates"] else clean).append(group if group["duplicates"] else group["name"])
+                if group["duplicates"]:
+                    groups.append(group)
+                else:
+                    clean.append(group["name"])
             batch_id = f"scan-{next(self._ids)}"
             _remember(self._scans, batch_id, batch)
             return {"batch": batch_id, "checked": len(todo), "songs_checked": checked_songs, "groups": groups,
@@ -65,7 +64,8 @@ class DuplicatesApi(ApiBase):
     def _scan_one(self, c: Connector, key: str, playlist_id: str, batch: dict) -> dict:
         name, songs = c.read(playlist_id)
         dups = find_duplicates(songs)
-        scan_id = f"part-{next(_parts)}"
+        # Una revisión de varias playlists se recuerda entera (un grupo), con un número por playlist
+        scan_id = f"part-{next(self._ids)}"
         if dups:                                        # solo se recuerda lo que se puede quitar
             batch[scan_id] = {"key": key, "playlist_id": playlist_id, "name": name, "songs": songs, "dups": dups}
         return {"scan": scan_id, "playlist_id": playlist_id, "name": name, "total": len(songs),
