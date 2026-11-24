@@ -133,3 +133,54 @@ def test_a_very_long_playlist_name_fits_in_the_smallest_window(browser, tmp_path
     page.click("#dup-scan")
     page.wait_for_selector(".dup-group")
     assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == [] and errors == []
+
+
+# ---------------------------------------------------------------- otras pantallas
+
+def test_disconnecting_a_service_drops_its_duplicates_result(browser, tmp_path):
+    """Con el resultado a la vista, desconectar el servicio dejaba un botón que ya no podía quitar nada."""
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    to_dedupe(page)
+    page.select_option("#dup-playlist", "dups")
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group")
+    api.disconnect("ytmusic")
+    page.evaluate("refreshStatus().then(() => serviceChanged('ytmusic'))")
+    page.wait_for_function("!document.querySelector('.dup-group')")
+    assert page.is_hidden("#dup-actions") and errors == []
+
+
+def test_a_new_playlist_without_a_name_gets_the_default_name(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    r = api._jobs.wait(api.start_transfer("tidal", "ytmusic", "src", [{"name": "   ", "id": None}])["job"])
+    assert r["state"] == "done" and r["result"]["targets"][0]["name"] == "Nueva playlist"
+
+
+def test_cancelling_twice_is_harmless(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    gate = slow_reads(tidal)
+    job = api.start_transfer("tidal", "ytmusic", "src", [{"name": "x", "id": "dst"}])["job"]
+    api.cancel(job)
+    api.cancel(job)
+    gate.set()
+    assert api._jobs.wait(job)["state"] == "cancelled" and yt.calls == []
+    assert api.cancel("job-inventado") == {"ok": True}
+
+
+def test_after_erasing_everything_the_history_is_empty_and_works(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    api._jobs.wait(api.start_transfer("tidal", "ytmusic", "src", [{"name": "x", "id": "dst"}])["job"])
+    assert api.history()
+    api.wipe_data(True)
+    assert api.history() == [] and api.history_detail(1) == []
+    tidal.connected = yt.connected = True                       # vuelve a conectar y transfiere
+    api._jobs.wait(api.start_transfer("tidal", "ytmusic", "src", [{"name": "x", "id": "dst"}])["job"])
+    assert len(api.history()) == 1
+
+
+def test_a_transfer_from_an_empty_playlist_says_so(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    tidal.add_playlist("vacia", "Vacía", [])
+    r = api._jobs.wait(api.start_transfer("tidal", "ytmusic", "vacia", [{"name": "x", "id": "dst"}])["job"])
+    assert r["state"] == "error" and "Vacía" in r["error"] and yt.calls == []

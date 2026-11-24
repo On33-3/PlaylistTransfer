@@ -10,8 +10,10 @@ async function renderDupControls() {
   const avail = USABLE.filter(connected);
   $("#dup-connect").hidden = avail.length > 0;
   $("#dup-controls").hidden = avail.length === 0;
-  if (!avail.length) { $("#dup-how").hidden = true; return; }
+  if (!avail.length) { if (state.scan) clearDups(); $("#dup-how").hidden = true; return; }
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
+  // Un resultado de un servicio que ya no está conectado (o de otro) no puede quitar nada: se descarta
+  if (state.scan && state.scan.service !== state.dupService) clearDups();
   // Quietos mientras hay algo en curso: si no, el resultado de un servicio aparecía bajo el nombre de otro
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" data-needs-idle data-blocked="${connected(k) ? 0 : 1}" ${connected(k) && !state.busy ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
   $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
@@ -107,7 +109,7 @@ async function scanDups() {
     $("#dup-summary").innerHTML = `<span class="error">${esc(done.state === "cancelled" ? t("dedupe.cancelled") : (done.error || t("dedupe.read_error")))}</span>`;
     return;
   }
-  state.scan = { ...done.result, many: pid === ALL_PLAYLISTS };
+  state.scan = { ...done.result, many: pid === ALL_PLAYLISTS, service: state.dupService };
   showDupResults();
 }
 
