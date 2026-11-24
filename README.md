@@ -22,7 +22,7 @@ Works on Windows 10 and 11.
 
 ![Transfer](docs/img/en/transferir.png)
 
-**Remove duplicates.** Finds the same song twice even if it's another video, a remaster or another cover. Live versions and remixes are left unchecked, and nothing is removed until you confirm.
+**Remove duplicates.** In one playlist or all of them at once, finds the same song twice even if it's another video, a remaster or another cover. Live versions and remixes are left unchecked, and nothing is removed until you confirm.
 
 ![Remove duplicates](docs/img/en/repetidos.png)
 
@@ -54,7 +54,7 @@ The app is available in **English and Spanish** (Settings › Language). The fir
 
 ## Privacy
 
-- You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, close the app and delete that folder.
+- You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, use **Settings › Erase everything**: the app goes back to how it was the first time, and your playlists are not touched.
 - The app has no servers and no analytics: it only talks to Tidal, YouTube Music and Spotify.
 - It uses **unofficial** libraries ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, it may stop working until they're updated. Spotify uses its official API, with the app you create.
 
@@ -69,6 +69,7 @@ py -m pip install -r requirements-dev.txt
 py -m pytest -q                 # tests (the UI ones need playwright and Edge)
 py -m app                       # opens the app
 py packaging/build.py           # builds dist/PlaylistTransfer-<version>-windows.zip
+py tools/real_check.py          # before a release: the real UI with your accounts (it only writes to a test playlist it deletes)
 ```
 
 - `app/core/`: the engine (matching, duplicates, transfers). Each rule has its scenario in `tests/test_scenarios.py`.

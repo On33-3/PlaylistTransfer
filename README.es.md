@@ -22,7 +22,7 @@ Funciona en Windows 10 y 11.
 
 ![Transferir](docs/img/es/transferir.png)
 
-**Quitar repetidos.** Encuentra la misma canción dos veces aunque sea otro video, un remaster u otra portada. Las versiones en vivo o remix aparecen sin tildar, y nada se quita sin que lo confirmes.
+**Quitar repetidos.** En una playlist o en todas a la vez, encuentra la misma canción dos veces aunque sea otro video, un remaster u otra portada. Las versiones en vivo o remix aparecen sin tildar, y nada se quita sin que lo confirmes.
 
 ![Quitar repetidos](docs/img/es/repetidos.png)
 
@@ -54,7 +54,7 @@ La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez us
 
 ## Privacidad
 
-- Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, cerrá la app y borrá esa carpeta.
+- Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, usá **Ajustes › Borrar todo**: la app queda como la primera vez, y tus playlists no se tocan.
 - La app no tiene servidores ni estadísticas: solo habla con Tidal, YouTube Music y Spotify.
 - Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen. Spotify usa su API oficial, con la app que creás vos.
 
@@ -69,6 +69,7 @@ py -m pip install -r requirements-dev.txt
 py -m pytest -q                 # tests (los de la UI necesitan playwright y Edge)
 py -m app                       # abre la app
 py packaging/build.py           # arma dist/PlaylistTransfer-<versión>-windows.zip
+py tools/real_check.py          # antes de publicar: la UI real con tus cuentas (solo escribe en una playlist de prueba que borra)
 ```
 
 - `app/core/`: el motor (coincidencias, repetidos, transferencias). Cada regla tiene su escenario en `tests/test_scenarios.py`.
