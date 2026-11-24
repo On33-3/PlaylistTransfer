@@ -134,6 +134,10 @@ def diff(a_path, b_path):
                 problems.append(f"{state}: {'falta' if el not in y else 'sobra'} {el[-90:]}")
                 continue
             for prop in sorted(set(x[el]) | set(y[el])):
+                # Las variables (--algo) no se dibujan: lo que cambia la pantalla son las propiedades que las usan,
+                # y esas sí se comparan. Así, pasar un valor repetido a una variable no da falsas alarmas
+                if prop.startswith("--"):
+                    continue
                 if x[el].get(prop) != y[el].get(prop):
                     problems.append(f"{state}: {el[-70:]} {prop}: {x[el].get(prop)!r} -> {y[el].get(prop)!r}")
     print(f"{len(problems)} diferencias")
