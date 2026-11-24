@@ -11,6 +11,7 @@ from app.auth.browsers import Browser
 from app.jobs import Jobs
 from app.storage import prefs
 from app.storage.history import History
+from app.connectors.base import ConnectorError
 from tests.fakes import FakeService, S, build_api
 
 VIVALDI = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
@@ -175,7 +176,7 @@ def test_cancel_a_transfer(app):
 def scan(api):
     r = wait(api, api.scan_duplicates("ytmusic", "dups")["job"])
     assert r["state"] == "done", r["error"]
-    return r["result"]
+    return r["result"]["groups"][0]
 
 
 def test_scan_marks_other_versions(app):
@@ -345,7 +346,7 @@ def test_there_is_no_per_transfer_report_anymore(app):
 def test_history_tiles_and_filter(app):
     api, tidal, yt = app
     wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
-    res = wait(api, api.scan_duplicates("ytmusic", "dups")["job"])["result"]
+    res = wait(api, api.scan_duplicates("ytmusic", "dups")["job"])["result"]["groups"][0]
     wait(api, api.remove_duplicates(res["scan"], [0], True)["job"])
     assert [o["kind"] for o in api.history()] == ["dedupe", "transfer"]
     assert [o["kind"] for o in api.history(None, "transfer")] == ["transfer"]
@@ -510,3 +511,56 @@ def test_finished_jobs_are_forgotten():
         ids.append(j.start("scan", lambda emit, cancel: 1))
         j.wait(ids[-1])
     assert len(j._jobs) <= jobs.KEEP_FINISHED + 1 and j.poll(ids[-1])["state"] == "done"
+
+
+# ---------------------------------------------------------------- repetidos en todas las playlists
+
+def more_playlists(yt):
+    yt.add_playlist("otra", "Otra lista", [S("Dos", "X", id="d1"), S("Dos", "X", id="d2"), S("Tres", "X", id="t1")])
+    yt.add_playlist("limpia", "Sin nada", [S("Uno", "X", id="u1"), S("Cuatro", "X", id="c4")])
+    yt.add_playlist("rota", "Rota", [S("Uno", "X", id="u9"), S("Cinco", "X", id="c5")])
+    real = yt.read
+
+    def read(pid):
+        if pid == "rota":
+            raise ConnectorError("No se pudo leer esa playlist.")
+        return real(pid)
+    yt.read = read
+
+
+def test_scan_all_playlists_one_by_one(app):
+    """Una que no se puede leer no frena las demás; las de menos de 2 temas no se revisan."""
+    api, tidal, yt = app
+    more_playlists(yt)
+    r = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])
+    assert r["state"] == "done", r["error"]
+    res = r["result"]
+    assert [g["name"] for g in res["groups"]] == ["Clásicos", "Otra lista"]
+    assert res["clean"] == ["Sin nada"] and [f["name"] for f in res["failed"]] == ["Rota"]
+    assert res["checked"] == 4                                    # "Para correr" tiene 1 tema: no cuenta
+    kinds = [e["type"] for e in r["events"]]
+    assert kinds[0] == "scan_list" and kinds.count("scan_start") == 4 and kinds.count("scan_result") == 4
+
+
+def test_remove_from_several_playlists_at_once(app):
+    api, tidal, yt = app
+    more_playlists(yt)
+    res = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])["result"]
+    choices = [{"scan": g["scan"], "selected": [0]} for g in res["groups"]]
+    assert "error" in api.remove_many(choices, False)                         # sin el diálogo, nada
+    r = wait(api, api.remove_many(choices, True)["job"])
+    assert r["state"] == "done" and r["result"]["removed"] == 2 and r["result"]["names"] == ["Clásicos", "Otra lista"]
+    assert [s.id for s in yt.songs("dups")] == ["v1", "v2", "v4"] and [s.id for s in yt.songs("otra")] == ["d1", "t1"]
+    after = {g["name"]: len(g["duplicates"]) for g in r["result"]["groups"]}  # se revisaron de nuevo
+    assert after == {"Clásicos": 1, "Otra lista": 0}
+    assert [o["source_name"] for o in api.history()] == ["Otra lista", "Clásicos"]   # una fila por playlist
+
+
+def test_several_playlists_stop_at_one_that_changed_and_say_what_was_done(app):
+    api, tidal, yt = app
+    more_playlists(yt)
+    res = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])["result"]
+    yt.add("otra", [S("Nueva", "Y", id="n1")])                                # cambió desde otro lado
+    r = wait(api, api.remove_many([{"scan": g["scan"], "selected": [0]} for g in res["groups"]], True)["job"])
+    assert r["state"] == "error" and "Clásicos" in r["error"] and "«Otra lista» cambió" in r["error"]
+    assert len(yt.songs("dups")) == 3 and len(yt.songs("otra")) == 4         # la segunda no se tocó

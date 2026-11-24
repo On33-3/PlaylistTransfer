@@ -1,14 +1,16 @@
-/* Quitar repetidos: elegir playlist, revisar y confirmar. */
+/* Quitar repetidos: elegir una playlist o todas, revisar y confirmar. */
 "use strict";
 
 /* ---------------------------------------------------------------- quitar repetidos */
+
+const ALL_PLAYLISTS = "__all__";     // revisar todas las playlists del servicio (como app/api/duplicates.ALL)
 
 async function renderDupControls() {
   const turn = renderDupControls.turn = (renderDupControls.turn || 0) + 1;   // solo cuenta el último pedido
   const avail = USABLE.filter(connected);
   $("#dup-connect").hidden = avail.length > 0;
   $("#dup-controls").hidden = avail.length === 0;
-  if (!avail.length) return;
+  if (!avail.length) { $("#dup-how").hidden = true; return; }
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" ${connected(k) ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
   $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
@@ -16,14 +18,17 @@ async function renderDupControls() {
   const all = await getPlaylists(state.dupService) || [];
   if (turn !== renderDupControls.turn) return;
   const pls = all.filter(p => p.count == null || p.count >= 2);
-  $("#dup-playlist").innerHTML = pls.length ? pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
+  // Con más de una, la primera opción es revisarlas todas
+  const allOption = pls.length > 1 ? `<option value="${ALL_PLAYLISTS}">${esc(t("dedupe.all_playlists", { n: pls.length }))}</option>` : "";
+  $("#dup-playlist").innerHTML = pls.length ? allOption + pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
     : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`;
   // Redibujar no cambia la playlist elegida (antes, después de quitar temas se volvía a revisar otra)
-  const chosen = pls.some(p => String(p.id) === state.dupPlaylist);
-  if (chosen) $("#dup-playlist").value = state.dupPlaylist;
-  else if (state.dupPlaylist) clearDups();
+  const values = $$("#dup-playlist option").map(o => o.value);
+  if (state.dupPlaylist && values.includes(state.dupPlaylist)) $("#dup-playlist").value = state.dupPlaylist;
+  else if (state.dupPlaylist && !state.scan) clearDups();
   state.dupPlaylist = $("#dup-playlist").value;
   const scan = $("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
+  $("#dup-how").hidden = !!state.scan || !$("#dup-progress").hidden;
 }
 
 $("#dup-svc").addEventListener("click", e => {
@@ -32,63 +37,161 @@ $("#dup-svc").addEventListener("click", e => {
 });
 $("#dup-playlist").addEventListener("change", () => { state.dupPlaylist = $("#dup-playlist").value; clearDups(); });
 
-function clearDups() { state.scan = null; $("#dups").innerHTML = ""; $("#dup-summary").hidden = true; $("#dup-actions").hidden = true; }
+/** Vuelve al estado de antes de revisar: se ven los tres pasos. */
+function clearDups() {
+  state.scan = null;
+  $("#dups").innerHTML = ""; $("#dup-summary").hidden = true; $("#dup-actions").hidden = true;
+  $("#dup-clean").hidden = true; $("#dup-failed").hidden = true; $("#dup-progress").hidden = true;
+  $("#dup-how").hidden = false;
+}
+
+/* ---- revisando: cuál va y cómo dio cada una */
+
+function onScanEvent(p, e) {
+  const now = $("#dup-progress-now");
+  if (e.type === "scan_list") {
+    p.names = e.names; p.done = 0;
+    const many = e.names.length > 1;
+    $("#dup-bar-box").hidden = !many; $("#dup-pl").hidden = !many;
+    $("#dup-pl").innerHTML = many ? e.names.map((n, k) => `<li data-k="${k}"><span>${esc(n)}</span><span class="dup-pill">${esc(t("dedupe.pill_wait"))}</span></li>`).join("") : "";
+  } else if (e.type === "scan_start") {
+    stopWaiting(now);
+    const many = p.names.length > 1;
+    $("#dup-progress-text").textContent = many ? t("dedupe.progress", { k: e.k + 1, n: p.names.length })
+      : t("dedupe.progress_one", { name: e.name || $("#dup-playlist").selectedOptions[0]?.textContent || "" });
+    now.textContent = many ? `· «${e.name}»` : "";
+    const li = $(`#dup-pl li[data-k="${e.k}"]`);
+    if (li) { li.lastElementChild.className = "dup-pill now"; li.lastElementChild.textContent = t("dedupe.pill_now"); $("#dup-pl").prepend(li); }
+  } else if (e.type === "scan_result") {
+    p.done++; $("#dup-bar").style.width = `${Math.round(100 * p.done / p.names.length)}%`;
+    const pill = $(`#dup-pl li[data-k="${e.k}"] .dup-pill`); if (!pill) return;
+    const [cls, text] = e.error ? ["error", t("dedupe.pill_error")]
+      : e.found ? ["found", t("dedupe.n_dups", { n: e.found })] : ["clean", t("dedupe.pill_clean")];
+    pill.className = `dup-pill ${cls}`; pill.textContent = text;
+  } else if (e.type === "waiting") {
+    showWaiting(now, e);                       // el servicio pidió una pausa: cuenta regresiva
+  } else if (e.type === "waited") {
+    stopWaiting(now); now.textContent = "";
+  }
+}
 
 async function scanDups() {
   const pid = $("#dup-playlist").value; if (!pid) return;
   clearDups();
-  $("#dup-summary").hidden = false; $("#dup-summary").innerHTML = `<span class="muted">${esc(t("dedupe.reading"))}</span>`;
+  $("#dup-how").hidden = true; $("#dup-progress").hidden = false;
+  $("#dup-progress-text").textContent = t("dedupe.reading"); $("#dup-progress-now").textContent = "";
+  $("#dup-bar").style.width = "0"; $("#dup-pl").innerHTML = "";
   const r = await call("scan_duplicates", state.dupService, pid);
-  if (!r) { $("#dup-summary").hidden = true; return; }
-  const reading = $("#dup-summary .muted");
-  const done = await follow(r.job, e => {                 // si el servicio pide esperar, se ve la cuenta regresiva
-    if (e.type === "waiting") showWaiting(reading, e);
-    if (e.type === "waited") { stopWaiting(reading); reading.textContent = t("dedupe.reading"); }
-  });
-  stopWaiting(reading);
-  if (done.state !== "done") { $("#dup-summary").innerHTML = `<span class="error">${esc(done.error || t("dedupe.read_error"))}</span>`; return; }
-  const res = state.scan = done.result;
-  if (!res.duplicates.length) {
-    $("#dup-summary").innerHTML = `<b>${esc(t("dedupe.clean", { name: res.name }))}</b> <span class="muted">${esc(t("dedupe.checked", { songs: songs(res.total) }))}</span>`;
+  if (!r) { clearDups(); return; }
+  const progress = {};
+  const done = await follow(r.job, e => onScanEvent(progress, e));
+  stopWaiting($("#dup-progress-now"));
+  $("#dup-progress").hidden = true;
+  if (done.state !== "done") {
+    $("#dup-summary").hidden = false;
+    $("#dup-summary").innerHTML = `<span class="error">${esc(done.state === "cancelled" ? t("transfer.cancelled_title") : (done.error || t("dedupe.read_error")))}</span>`;
     return;
   }
-  const versions = res.duplicates.filter(d => d.kind !== "misma").length;
-  const hints = (versions ? `${t("dedupe.versions_hint")} ` : "") + t("dedupe.uncheck_hint");
-  $("#dup-summary").innerHTML = `<b>${esc(t("dedupe.found", { n: res.duplicates.length, name: res.name }))}</b> <span class="muted">${esc(hints)}</span>`;
-  const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
-  $("#dups").innerHTML = res.duplicates.map(d => `
-    <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-i="${d.i}">
-      <div class="side remove"><span class="tag">${esc(t("dedupe.tag_remove"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div></div>
-      <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("");
-  $("#dup-actions").hidden = false; updateRemove();
+  state.scan = { ...done.result, many: pid === ALL_PLAYLISTS };
+  showDupResults();
 }
 
-const checkedDups = () => $$("#dups input:checked").map(i => Number(i.dataset.i));
+/* ---- resultado: una tarjeta por playlist con repetidos */
+
+const dupCount = n => t("dedupe.n_dups", { n });
+const listCount = n => t("dedupe.lists", { n });
+
+/** "Gym, Anime, NEW y 10 más" */
+function someNames(names, show = 4) {
+  const shown = names.slice(0, show).join(", ");
+  return names.length > show ? t("dedupe.and_more", { names: shown, n: names.length - show }) : shown;
+}
+
+function showDupResults() {
+  const res = state.scan, groups = res.groups;
+  $("#dup-how").hidden = true;
+  $("#dup-summary").hidden = false;
+  const total = groups.reduce((s, g) => s + g.duplicates.length, 0);
+  const versions = groups.some(g => g.duplicates.some(d => d.kind !== "misma"));
+  const hints = groups.length ? (versions ? `${t("dedupe.versions_hint")} ` : "") + t("dedupe.uncheck_hint") : "";
+  let head;
+  if (!res.many) {
+    const g = groups[0];
+    head = g ? t("dedupe.found", { n: total, name: g.name }) : t("dedupe.clean", { name: res.clean[0] || "" });
+  } else {
+    head = groups.length ? t("dedupe.found_many", { dups: dupCount(total), k: groups.length, total: res.checked })
+      : t("dedupe.all_clean", { n: res.checked });
+  }
+  $("#dup-summary").innerHTML = `<b>${esc(head)}</b>${hints ? ` <span class="muted">${esc(hints)}</span>` : ""}`;
+
+  const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
+  $("#dups").innerHTML = groups.map((g, gi) => `
+    <section class="dup-group" data-g="${gi}">
+      <header><span>${esc(g.name)}</span><span class="muted">${esc(dupCount(g.duplicates.length))}</span></header>
+      <ul class="dups">${g.duplicates.map(d => `
+        <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}">
+          <div class="side remove"><span class="tag">${esc(t("dedupe.tag_remove"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div></div>
+          <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("")}
+      </ul>
+    </section>`).join("");
+
+  // Revisando todas: las que están bien, en una línea; las que no se pudieron leer, dicho
+  const clean = res.many && groups.length ? res.clean : [];
+  $("#dup-clean").hidden = !clean.length;
+  $("#dup-clean").textContent = clean.length ? t("dedupe.clean_many", { names: someNames(clean) }) : "";
+  $("#dup-failed").hidden = !res.failed?.length;
+  $("#dup-failed").textContent = res.failed?.length ? t("dedupe.failed", { names: someNames(res.failed.map(f => f.name)) }) : "";
+  if (!res.many && !groups.length) $("#dup-summary").innerHTML += ` <span class="muted">${esc(t("dedupe.checked", { songs: songs(res.songs_checked ?? 0) }))}</span>`;
+  $("#dup-actions").hidden = !groups.length;
+  updateRemove();
+}
+
+/** Lo tildado, por playlist: [{ scan, selected: [i...] }] */
+function dupChoices() {
+  const by = new Map();
+  $$("#dups input:checked").forEach(i => {
+    const g = state.scan.groups[Number(i.dataset.g)];
+    if (!by.has(g.scan)) by.set(g.scan, []);
+    by.get(g.scan).push(Number(i.dataset.i));
+  });
+  return [...by].map(([scan, selected]) => ({ scan, selected }));
+}
+
 function updateRemove() {
-  const c = checkedDups().length, label = t("dedupe.remove_n", { n: c });
+  if (!state.scan) return;
+  const choices = dupChoices();
+  const c = choices.reduce((s, x) => s + x.selected.length, 0), lists = choices.length;
+  const label = lists > 1 ? t("dedupe.remove_many", { songs: songs(c), lists: listCount(lists) }) : t("dedupe.remove_n", { n: c });
   $("#remove").textContent = label; $("#confirm-yes").textContent = label;
   $("#remove").dataset.blocked = c ? "0" : "1"; $("#remove").disabled = !c || state.busy;
-  $("#c-title").textContent = t("dedupe.confirm_title", { action: label, name: state.scan?.name || "" });
+  const one = lists === 1 ? state.scan.groups.find(g => g.scan === choices[0].scan) : null;
+  $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name }) : t("dedupe.confirm_title_many", { action: label });
   // Spotify quita todas las copias de una canción: la que queda vuelve a agregarse en su lugar
-  const readd = checkedDups().filter(i => state.scan?.duplicates[i]?.readd).length;
+  const readd = $$("#dups input:checked").filter(i => state.scan.groups[Number(i.dataset.g)]?.duplicates[Number(i.dataset.i)]?.readd).length;
   $("#c-readd").hidden = !readd;
   $("#c-readd").textContent = readd ? t("dedupe.confirm_readd", { n: readd, service: NAMES[state.dupService] }) : "";
 }
 $("#dups").addEventListener("change", updateRemove);
 $("#dup-scan").addEventListener("click", scanDups);
-$("#remove").addEventListener("click", () => { if (checkedDups().length) $("#confirm").showModal(); });
+$("#remove").addEventListener("click", () => { if (state.scan && dupChoices().length) $("#confirm").showModal(); });
 $("#confirm-no").addEventListener("click", () => $("#confirm").close());
 $("#confirm-yes").addEventListener("click", async () => {
-  const selected = checkedDups(); $("#confirm").close();
-  if (!selected.length || !state.scan) return;
-  const r = await call("remove_duplicates", state.scan.scan, selected, true);   // true: el usuario confirmó en el diálogo
+  const choices = dupChoices(); $("#confirm").close();
+  if (!choices.length || !state.scan) return;
+  const r = await call("remove_many", choices, true);   // true: el usuario confirmó en el diálogo
   if (!r) return;
   const done = await follow(r.job);
-  if (done.state === "done") {
-    toast(t("dedupe.removed_toast", { songs: songs(done.result.removed), name: done.result.name }));
-    // Si le quedó menos de 2 temas sale de la lista: no hay que ponerse a revisar otra
-    const same = state.dupPlaylist;
-    forgetPlaylists(state.dupService); await renderDupControls();
-    if ($("#dup-playlist").value === same) scanDups();
-  } else toast(done.error || t("dedupe.remove_error"));
+  if (done.state !== "done") { toast(done.error || t("dedupe.remove_error")); return; }
+  const res = done.result;
+  toast(res.names.length > 1 ? t("dedupe.removed_many_toast", { songs: songs(res.removed), lists: listCount(res.names.length) })
+    : t("dedupe.removed_toast", { songs: songs(res.removed), name: res.name }));
+  // Las playlists que cambiaron se revisaron de nuevo: la pantalla muestra cómo quedaron
+  const scan = state.scan;
+  for (const g of res.groups) {
+    const at = scan.groups.findIndex(x => x.playlist_id === g.playlist_id);
+    if (g.duplicates.length) scan.groups[at] = g;
+    else { scan.groups.splice(at, 1); scan.clean.unshift(g.name); if (!scan.many) scan.songs_checked = g.total; }
+  }
+  forgetPlaylists(state.dupService); await renderDupControls();
+  showDupResults();
 });

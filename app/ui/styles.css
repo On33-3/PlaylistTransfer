@@ -169,6 +169,7 @@ main { overflow-y: auto; padding: 34px 40px calc(var(--toast-bottom) + var(--toa
 .seg { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 999px; height: calc(var(--h-lg) - 8px); padding: 0 16px; cursor: pointer; font-weight: 500; color: var(--ink-soft); }
 .seg button[aria-pressed="true"] { background: var(--lav); color: var(--ink); }
+.seg button:disabled { opacity: .45; cursor: not-allowed; }     /* un servicio sin conectar no parece elegible */
 
 /* ---- campos: alto mediano y mismo radio; el desplegable de una fila de acciones va al alto grande */
 .select { height: 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; }
@@ -373,6 +374,39 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 /* =========================================================================== Quitar repetidos */
 #dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* no crece con el nombre más largo */
 .dup-summary { margin: var(--gap-actions) 0 0; }
+.dup-pick { display: flex; gap: 14px; align-items: center; min-width: 0; }
+/* Antes de revisar: tres tarjetas del mismo alto, con el número arriba a la izquierda */
+.dup-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: var(--gap-actions) 0 0; max-width: 760px; }
+.dup-how > div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+.dup-how-n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--lav); font-weight: 700; font-size: 13px; line-height: 1; margin-bottom: 8px; }
+.dup-how h4 { margin: 0 0 4px; font-size: 15px; }
+.dup-how p { margin: 0; color: var(--ink-soft); font-size: 13.5px; line-height: 1.45; }
+.dup-how-tags { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.dup-tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.dup-tag.remove { background: var(--rose); }
+.dup-tag.keep { background: var(--mint); }
+.dup-tag.version { background: var(--peach); }
+/* Revisando: barra de avance y el estado de cada playlist */
+.dup-progress { margin: var(--gap-actions) 0 0; max-width: 760px; }
+.dup-progress-head { margin: 0; }
+.dup-bar { height: 8px; background: var(--pending); border-radius: 999px; overflow: hidden; margin: 10px 0 16px; }
+.dup-bar i { display: block; height: 100%; width: 0; background: var(--lav-strong); border-radius: 999px; transition: width .2s; }
+.dup-pl { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); max-height: 360px; overflow-y: auto; }
+.dup-pl li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.dup-pl li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.dup-pill { flex: none; font-size: 12.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--pending); color: var(--ink-soft); }
+.dup-pill.now { background: var(--sky); color: var(--ink); }
+.dup-pill.found { background: var(--rose); color: var(--ink); }
+.dup-pill.clean { background: var(--sage); }
+.dup-pill.error { background: var(--rose); color: var(--danger-ink); }
+/* Resultado: una tarjeta por playlist con repetidos */
+.dup-group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin: 14px 0 0; max-width: 760px; }
+.dup-group > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; font-weight: 600; }
+.dup-group > header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.dup-group > header .muted { flex: none; font-weight: 500; }
+.dup-group .dups { margin: 0; padding: 0 14px; }
+.dup-group .dups li:last-child { border-bottom: 0; }
+.dup-clean { margin: 14px 0 0; font-size: 14px; max-width: 760px; }
 .dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
 .dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
 .dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }

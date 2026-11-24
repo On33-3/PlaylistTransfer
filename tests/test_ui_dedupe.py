@@ -175,3 +175,111 @@ def test_a_slow_answer_does_not_overwrite_the_service_chosen_later(browser, tmp_
     page.wait_for_timeout(700)
     assert page.locator("#dup-playlist option[value=bbb]").count() == 1
     assert errors == []
+
+
+# ---------------------------------------------------------------- todas las playlists (diseño aprobado el 2026-11-24)
+
+# Lo que se ve raro aunque cumpla las normas de tamaños: medido en la pantalla, en píxeles
+ALIGN = """() => {
+  const vis = el => el && el.getBoundingClientRect().width > 0, out = [];
+  const r = el => el.getBoundingClientRect();
+  // El número de cada paso, centrado en su círculo
+  document.querySelectorAll('#dup-how .dup-how-n').forEach(n => {
+    if (!vis(n)) return;
+    const range = document.createRange(); range.selectNodeContents(n);
+    const t = range.getBoundingClientRect(), c = r(n);
+    const dx = (t.left + t.width / 2) - (c.left + c.width / 2), dy = (t.top + t.height / 2) - (c.top + c.height / 2);
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1.5) out.push(`paso ${n.textContent}: número descentrado (${dx.toFixed(1)}, ${dy.toFixed(1)})`);
+  });
+  // Las tres tarjetas: misma altura y alineadas arriba
+  const cards = [...document.querySelectorAll('#dup-how > div')].filter(vis).map(r);
+  if (cards.length && new Set(cards.map(c => Math.round(c.top))).size > 1) out.push('tarjetas de pasos desalineadas arriba');
+  if (cards.length && new Set(cards.map(c => Math.round(c.height))).size > 1) out.push('tarjetas de pasos de distinto alto');
+  // Las pastillas de estado, centradas en su renglón
+  document.querySelectorAll('#dup-pl li').forEach(li => {
+    const p = li.querySelector('.dup-pill'); if (!vis(p)) return;
+    const d = (r(p).top + r(p).height / 2) - (r(li).top + r(li).height / 2);
+    if (Math.abs(d) > 1) out.push(`pastilla corrida ${d.toFixed(1)}px en «${li.textContent.trim().slice(0, 20)}»`);
+  });
+  // Todo arranca en el mismo borde izquierdo
+  const left = Math.round(r(document.querySelector('#repetidos h1')).left);
+  ['#dup-controls', '#dup-how', '#dup-progress', '#dup-summary', '.dup-group', '#dup-clean', '#dup-actions'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if (vis(el) && Math.abs(Math.round(r(el).left) - left) > 1) out.push(`${sel} no arranca en el borde (${r(el).left} vs ${left})`);
+  });
+  // Nada se sale de la pantalla a lo ancho
+  const main = document.querySelector('main');
+  if (main.scrollWidth > main.clientWidth + 1) out.push(`la pantalla se sale a lo ancho (${main.scrollWidth} > ${main.clientWidth})`);
+  return out;
+}"""
+
+SIZES = {"normal": (1120, 780), "minima": (860, 620)}
+
+
+def all_api(tmp_path):
+    api, tidal, yt = make_api(tmp_path)
+    yt.add_playlist("aaa", "Primera", [S("Dos", "X", id="d1"), S("Dos", "X", id="d2"), S("Tres", "X", id="t3")])
+    for i in range(8):
+        yt.add_playlist(f"ok{i}", f"Limpia número {i}", [S(f"A{i}", "X", id=f"a{i}"), S(f"B{i}", "X", id=f"b{i}")])
+    return api, tidal, yt
+
+
+def open_all(page):
+    page.click("nav [data-go=repetidos]")
+    page.click("#dup-svc [data-svc=ytmusic]")
+    page.wait_for_selector("#dup-playlist option[value=aaa]", state="attached")
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_before_checking_the_three_steps_are_shown_and_aligned(browser, tmp_path, size):
+    api, *_ = all_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
+    open_all(page)
+    assert page.input_value("#dup-playlist") == "__all__"                     # de entrada, todas
+    assert page.inner_text("#dup-playlist option >> nth=0") == "Todas las playlists (10)"
+    assert page.is_visible("#dup-how") and page.inner_text("#dup-scan") == "Revisar"
+    shot(page, f"repetidos-antes-{size}")
+    assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == [] and errors == []
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_path, size):
+    api, tidal, yt = all_api(tmp_path)
+    page, errors = open_page(browser, api)
+    page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
+    open_all(page)
+    # A mitad de camino: se ve cuál va y cómo dio cada una (se frena la respuesta para mirarla)
+    page.evaluate("""() => { const real = onScanEvent; window.mid = null;
+        onScanEvent = (p, e) => { real(p, e); if (e.type === 'scan_result' && e.k === 3 && !mid)
+          mid = { text: document.querySelector('#dup-progress-text').textContent,
+                  pills: [...document.querySelectorAll('#dup-pl .dup-pill')].map(x => x.textContent) }; }; }""")
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group")
+    mid = page.evaluate("mid")
+    assert mid["text"] == "Revisando 4 de 10 playlists" and "en espera" in mid["pills"] and "sin repetidos" in mid["pills"]
+    # La barra a mitad de camino, para la captura y la alineación
+    page.evaluate("""() => { window.saved = state.scan; clearDups(); document.querySelector('#dup-progress').hidden = false; document.querySelector('#dup-how').hidden = true;
+        const p = {}; onScanEvent(p, { type: 'scan_list', names: ['Primera', 'Clásicos', 'Limpia número 0', 'Una playlist con un nombre larguísimo que no entra en un renglón'] });
+        onScanEvent(p, { type: 'scan_start', k: 0, name: 'Primera' }); onScanEvent(p, { type: 'scan_result', k: 0, found: 1 });
+        onScanEvent(p, { type: 'scan_start', k: 1, name: 'Clásicos' }); }""")
+    shot(page, f"repetidos-revisando-{size}")
+    assert page.evaluate(ALIGN) == []
+    page.evaluate("document.querySelector('#dup-progress').hidden = true; state.scan = saved; showDupResults()")
+    summary = page.inner_text("#dup-summary")
+    assert summary.startswith("Encontré 3 repetidos en 2 de 10 playlists.")
+    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\n2 repetidos", "Primera\n1 repetido"]
+    assert page.inner_text("#dup-clean") == "Sin repetidos: Limpia número 0, Limpia número 1, Limpia número 2, Limpia número 3 y 4 más."
+    assert page.inner_text("#remove") == "Quitar 2 temas de 2 playlists"
+    shot(page, f"repetidos-resultado-{size}")
+    assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == []
+    page.click("#remove")
+    assert page.inner_text("#c-title") == "¿Quitar 2 temas de 2 playlists?"
+    page.click("#confirm-yes")
+    page.wait_for_selector("text=Quitaste 2 temas de 2 playlists.")
+    page.wait_for_function("!state.busy")
+    assert [s.id for s in yt.songs("aaa")] == ["d1", "t3"] and len(yt.songs("dups")) == 3
+    # Lo que queda: la "Otra versión" de Clásicos (sin tildar), y Primera pasó a las que están bien
+    assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\n1 repetido"]
+    assert page.inner_text("#dup-clean").startswith("Sin repetidos: Primera,")
+    assert errors == []
