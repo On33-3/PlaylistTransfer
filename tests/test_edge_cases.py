@@ -135,6 +135,24 @@ def test_a_very_long_playlist_name_fits_in_the_smallest_window(browser, tmp_path
     assert page.evaluate(ALIGN) == [] and check(page, "repetidos") == [] and errors == []
 
 
+def test_a_long_playlist_name_stays_in_one_line_in_the_closed_list(browser, tmp_path):
+    """Comprobado el 2026-11-24 con la playlist de tools/real_check.py: «… (se borra sola) (5 temas)»
+    se partía en dos renglones dentro de la lista cerrada. Ahora termina en «…» y se lee entero al pasar el mouse."""
+    api, tidal, yt = make_api(tmp_path)
+    name = "PlaylistTransfer · prueba (se borra sola)"
+    yt.add_playlist("larga", name, [S("Uno", "X", id="l1"), S("Uno", "X", id="l2")])
+    page, errors = open_page(browser, api)
+    to_dedupe(page, "larga")
+    page.select_option("#dup-playlist", "larga")
+    shown = page.evaluate("""() => { const s = document.querySelector('#dup-playlist'), b = s.querySelector(':scope > button');
+        const line = parseFloat(getComputedStyle(b).fontSize) * 1.6;
+        return { text: b.textContent, cut: b.scrollWidth > b.clientWidth, oneLine: b.getBoundingClientRect().height < line,
+                 title: s.title }; }""")
+    assert shown["text"] == shown["title"] == f"{name} (2 temas)"
+    assert shown["cut"] and shown["oneLine"], shown
+    assert check(page, "repetidos") == [] and errors == []
+
+
 # ---------------------------------------------------------------- otras pantallas
 
 def test_disconnecting_a_service_drops_its_duplicates_result(browser, tmp_path):

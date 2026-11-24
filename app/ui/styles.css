@@ -476,6 +476,13 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
     padding-right: 36px;
     background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237E6BC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 11px auto;
   }
+  /* Lo elegido, en un solo renglón: si no entra termina en «…» (la lista abierta muestra el nombre entero).
+     Lo dibuja el <button><selectedcontent> que arma la lista (SELECTED en dedupe.js) */
+  .select > button {
+    display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none;
+    font: inherit; color: inherit; text-align: left; cursor: inherit;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .route-pick select::picker(select), .select::picker(select) {
     margin-top: 6px; padding: 6px; min-width: 200px;
     border: 1px solid var(--line); border-radius: 14px; background: var(--surface);

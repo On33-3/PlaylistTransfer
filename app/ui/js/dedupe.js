@@ -4,6 +4,9 @@
 /* ---------------------------------------------------------------- quitar repetidos */
 
 const ALL_PLAYLISTS = "__all__";     // revisar todas las playlists del servicio (como app/api/duplicates.ALL)
+// Lo elegido en la lista cerrada, en un renglón con «…» si no entra (styles.css, `.select > button`).
+// Va primero en la lista: un motor sin listas con estilo lo ignora
+const SELECTED = "<button><selectedcontent></selectedcontent></button>";
 
 async function renderDupControls() {
   const turn = renderDupControls.turn = (renderDupControls.turn || 0) + 1;   // solo cuenta el último pedido
@@ -16,21 +19,22 @@ async function renderDupControls() {
   if (state.scan && state.scan.service !== state.dupService) clearDups();
   // Quietos mientras hay algo en curso: si no, el resultado de un servicio aparecía bajo el nombre de otro
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" data-needs-idle data-blocked="${connected(k) ? 0 : 1}" ${connected(k) && !state.busy ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
-  $("#dup-playlist").innerHTML = `<option>${esc(t("common.loading"))}</option>`;
+  $("#dup-playlist").innerHTML = SELECTED + `<option>${esc(t("common.loading"))}</option>`;
   // Con menos de 2 temas no puede haber repetidos (las de cantidad desconocida quedan)
   const all = await getPlaylists(state.dupService) || [];
   if (turn !== renderDupControls.turn) return;
   const pls = all.filter(p => p.count == null || p.count >= 2);
   // Con más de una, la primera opción es revisarlas todas
   const allOption = pls.length > 1 ? `<option value="${ALL_PLAYLISTS}">${esc(t("dedupe.all_playlists", { n: pls.length }))}</option>` : "";
-  $("#dup-playlist").innerHTML = pls.length ? allOption + pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
-    : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`;
+  $("#dup-playlist").innerHTML = SELECTED + (pls.length ? allOption + pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
+    : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`);
   // Redibujar no cambia la playlist elegida (antes, después de quitar temas se volvía a revisar otra)
   const values = $$("#dup-playlist option").map(o => o.value);
   if (state.dupPlaylist && values.includes(state.dupPlaylist)) $("#dup-playlist").value = state.dupPlaylist;
   else if (state.dupPlaylist && !state.scan) clearDups();
   state.dupPlaylist = $("#dup-playlist").value;
-  const scan = $("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
+  showPickedName();
+  const scan =$("#dup-scan"); scan.dataset.needsIdle = ""; scan.dataset.blocked = pls.length ? "0" : "1"; scan.disabled = !pls.length || state.busy;
   $("#dup-how").hidden = !!state.scan || !$("#dup-progress").hidden;
 }
 
@@ -38,7 +42,12 @@ $("#dup-svc").addEventListener("click", e => {
   const b = e.target.closest("[data-svc]"); if (!b || b.disabled) return;
   state.dupService = b.dataset.svc; state.dupPlaylist = null; clearDups(); renderDupControls();
 });
-$("#dup-playlist").addEventListener("change", () => { state.dupPlaylist = $("#dup-playlist").value; clearDups(); });
+$("#dup-playlist").addEventListener("change", () => { state.dupPlaylist = $("#dup-playlist").value; showPickedName(); clearDups(); });
+
+/** Un nombre largo termina en «…» en la lista cerrada: al pasar el mouse se lee entero. */
+function showPickedName() {
+  $("#dup-playlist").title = $("#dup-playlist").selectedOptions[0]?.textContent || "";
+}
 
 /** Vuelve al estado de antes de revisar: se ven los tres pasos. */
 function clearDups() {

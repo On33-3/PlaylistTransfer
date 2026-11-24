@@ -45,7 +45,7 @@ MEASURE = """(screen) => {
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const root = document.querySelector('#' + screen), out = [];
   root.querySelectorAll('button, input[type=text], input[type=search], input[type=number], select').forEach(el => {
-    if (!vis(el) || el.matches('.hist button.row')) return;   // filas del historial
+    if (!vis(el) || el.matches('.hist button.row, select > button')) return;   // filas del historial; lo elegido de una lista
     out.push({what: (el.id || el.className || el.tagName) + ' «' + (el.textContent || '').trim().slice(0, 20) + '»',
               h: Math.round(el.getBoundingClientRect().height), tag: el.tagName, seg: !!el.closest('.seg'),
               field: el.matches('input, select')});
@@ -59,8 +59,16 @@ MEASURE = """(screen) => {
 ICONS = """(screen) => {
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const out = [];
+  // Ninguna lista desplegable con lo elegido partido en dos renglones: o lo dibuja su <button> en un
+  // renglón (con «…» si no entra), o tiene que entrar en el alto de la lista
+  document.querySelectorAll('#' + screen + ' select').forEach(s => {
+    if (!vis(s)) return;
+    const b = s.querySelector(':scope > button');
+    if (b ? getComputedStyle(b).whiteSpace !== 'nowrap' : s.scrollHeight > s.clientHeight + 1)
+      out.push((s.id || s.className) + ': lista desplegable con el texto partido «' + (s.selectedOptions[0]?.textContent || '').slice(0, 20) + '»');
+  });
   document.querySelectorAll('#' + screen + ' button').forEach(b => {
-    if (!vis(b)) return;
+    if (!vis(b) || b.matches('select > button')) return;     // ya se miró con su lista
     // Ningún botón con el texto partido en dos renglones o cortado (pasa si algo al lado lo aplasta)
     if (b.textContent.trim() && !b.matches('.hist button.row') &&
         (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1 ||
