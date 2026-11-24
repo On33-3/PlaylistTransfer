@@ -208,7 +208,7 @@
     "settings.th_reset": "Restore defaults",
     "settings.th_saved": "Saved: without asking from {ok}, possibly another version from {min}.",
     "settings.data": "Privacy and data",
-    "settings.data_text": "Your sessions, history and preferences are stored only on this PC. The app only connects to Tidal, YouTube Music and Spotify: it has no servers of its own and sends no statistics. The code is open source, under the GPL-3.0 license.",
+    "settings.data_text": "Your sessions, history and preferences are stored only on this PC. The app only connects to Tidal, YouTube Music and Spotify: it has no servers of its own and sends no statistics.",
     "settings.wipe": "Erase everything",
     "settings.wipe_title": "Erase all the app's data?",
     "settings.wipe_text": "This erases from this PC your service sessions, the history, preferences, saved searches and the browser folder the app uses to sign in. The app goes back to how it was the first time: to use it again, connect again. Your playlists are not touched.",
