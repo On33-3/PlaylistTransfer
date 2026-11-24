@@ -19,7 +19,9 @@ async function renderConnections() {
       : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
       : state.login?.key === k ? loginButtonsHTML()
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
-    if (SETUP[k] && st !== "setup") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
+    // Los pasos de configuración, a mano mientras falta conectar (si conectar falla, ahí está qué revisar).
+    // Conectado no hacen falta; para cambiar el Client ID se desconecta y vuelven a estar (se conserva)
+    if (SETUP[k] && st !== "setup" && st !== "connected") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
     // Sin conectar: los pasos numerados se ven antes de tocar nada (el 1 es tocar este botón). Lo que pide
     // configurarse antes (Spotify) muestra una línea que manda a «Configurar», donde están sus pasos.
     const button = t(st === "expired" ? "settings.reconnect" : "settings.connect");

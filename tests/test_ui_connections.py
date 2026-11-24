@@ -75,7 +75,14 @@ def test_spotify_setup_from_connections(browser, tmp_path):
     page.wait_for_selector("text=Spotify conectado.")
     page.wait_for_selector("#chips .chip.ok >> text=Spotify")
     assert sp.client_id == "0123456789abcdef0123456789abcdef" and sp.status().value == "connected"
-    assert page.is_visible("[data-disconnect=spotify]") and page.is_visible("[data-setup=spotify]")
+    # Conectado, «Ver los pasos» no tiene sentido (lo vio el usuario el 2026-11-24): vuelve al desconectar
+    assert page.is_visible("[data-disconnect=spotify]") and page.locator("[data-setup=spotify]").count() == 0
+    page.click("[data-disconnect=spotify]")
+    page.wait_for_selector("[data-connect=spotify]")
+    assert page.is_visible("[data-setup=spotify]") and page.inner_text("[data-setup=spotify]") == "Ver los pasos"
+    assert sp.client_id == "0123456789abcdef0123456789abcdef"                # se conserva para volver a conectar
+    page.click("[data-connect=spotify]")
+    page.wait_for_selector("#chips .chip.ok >> text=Spotify")
     # Spotify ya se puede elegir de destino
     page.click("nav [data-go=transferir]")
     page.select_option("#to", "spotify")
