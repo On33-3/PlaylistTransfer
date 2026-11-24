@@ -142,20 +142,7 @@ function showDupResults() {
   $("#dup-hint").hidden = !groups.length; $("#dup-hint").innerHTML = groups.length ? rich(t("dedupe.decide_hint")) : "";
   scanButton(true);
 
-  const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
-  const why = d => d.longer == null ? ""
-    : `<div class="why">${esc(t(d.longer > 0 ? "dedupe.why_longer" : "dedupe.why_shorter", { time: mmss(Math.abs(d.longer)) }))}</div>`;
-  $("#dups").innerHTML = groups.map((g, gi) => `
-    <section class="dup-group" data-g="${gi}">
-      <header><span>${esc(g.name)}</span>
-        <span class="dup-group-right"><span class="dup-group-count"></span><button class="dup-toggle" data-toggle="${gi}"></button></span></header>
-      <ul class="dups">${g.duplicates.map(d => `
-        <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}">
-          <div class="side remove"><span class="tag on">${esc(t("dedupe.tag_remove"))}</span><span class="tag off">${esc(t("dedupe.tag_keep_both"))}</span>${d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : ""}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div>${why(d)}</div>
-          <span class="arrow" aria-hidden="true">→</span>
-          <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`).join("")}
-      </ul>
-    </section>`).join("");
+  $("#dups").innerHTML = groups.map(dupGroupHTML).join("");
 
   // Revisando todas: las que están bien, en una línea (si están todas bien, cuáles se revisaron)
   const clean = res.many ? res.clean : [];
@@ -169,6 +156,31 @@ function showDupResults() {
   updateRemove();
 }
 
+/** La tarjeta de una playlist: su nombre, cuántos se quitan, "tildar / destildar todos" y sus filas. */
+function dupGroupHTML(g, gi) {
+  return `
+    <section class="dup-group" data-g="${gi}">
+      <header><span>${esc(g.name)}</span>
+        <span class="dup-group-right"><span class="dup-group-count"></span><button class="dup-toggle" data-toggle="${gi}"></button></span></header>
+      <ul class="dups">${g.duplicates.map(d => dupRowHTML(d, gi)).join("")}
+      </ul>
+    </section>`;
+}
+
+/** Una fila: tildada, se quita → queda la de la derecha; sin tildar, se conservan las dos (lo cambia el CSS).
+ * Las otras versiones vienen sin tildar y, si es por la duración, dicen por qué. */
+function dupRowHTML(d, gi) {
+  const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
+  const why = d.longer == null ? ""
+    : `<div class="why">${esc(t(d.longer > 0 ? "dedupe.why_longer" : "dedupe.why_shorter", { time: mmss(Math.abs(d.longer)) }))}</div>`;
+  const version = d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : "";
+  return `
+        <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}">
+          <div class="side remove"><span class="tag on">${esc(t("dedupe.tag_remove"))}</span><span class="tag off">${esc(t("dedupe.tag_keep_both"))}</span>${version}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div>${why}</div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`;
+}
+
 /** Lo tildado, por playlist: [{ scan, selected: [i...] }] */
 function dupChoices() {
   const by = new Map();
@@ -180,26 +192,39 @@ function dupChoices() {
   return [...by].map(([scan, selected]) => ({ scan, selected }));
 }
 
+/** Todo lo que depende de lo tildado: el botón, la barra de decisión, cada tarjeta y la confirmación. */
 function updateRemove() {
   if (!state.scan) return;
   const choices = dupChoices();
-  const c = choices.reduce((s, x) => s + x.selected.length, 0), lists = choices.length;
+  const c = choices.reduce((s, x) => s + x.selected.length, 0);
+  const one = choices.length === 1 ? state.scan.groups.find(g => g.scan === choices[0].scan) : null;
   const label = t("dedupe.remove_n", { n: c });
   $("#remove").textContent = label; $("#confirm-yes").textContent = label;
   $("#remove").dataset.blocked = c ? "0" : "1"; $("#remove").disabled = !c || state.busy;
-  const one = lists === 1 ? state.scan.groups.find(g => g.scan === choices[0].scan) : null;
-  $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name })
-    : t("dedupe.confirm_title_lists", { songs: songs(c), lists: listCount(lists) });
-  // La barra dice qué va a pasar si se confirma, siempre a la vista
-  $("#dup-decide-text").innerHTML = !c ? `<b>${esc(t("dedupe.decide_none"))}</b>`
-    : `<b>${esc(one ? t("dedupe.decide_one", { songs: songs(c), name: one.name }) : t("dedupe.decide", { songs: songs(c), lists: listCount(lists) }))}</b> ${esc(t("dedupe.decide_keep"))}`;
-  // Cada playlist: cuántos se quitan y "tildar / destildar todos"
+  showDecision(c, choices.length, one);
+  updateGroupHeaders();
+  updateConfirm(choices, c, label, one);
+}
+
+/** La barra de abajo dice qué va a pasar si se confirma, siempre a la vista. */
+function showDecision(c, lists, one) {
+  const what = one ? t("dedupe.decide_one", { songs: songs(c), name: one.name }) : t("dedupe.decide", { songs: songs(c), lists: listCount(lists) });
+  $("#dup-decide-text").innerHTML = c ? `<b>${esc(what)}</b> ${esc(t("dedupe.decide_keep"))}` : `<b>${esc(t("dedupe.decide_none"))}</b>`;
+}
+
+/** Cada tarjeta: cuántos se quitan de esa playlist y "tildar / destildar todos". */
+function updateGroupHeaders() {
   $$("#dups .dup-group").forEach(sec => {
     const boxes = $$("input", sec), on = boxes.filter(b => b.checked).length;
     $(".dup-group-count", sec).textContent = t("dedupe.group_count", { n: on, total: boxes.length });
     $(".dup-toggle", sec).textContent = t(on ? "dedupe.untick_all" : "dedupe.tick_all");
   });
-  // La confirmación, con cuántos de cada playlist si son varias
+}
+
+/** El diálogo: el título, cuántos de cada playlist si son varias y, en Spotify, que se vuelve a agregar la que queda. */
+function updateConfirm(choices, c, label, one) {
+  $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name })
+    : t("dedupe.confirm_title_lists", { songs: songs(c), lists: listCount(choices.length) });
   const per = choices.map(x => [state.scan.groups.find(g => g.scan === x.scan)?.name, x.selected.length]);
   $("#c-list").hidden = per.length < 2;
   $("#c-list").innerHTML = per.length < 2 ? "" : per.map(([name, n]) => `<li>${esc(t("dedupe.confirm_item", { name, songs: songs(n) }))}</li>`).join("");
