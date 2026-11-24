@@ -255,7 +255,7 @@ def _is_version_word(word: str) -> bool:
 # ---------------------------------------------------------------- versiones, covers, partes
 
 _VERSION_TAGS = {
-    "en vivo": r"live|en vivo|ao vivo|en directo|unplugged",
+    "en vivo": r"live|en vivo|ao vivo|en directo|unplugged|the first take",
     "acústica": r"acoustic|acustic[oa]|stripped",
     "remix": r"remix|rmx|rework|bootleg|club mix|extended mix|dub mix|vip mix",
     "acelerada": r"sped up|speed up|nightcore",
@@ -537,6 +537,18 @@ def _letters(key: str) -> int:
     return bits
 
 
+OTHER_LENGTH = 30   # segundos: dos copias que difieren más que esto son grabaciones distintas
+
+
+def _other_recording(a: Song, b: Song) -> bool:
+    """Duran muy distinto: otra grabación aunque el título no lo diga (el remix de Majestic de "Rasputin" dura
+    3:07 y el original de Boney M. 4:27). Un video con intro difiere unos segundos (Virtual Insanity: 17 s).
+    El mismo id o ISRC es la misma grabación siempre."""
+    if (a.id and a.id == b.id) or (a.isrc and b.isrc and a.isrc.upper() == b.isrc.upper()):
+        return False
+    return bool(a.duration and b.duration and abs(a.duration - b.duration) > OTHER_LENGTH)
+
+
 def find_duplicates(songs: list[Song]) -> list[Duplicate]:
     """Copias repetidas de una playlist. Queda siempre la que está primero. Cada copia dice si es
     la misma grabación (SAME) u otra versión (OTHER_VERSION: en vivo, remix...), para que la UI
@@ -546,7 +558,7 @@ def find_duplicates(songs: list[Song]) -> list[Duplicate]:
     for i, s in enumerate(songs):
         twin = kept.first_match(s)
         if twin:
-            kind = SAME if version_tags(s, twin) == version_tags(twin, s) else OTHER_VERSION
+            kind = SAME if version_tags(s, twin) == version_tags(twin, s) and not _other_recording(s, twin) else OTHER_VERSION
             dups.append(Duplicate(i, s, twin, kind))
         else:
             kept.add(s)

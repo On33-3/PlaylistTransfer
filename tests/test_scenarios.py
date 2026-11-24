@@ -491,3 +491,23 @@ def test_alternatives_do_not_repeat_and_the_closest_length_comes_first():
 ])
 def test_what_a_real_transfer_added_by_mistake(src, cand, expected):
     assert classify(score(src, cand)) == expected
+
+
+# Repetidos de una biblioteca real (2026-11-24): se tildaban para quitar grabaciones distintas
+@pytest.mark.parametrize("first, again", [
+    # El remix de Majestic (3:07) quedaba y se quitaba el original de Boney M. (4:27 y 5:52)
+    (S("Rasputin", "Majestic", "Boney M.", dur=187, album="Rasputin"), S("Rasputin", "Boney M.", dur=267, album="The Magic Of Boney M.")),
+    (S("Rasputin", "Majestic", "Boney M.", dur=187), S("Rasputin", "Boney M.", dur=352, album="Nightflight to Venus")),
+    # THE FIRST TAKE es una grabación en vivo de una sola toma, no la de estudio
+    (S("青のすみか - Where Our Blue Is", "Tatsuya Kitani", dur=197),
+     S("青のすみか - From THE FIRST TAKE - Where Our Blue Is - From THE FIRST TAKE", "Tatsuya Kitani", dur=198)),
+])
+def test_a_different_recording_is_never_ticked_to_remove(first, again):
+    [d] = find_duplicates([first, again])
+    assert d.kind == OTHER_VERSION                  # la persona decide: no viene tildado
+
+
+def test_a_video_with_a_short_intro_is_still_the_same_recording():
+    """Virtual Insanity (Official Video) dura 17 s más por la intro: sigue siendo la misma."""
+    [d] = find_duplicates([S("Virtual Insanity", "Jamiroquai", dur=228), S("Virtual Insanity (Official Video)", "Jamiroquai", dur=245)])
+    assert d.kind == SAME
