@@ -77,7 +77,7 @@ def test_disconnect_keeps_the_client_id(tmp_path, api):
 
 def test_login_with_pkce_through_the_local_server(tmp_path, api):
     """De punta a punta: el servidor real en 127.0.0.1 recibe el código que manda el "navegador"."""
-    seen = {}
+    seen, reader = {}, []
 
     def browser_opens(url, browser):
         q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
@@ -87,10 +87,13 @@ def test_login_with_pkce_through_the_local_server(tmp_path, api):
         # exactamente la que el usuario registró en su app (con el puerto): si no, Spotify la rechaza
         assert q["redirect_uri"] == sp.REDIRECT_URI == "http://127.0.0.1:8973/callback"
         back = f"{q['redirect_uri']}?code=CODE123&state={q['state']}"
-        threading.Thread(target=lambda: seen.setdefault("page", urllib.request.urlopen(back).read().decode())).start()
+        reader.append(threading.Thread(target=lambda: seen.setdefault("page", urllib.request.urlopen(back).read().decode())))
+        reader[0].start()
 
     c = make(tmp_path, api, logged=False, open_browser=browser_opens)
     c.connect(None)
+    # connect() termina apenas llega el código; el "navegador" puede seguir leyendo la página (falló en CI el 2026-11-24)
+    reader[0].join(10)
     exchange = next(d for m, p, _, _, d in api.calls if d and d.get("grant_type") == "authorization_code")
     assert exchange["code"] == "CODE123" and exchange["redirect_uri"] == seen["redirect_uri"]
     assert loopback.challenge(exchange["code_verifier"]) == seen["code_challenge"]          # PKCE
