@@ -117,6 +117,10 @@ def run() -> None:
 
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
                   storage_path=str(paths.data_dir() / "webview"), icon=str(ui_dir() / "icon.ico"))
+    if getattr(api, "_wiped", False):          # Ajustes › Borrar todo: lo que estaba en uso, ahora que se cerró
+        from app.storage.wipe import wipe
+        logging.shutdown()
+        wipe(paths.data_dir())
     if smoke:   # el .exe no tiene consola: el resultado sale como código de salida
         sys.exit(0 if ready.is_set() and not failed["modules"] else 1)
 

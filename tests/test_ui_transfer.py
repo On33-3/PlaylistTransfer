@@ -356,3 +356,14 @@ def test_the_history_shows_one_row_after_deciding_later(browser, tmp_path):
     sizes = page.evaluate("[...document.querySelectorAll('#hist .detail .badge')].map(b => b.getBoundingClientRect().width)")
     assert set(sizes) == {20}                                          # con texto largo tampoco se achica
     assert errors == []
+
+
+def test_the_result_says_from_which_service_and_playlist_to_which(browser, tmp_path):
+    """Pedido del usuario: aclarar de dónde a dónde, servicio a servicio y playlist a playlist."""
+    api, tidal, yt = make_api(tmp_path)
+    page, errors = open_page(browser, api)
+    transfer(page)
+    assert page.inner_text("#run-route") == "Tidal · Favoritas a YouTube Music · Para correr"
+    detail = page.inner_text("#done-detail")
+    assert detail.startswith("Desde «Favoritas» de Tidal:\nA «Para correr» en YouTube Music: agregaste 1 tema")
+    assert errors == []

@@ -53,3 +53,15 @@ $("#language-list").addEventListener("change", async e => {
 });
 
 $("#open-data").addEventListener("click", () => call("open_data_dir"));
+
+// Borrar todo: siempre con el diálogo (no se puede deshacer). Después, la app queda como la primera vez
+$("#wipe").addEventListener("click", () => $("#wipe-confirm").showModal());
+$("#wipe-no").addEventListener("click", () => $("#wipe-confirm").close());
+$("#wipe-yes").addEventListener("click", async () => {
+  $("#wipe-confirm").close();
+  const r = await call("wipe_data", true);         // true: la persona confirmó en el diálogo
+  if (!r) return;
+  state.status = {}; forgetPlaylists(); state.transfer = null; state.picked = null;
+  await refreshStatus();
+  toast(t(r.left?.length ? "settings.wiped_left" : "settings.wiped"));
+});

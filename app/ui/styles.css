@@ -22,6 +22,7 @@
   --sage: #DCE5E0;      /* ≈ ya estaba */
   --butter: #F6E8AE;    /* ×2 repetido en el origen */
   --pending: #EAE6F4;
+  --danger-ink: #9B3B47;  /* texto de error y de lo que no se puede deshacer */
   --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
   /* Un solo sistema de tamaños. Botones: grande (la acción principal de la pantalla), mediano
@@ -61,7 +62,7 @@ h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.0
 .lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 60ch; }
 .muted { color: var(--ink-soft); }
 .num { font-variant-numeric: tabular-nums; }
-.error { color: #9B3B47; }
+.error { color: var(--danger-ink); }
 .loading { color: var(--ink-soft); padding: 10px; }
 .offscreen { position: fixed; left: -9999px; top: 0; }
 
@@ -145,6 +146,9 @@ main { overflow-y: auto; padding: 34px 40px calc(var(--toast-bottom) + var(--toa
 .btn.ghost:hover { background: var(--surface); }
 .btn.danger { background: var(--rose); }
 .btn.danger:hover { background: #FFB3BA; }
+/* Lo que no se puede deshacer, sin gritar: contorno con letra roja (la acción fuerte va en el diálogo) */
+.btn.ghost.danger-text { color: var(--danger-ink); border-color: #EBC5CA; }
+.btn.ghost.danger-text:hover { background: #FFF5F6; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn.md, .svc .btn, .notice .btn, .empty .btn, .settings .btn {
   height: var(--h-md); padding: 0 16px; font-size: 14px;
@@ -344,7 +348,8 @@ dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) sepa
 .progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; max-width: 560px; flex-wrap: wrap; }
 .counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
 .counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
-.route { font-weight: 600; min-width: 0; }
+.route { font-weight: 600; min-width: 0; flex-basis: 100%; }    /* su propio renglón: servicio · playlist de los dos lados */
+.route .route-svc { color: var(--ink-soft); font-weight: 500; }
 .eta { margin: 14px 0 0; line-height: 22px; }     /* alto entero: lo de abajo queda en píxel exacto */
 
 .tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }

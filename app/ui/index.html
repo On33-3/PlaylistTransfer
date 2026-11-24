@@ -201,7 +201,13 @@
 
       <section>
         <div><h3 data-i18n="settings.data">Datos</h3><p data-i18n="settings.data_text">Historial, sesiones y preferencias. No salen de tu compu.</p></div>
-        <div><button class="btn ghost" id="open-data" data-i18n="settings.open_data">Abrir carpeta de datos</button><div class="path" id="data-path"></div></div>
+        <div>
+          <div class="actions">
+            <button class="btn ghost" id="open-data" data-i18n="settings.open_data">Abrir carpeta de datos</button>
+            <button class="btn ghost danger-text" id="wipe" data-needs-idle data-i18n="settings.wipe">Borrar todo</button>
+          </div>
+          <div class="path" id="data-path"></div>
+        </div>
       </section>
 
       <section class="about">
@@ -224,6 +230,15 @@
   <div class="actions">
     <button class="btn danger" id="confirm-yes"></button>
     <button class="btn ghost" id="confirm-no" autofocus data-i18n="common.cancel">Cancelar</button>
+  </div>
+</dialog>
+<dialog id="wipe-confirm" aria-labelledby="w-title">
+  <h3 id="w-title" data-i18n="settings.wipe_title">¿Borrar todos los datos de la app?</h3>
+  <p data-i18n="settings.wipe_text"></p>
+  <p class="muted" data-i18n="settings.wipe_revoke"></p>
+  <div class="actions">
+    <button class="btn danger" id="wipe-yes" data-i18n="settings.wipe_yes">Borrar todo</button>
+    <button class="btn ghost" id="wipe-no" autofocus data-i18n="common.cancel">Cancelar</button>
   </div>
 </dialog>
 <div class="toast" id="toast" role="status"></div>

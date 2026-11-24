@@ -1,12 +1,14 @@
 """Datos de la app, idioma y ajustes."""
 from __future__ import annotations
 
+import logging
 import os
 
 from app import __version__, i18n
 from app.connectors import registry
 from app.i18n import t as tr
 from app.storage import prefs
+from app.storage.wipe import wipe
 
 from app.api.base import ApiBase
 
@@ -19,7 +21,30 @@ LICENSES = [
 ]
 
 
+log = logging.getLogger(__name__)
+
+
 class SettingsApi(ApiBase):
+
+    def wipe_data(self, confirmed: bool = False) -> dict:
+        """Ajustes › Borrar todo: deja la app como la primera vez (sesiones, historial, preferencias, búsquedas
+        guardadas, perfiles de navegador, log). Las playlists de los servicios no se tocan. Exige la confirmación
+        del diálogo, como quitar temas."""
+        if confirmed is not True:
+            return {"error": tr("err.wipe_not_confirmed")}
+        running = self._jobs.busy()
+        if running:
+            return {"error": tr("err.busy", kind=tr(f"job.{running.kind}"))}
+        for c in self._connectors.values():        # también lo que tienen en memoria
+            try:
+                c.disconnect()
+            except Exception as e:                  # noqa: BLE001  (igual se borra el archivo)
+                log.warning("No pude desconectar %s: %s", c.name, e)
+        self._transfers.clear()
+        left = wipe(self._data_dir)
+        self._wiped = True                          # al cerrar, se borra lo que estaba en uso
+        log.info("Se borraron los datos de la app; quedan en uso: %s", left or "nada")
+        return {"ok": True, "left": left}
 
     def info(self) -> dict:
         return {"version": __version__, "data_dir": str(self._data_dir), "licenses": LICENSES,

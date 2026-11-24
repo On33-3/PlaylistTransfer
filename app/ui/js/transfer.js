@@ -189,6 +189,7 @@ async function startTransfer(dryRun) {
   const r = await call("start_transfer", state.from, state.to, src.value, targets, dryRun);
   if (!r) return;
   const tr = state.transfer = { job: r.job, dryRun, total: 0, n: { ok: 0, doubt: 0, miss: 0, dup: 0, rep: 0 }, rows: {}, tracks: {}, to: state.to,
+    from: state.from, sourceName: src.dataset.name,
     cached: 0, pausedMs: 0, saved: null };
   stopWaiting($("#eta")); $("#run-note").hidden = true;
   $("#add-all").hidden = true;
@@ -196,7 +197,9 @@ async function startTransfer(dryRun) {
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#review-list").innerHTML = ""; $("#review").hidden = true;
   $("#count").textContent = "0";
   $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
-  $("#run-route").innerHTML = `${esc(src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${esc(targets.map(x => x.name).join(", "))}`;
+  // De qué servicio y playlist a cuáles: "Servicio · Playlist a Otro servicio · Playlist"
+  const side = (svc, name) => `<span class="route-svc">${esc(NAMES[svc])}</span> · ${esc(name)}`;
+  $("#run-route").innerHTML = `${side(state.from, src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${side(state.to, targets.map(x => x.name).join(", "))}`;
   showCounts(tr);
   // La leyenda dice lo que va a pasar: "Agregado" / "Se agregaría" (prueba). Los "?" nunca se agregan solos
   const dry = dryRun ? "_dry" : "";
@@ -334,7 +337,7 @@ function showDoneText(tr, res) {
     if (x.already) extras.push(t("transfer.extra_already", { n: x.already }));
     if (x.versions) extras.push(t("transfer.extra_versions", { n: x.versions }));
     return t(res.dry_run ? "transfer.line_dry" : "transfer.line", {
-      name: x.name, new: x.created ? t("transfer.new_mark") : "", songs: songs(x.added),
+      name: x.name, new: x.created ? t("transfer.new_mark") : "", songs: songs(x.added), service: NAMES[tr.to],
       extra: extras.length ? `; ${extras.join(", ")}` : "",
     });
   });
@@ -343,6 +346,8 @@ function showDoneText(tr, res) {
   if (s.skipped) notes.push(t(res.dry_run ? "transfer.notes_skipped_dry" : "transfer.notes_skipped", { n: s.skipped }));
   if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
   if (s.repeated) notes.push(t("transfer.notes_repeated", { n: s.repeated }));
+  // Siempre de dónde salió y a dónde llegó: servicio y playlist de los dos lados
+  if (tr.from) lines.unshift(t("transfer.from_line", { name: res.source_name || tr.sourceName, service: NAMES[tr.from] }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
   const first = res.targets.find(x => x.url);
   $("#open-dest").hidden = !first || res.dry_run;
