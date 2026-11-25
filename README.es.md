@@ -75,6 +75,7 @@ py tools/real_check.py          # antes de publicar: la UI real con tus cuentas 
 - `app/core/`: el motor (coincidencias, repetidos, transferencias). Cada regla tiene su escenario en `tests/test_scenarios.py`.
 - `app/connectors/`: un conector por servicio, con la misma interfaz. Todos se declaran en `registry.py`: de ahí salen la API y la ventana.
 - `app/ui/`: la interfaz (HTML, CSS y JS, sin frameworks), dentro de una ventana de [pywebview](https://pywebview.flowrl.com/).
+- [`TESTING.md`](TESTING.md): cómo se prueba, de los riesgos a los errores que encontró la automatización (en inglés).
 - [`SPEC.md`](SPEC.md): el plan, las fases y por qué se decidió cada cosa.
 - Publicar una versión: subí el número en `app/__init__.py` y creá el tag `vX.Y.Z`. GitHub Actions corre los tests, compila el `.exe`, prueba que abra y lo publica en Releases.
 
