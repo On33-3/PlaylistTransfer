@@ -1,7 +1,7 @@
 [project]
 name = "playlisttransfer"
-version = "0.3.13"
-description = "App de escritorio para pasar playlists entre servicios de música (Tidal, YouTube Music)."
+version = "0.3.14"
+description = "Windows desktop app to move playlists between Tidal, YouTube Music and Spotify, and remove duplicates."
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
