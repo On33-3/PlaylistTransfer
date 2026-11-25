@@ -6,7 +6,7 @@ PlaylistTransfer changes people's playlists. A wrong match adds a song nobody as
 
 **At a glance** (November 2026)
 
-- **495 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
+- **504 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
 - The interface is tested **in the same engine the window uses** (Chromium, through Playwright and Edge), and design rules are measured on every screen.
 - Before each release, **the real interface runs against real accounts**, with every write blocked except inside a throwaway playlist the check creates and deletes.
 - Each release is built and opened in a clean Windows without Python before it is published, with a SHA-256 checksum.
@@ -29,12 +29,12 @@ Counts as of November 2026.
 | Layer | What it proves | Where | Tests |
 |---|---|---|---|
 | Matching scenarios | Same recording, other performer, other song by the same artist, live/remix/karaoke/cover, parts and sequels, featured artists. Each rule has its scenario. | `tests/test_scenarios.py`, `tests/test_matching.py` | 169 |
-| Engine and API | Transfers, resuming, duplicates across all playlists, history, first run, erase everything, malformed requests, actions at the wrong time. Uses fake services. | `test_api`, `test_transfer`, `test_resume`, `test_edge_cases`, `test_first_run`, `test_privacy`, `test_export` | 112 |
+| Engine and API | Transfers, resuming, duplicates across all playlists, history, first run, erase everything, malformed requests, actions at the wrong time. Uses fake services. | `test_api`, `test_transfer`, `test_resume`, `test_edge_cases`, `test_first_run`, `test_privacy`, `test_export` | 113 |
 | Connectors | Tidal and YouTube Music connectors, and the Spotify connector against a fake Spotify Web API: pagination, `429 Retry-After`, token refresh, the local OAuth (PKCE) server. | `test_connectors`, `test_spotify`, `test_auth` | 102 |
 | Interface, end to end | Every screen driven in headless Edge with Playwright, talking to the real API over the same bridge the window uses. | `tests/test_ui_*.py` | 65 |
 | Languages | Spanish and English have the same keys; English screens show no Spanish words. | `test_i18n` | 21 |
 | Packaging and startup | Icon, version info, licenses of what is bundled, package size limit, a startup failure is shown and logged, the window never reuses old copies of the UI. | `test_packaging`, `test_main` | 21 |
-| Tooling and static checks | The real-account check can't write outside its test playlist and test songs; pyflakes finds nothing. | `test_real_check`, `test_code` | 5 |
+| Tooling and static checks | The real-account check can't write outside its test playlist and test songs; the comments-only check catches any code change; pyflakes finds nothing. | `test_real_check`, `test_check_comments_only`, `test_code` | 13 |
 
 ### Design rules, measured
 
@@ -94,6 +94,8 @@ A refactor is done in small steps. Before the first one, `py tools/check_step.py
 
 Each step that passes gets its own commit; one that fails is undone. A refactor never changes a test, and a behaviour fix never travels in the same commit as a refactor.
 
+When a change should only touch comments (translating them into English was one: about 1,250 lines in 76 files), `py tools/check_comments_only.py` proves the code is identical: Python is compared by syntax tree without docstrings, and JavaScript, CSS, HTML and YAML by their text without comments. It has its own tests, including the two cases where its JavaScript reader got confused (a quote inside a regular expression, and nested template literals); both were found during the translation itself.
+
 ## Bugs the automation caught
 
 | Bug | Caught by | Test that now guards it |
@@ -114,7 +116,7 @@ One bug the tests could not have caught: after an update, the window (WebView2) 
 
 - The real-account check is run by hand before each release, not on a schedule.
 - Tidal and YouTube Music work through unofficial libraries. A change on their side can break them; `real_check` detects it, but nothing can prevent it.
-- The `.exe` is not signed yet, and the code comments are still in Spanish (translating them is planned).
+- The `.exe` is not signed yet.
 
 ## How AI was used
 

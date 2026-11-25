@@ -77,7 +77,7 @@ py tools/real_check.py          # before a release: the real UI with your accoun
 - `app/ui/`: the interface (HTML, CSS and JS, no frameworks), inside a [pywebview](https://pywebview.flowrl.com/) window.
 - [`TESTING.md`](TESTING.md): how it's tested, from the risks to the bugs the automation caught.
 - [`SPEC.md`](SPEC.md): the plan, the phases and why each decision was made (in Spanish).
-- Code comments are still in Spanish; translating them is planned.
+- Code comments and docstrings are in English; the docs in `docs/`, `SPEC.md` and `CLAUDE.md` are in Spanish.
 - Releasing a version: bump the number in `app/__init__.py` and `pyproject.toml` and push the tag `vX.Y.Z`. GitHub Actions runs the tests, builds the `.exe`, checks that it opens and publishes it in Releases.
 
 ## License
