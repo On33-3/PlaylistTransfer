@@ -4,7 +4,7 @@ refactor changes nothing. Unlike screenshots, it doesn't depend on the time or t
 
     py tools/ui_style_snapshot.py before.json       (before touching anything)
     py tools/ui_style_snapshot.py after.json
-    py tools/ui_style_snapshot.py --diff before.json after.json   → "0 diferencias"
+    py tools/ui_style_snapshot.py --diff before.json after.json   → "0 differences"
 """
 import json
 import sys
@@ -48,7 +48,8 @@ def states(browser):
         """The page, with toasts held still: one that shows up stays until another replaces it.
         Otherwise, whether it reached the snapshot depended on how fast the machine was (it leaves after 3.2 s)."""
         page, errors = open_page(browser, api)
-        page.evaluate("() => { const show = toast; window.toast = msg => { show(msg); clearTimeout(show._t); }; }")
+        # The original keeps its timer in `toast._t`, and `toast` is this one by then: that's the one to clear
+        page.evaluate("() => { const show = toast; window.toast = function held(msg) { show(msg); clearTimeout(held._t); }; }")
         return page, errors
 
     # 1. first run (Home, Connections with real steps and the Spotify panel, connecting)
@@ -128,7 +129,7 @@ def dump(out_path):
                 page.set_viewport_size({"width": 1120, "height": 780})
         b.close()
     Path(out_path).write_text(json.dumps(result), encoding="utf-8")
-    print(f"{len(result)} estados, {sum(len(v) for v in result.values())} elementos")
+    print(f"{len(result)} states, {sum(len(v) for v in result.values())} elements")
 
 
 def diff(a_path, b_path):
@@ -138,7 +139,7 @@ def diff(a_path, b_path):
         x, y = a.get(state, {}), b.get(state, {})
         for el in sorted(set(x) | set(y)):
             if el not in x or el not in y:
-                problems.append(f"{state}: {'falta' if el not in y else 'sobra'} {el[-90:]}")
+                problems.append(f"{state}: {'missing' if el not in y else 'extra'} {el[-90:]}")
                 continue
             for prop in sorted(set(x[el]) | set(y[el])):
                 # Variables (--something) aren't drawn: what changes the screen are the properties that use them,
@@ -147,7 +148,7 @@ def diff(a_path, b_path):
                     continue
                 if x[el].get(prop) != y[el].get(prop):
                     problems.append(f"{state}: {el[-70:]} {prop}: {x[el].get(prop)!r} -> {y[el].get(prop)!r}")
-    print(f"{len(problems)} diferencias")
+    print(f"{len(problems)} differences")
     for p in problems[:60]:
         print("  ", p)
 
