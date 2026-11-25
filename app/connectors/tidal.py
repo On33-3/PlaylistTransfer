@@ -65,7 +65,7 @@ class TidalConnector(Connector):
             return bool(s.load_oauth_session(d["token_type"], d["access_token"],
                                              d.get("refresh_token"), expiry)) and s.check_login()
         except Exception as e:  # expired token or broken file
-            log.info("No se pudo reutilizar la sesión de Tidal: %s", e)
+            log.info("Couldn't reuse the Tidal session: %s", e)
             return False
 
     def _save(self) -> None:
@@ -176,7 +176,7 @@ class TidalConnector(Connector):
         try:
             liked = int(user.favorites.get_tracks_count())
         except Exception as e:                    # unknown how many: offered anyway
-            log.info("Tidal: no pude contar los favoritos: %s", e)
+            log.info("Tidal: couldn't count the favorites: %s", e)
             liked = None
         out = [liked_info(liked)]
         while True:
@@ -239,7 +239,7 @@ class TidalConnector(Connector):
                     c = self.to_song(t)
                     found[c.id] = c
             except Exception as e:
-                log.warning("Tidal: falló la búsqueda por ISRC %s: %s", song.isrc, e)
+                log.warning("Tidal: ISRC search %s failed: %s", song.isrc, e)
         # 2) By text
         def fetch(q):
             res = s.search(q, models=[self._track_model()], limit=10)

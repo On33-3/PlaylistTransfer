@@ -84,7 +84,7 @@ class YTMusicConnector(Connector):
             self._steady(yt.get_library_playlists, 1)
             return yt
         except Exception as e:
-            log.info("YouTube Music rechazó la sesión: %s: %s", type(e).__name__, e)
+            log.info("YouTube Music rejected the session: %s: %s", type(e).__name__, e)
             return None
 
     def status(self) -> Status:
@@ -181,7 +181,7 @@ class YTMusicConnector(Connector):
             try:
                 return self.patient(call, *args)
             except json.JSONDecodeError as e:
-                log.warning("YouTube Music: respuesta ilegible (%d caracteres)", len(e.doc))
+                log.warning("YouTube Music: unreadable answer (%d characters)", len(e.doc))
                 self.pause(wait, "retry")
         return self.patient(call, *args)
 
@@ -190,7 +190,7 @@ class YTMusicConnector(Connector):
         try:
             count = self._ready().get_playlist(LIKED_LIST, limit=1).get("trackCount")
         except Exception as e:
-            log.info("YouTube Music: no pude contar los Me gusta: %s", e)
+            log.info("YouTube Music: couldn't count the liked songs: %s", e)
             return None
         return count if isinstance(count, int) else None
 

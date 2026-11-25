@@ -48,11 +48,11 @@ class ServicesApi(ApiBase):
         try:
             st = c.status().value
         except Exception as e:
-            log.warning("No pude ver el estado de %s: %s", s.name, e)
+            log.warning("Couldn't check the status of %s: %s", s.name, e)
             st = Status.EXPIRED.value
         took = time.monotonic() - started
         if took > SLOW_STATUS:          # it happened at startup (2026-11-24) and nothing said which one it was
-            log.warning("%s tardó %.0f s en contestar si hay sesión (%s)", s.name, took, st)
+            log.warning("%s took %.0f s to say whether there is a session (%s)", s.name, took, st)
         return {"key": s.key, "name": s.name, "status": st}
 
     def status(self) -> list[dict]:

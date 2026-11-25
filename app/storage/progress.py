@@ -57,7 +57,7 @@ class SearchProgress:
         except FileNotFoundError:
             return {}
         except (OSError, ValueError, KeyError, TypeError) as e:     # a broken file doesn't prevent transferring
-            log.warning("No pude leer lo buscado antes (%s): %s", self.path.name, e)
+            log.warning("Couldn't read the earlier searches (%s): %s", self.path.name, e)
             return {}
 
     def get(self, song: Song) -> tuple[Song | None, float, list[Song]] | None:
@@ -93,11 +93,11 @@ class SearchProgress:
             os.replace(tmp, self.path)          # a half-written file is never left behind
             self._unsaved = 0
         except OSError as e:
-            log.warning("No pude guardar lo buscado: %s", e)
+            log.warning("Couldn't save the searches: %s", e)
 
     def clear(self) -> None:
         self._songs, self._unsaved = {}, 0
         try:
             self.path.unlink(missing_ok=True)
         except OSError as e:
-            log.warning("No pude borrar lo buscado: %s", e)
+            log.warning("Couldn't delete the searches: %s", e)

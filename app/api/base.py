@@ -119,7 +119,7 @@ class ApiBase:
         except ConnectorError as e:
             return {"error": str(e)}
         except Exception as e:   # never leave the UI without an answer
-            log.exception("Error en la API")
+            log.exception("API error")
             return {"error": unexpected_message(e)}
 
 

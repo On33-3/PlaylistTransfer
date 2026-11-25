@@ -63,7 +63,7 @@ jobs:
           $p = [System.Diagnostics.Process]::Start($psi)
           if (-not $p.WaitForExit(120000)) { $p.Kill(); Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 40; throw "The .exe did not exit within 2 minutes" }
           if ($p.ExitCode -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "The .exe did not load the UI (exit code $($p.ExitCode))" }
-          "El .exe abrió y cargó la UI"
+          "The .exe opened and loaded the UI"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -93,7 +93,7 @@ class Jobs:
                 if isinstance(e, USER_ERRORS) and not isinstance(e, json.JSONDecodeError):
                     message = str(e)
                 else:                   # unexpected error: logged in full and reported briefly
-                    log.error("Falló %s:\n%s", job.id, traceback.format_exc())
+                    log.error("%s failed:\n%s", job.id, traceback.format_exc())
                     message = unexpected_message(e)
                 with job.lock:
                     job.error, job.state = message, ERROR

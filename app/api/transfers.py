@@ -171,7 +171,7 @@ class TransfersApi(ApiBase):
             try:
                 t.history_id = self._history.record(op, tracks)
             except (sqlite3.Error, OSError):
-                log.exception("No pude guardar en el historial")
+                log.exception("Couldn't save to the history")
 
     def _amend_history(self, t: TargetResult, tracks: list[TrackRecord], **deltas: int) -> None:
         """What is added later is part of the same transfer: it corrects its row instead of adding another."""
@@ -180,4 +180,4 @@ class TransfersApi(ApiBase):
         try:
             self._history.amend(t.history_id, tracks, **deltas)
         except (sqlite3.Error, OSError):
-            log.exception("No pude guardar en el historial")
+            log.exception("Couldn't save to the history")

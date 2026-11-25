@@ -574,5 +574,5 @@ def test_a_service_slow_to_answer_its_status_is_written_in_the_log(app, monkeypa
     monkeypatch.setattr(services, "SLOW_STATUS", -1)
     with caplog.at_level(logging.WARNING, logger="app.api.services"):
         api.status()
-    assert any("YouTube Music tardó" in r.getMessage() for r in caplog.records)
+    assert any("YouTube Music took" in r.getMessage() for r in caplog.records)
 

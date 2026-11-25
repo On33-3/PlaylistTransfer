@@ -44,7 +44,7 @@ def show_startup_error(e: BaseException) -> None:
     """If the app can't open the window, the .exe (which has no console) would close without a word:
     the error is logged and a Windows message box says where the details are."""
     from app.i18n import t as tr
-    logging.getLogger(__name__).exception("No se pudo abrir la app")
+    logging.getLogger(__name__).exception("The app couldn't open")
     msg = tr("err.startup_failed", detail=f"{type(e).__name__}: {e}", log=paths.data_dir() / "app.log")
     if os.environ.get("PT_SMOKE") == "1":      # in the automated test nobody will click "OK"
         print(msg, file=sys.stderr, flush=True)
@@ -83,7 +83,7 @@ def missing_modules() -> list[str]:
         try:
             importlib.import_module(name)
         except Exception:
-            logging.getLogger(__name__).exception("Falta %s en el paquete", name)
+            logging.getLogger(__name__).exception("%s is missing from the package", name)
             missing.append(name)
     return missing
 
@@ -103,7 +103,7 @@ def run() -> None:
     own_taskbar_icon()
     api = Api.create()
     from app import i18n
-    logging.getLogger(__name__).info("Arranca PlaylistTransfer; idioma: %s", i18n.get_language())
+    logging.getLogger(__name__).info("PlaylistTransfer starting; language: %s", i18n.get_language())
     window = webview.create_window(TITLE, url=str(ui_dir() / "index.html"), js_api=api,
                                    width=1120, height=780, min_size=(860, 620), background_color="#F3F1FA")
 
@@ -126,8 +126,8 @@ def run() -> None:
             return
         failed["modules"] = missing_modules()
         ok = ready.wait(30)
-        print("UI lista" if ok else "La UI no avisó que estaba lista", flush=True)
-        logging.getLogger(__name__).info("Prueba de arranque: %s", "UI lista" if ok else "la UI no cargó")
+        print("UI ready" if ok else "The UI never said it was ready", flush=True)
+        logging.getLogger(__name__).info("Startup test: %s", "UI ready" if ok else "the UI didn't load")
         window.destroy()
 
     forget_page_cache(paths.data_dir() / "webview")

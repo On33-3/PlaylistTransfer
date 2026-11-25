@@ -39,11 +39,11 @@ class SettingsApi(ApiBase):
             try:
                 c.disconnect()
             except Exception as e:                  # noqa: BLE001  (the file is deleted anyway)
-                log.warning("No pude desconectar %s: %s", c.name, e)
+                log.warning("Couldn't disconnect %s: %s", c.name, e)
         self._transfers.clear()
         left = wipe(self._data_dir)
         self._wiped = True                          # on close, what was in use is deleted
-        log.info("Se borraron los datos de la app; quedan en uso: %s", left or "nada")
+        log.info("The app's data was erased; still in use: %s", left or "nothing")
         return {"ok": True, "left": left}
 
     def info(self) -> dict:

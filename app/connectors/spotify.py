@@ -233,7 +233,7 @@ class SpotifyConnector(Connector):
             if code == 429:
                 wait = _retry_after(r)
                 self.search_pause = min(max(self.search_pause, SEARCH_PAUSE_SPOTIFY) * 2, MAX_SEARCH_PAUSE)                     if self.search_pause else 0      # from here on, slower
-                log.warning("Spotify pidió esperar %s s (%s); pausa entre búsquedas: %s s", wait,
+                log.warning("Spotify asked to wait %s s (%s); pause between searches: %s s", wait,
                             _json(r).get("error") or "", self.search_pause)
                 if wait > MAX_WAIT or attempt == 3:
                     raise RateLimited(tr("err.spotify_wait", wait=human_wait(wait), clock=clock_after(wait)))
@@ -285,7 +285,7 @@ class SpotifyConnector(Connector):
         except TokenExpired:
             return Status.EXPIRED
         except ConnectorError as e:            # 403 (Premium expired, not on the user list)...
-            log.info("Spotify no aceptó la sesión: %s", e)
+            log.info("Spotify didn't accept the session: %s", e)
             return Status.EXPIRED
 
     def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
@@ -365,7 +365,7 @@ class SpotifyConnector(Connector):
         try:                                       # liked songs, first
             out.append(liked_info(self._call("GET", "/me/tracks", params={"limit": 1}).get("total")))
         except Forbidden:                          # a session from before that permission was asked for: reconnecting fixes it
-            log.info("Spotify: la sesión no tiene permiso para leer las canciones que te gustan")
+            log.info("Spotify: the session has no permission to read liked songs")
         for p in self._pages("/me/playlists"):
             if not p or not ((p.get("owner") or {}).get("id") == me or p.get("collaborative")):
                 continue

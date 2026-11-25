@@ -133,7 +133,7 @@ class Connector(ABC):
             except fatal:
                 raise
             except recoverable as e:
-                log.warning("%s: falló la búsqueda %r: %s", self.name, q, e)
+                log.warning("%s: search %r failed: %s", self.name, q, e)
                 continue
             answered += 1
             for c in results:
@@ -176,7 +176,7 @@ class Connector(ABC):
     def pause(self, seconds: float, why: str = "rate") -> None:
         """Waits as long as needed, saying why: "rate" (the service asked for a break) or "retry"
         (it answered badly and is retried). Checks Cancel every half second."""
-        log.warning("%s: %s, espero %s s", self.name, why, round(seconds, 1))
+        log.warning("%s: %s, waiting %s s", self.name, why, round(seconds, 1))
         if self._listener is not None:
             self._listener({"type": "waiting", "service": self.name, "why": why, "seconds": round(seconds)})
         left = float(seconds)
