@@ -1,12 +1,12 @@
-"""Catálogo de escenarios del matching.
+"""Catalog of matching scenarios.
 
-Cada caso dice qué tiene que pasar en los dos usos del motor:
-  - transferir: `classify(score(origen, candidato))` → ok / dudoso / no_encontrado
-  - quitar repetidos: `same_song(a, b)` → True si una es copia de la otra
+Each case says what has to happen in the engine's two uses:
+  - transferring: `classify(score(source, candidate))` → ok / doubtful / not found
+  - removing duplicates: `same_song(a, b)` → True if one is a copy of the other
 
-Regla de oro: ante la duda, el resultado tiene que ser el seguro. Al transferir, mejor
-"no encontrado" o "dudoso" que agregar otra canción como OK. Al limpiar, mejor no detectar un
-repetido que quitar una canción que no lo era.
+Golden rule: when in doubt, the result has to be the safe one. When transferring, "not found"
+or "doubtful" is better than adding another song as OK. When cleaning, missing a duplicate is
+better than removing a song that wasn't one.
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ class Case(NamedTuple):
     id: str
     src: Song
     cand: Song
-    transfer: str        # lo esperado al transferir
-    duplicate: bool      # lo esperado al buscar repetidos
+    transfer: str        # expected when transferring
+    duplicate: bool      # expected when finding duplicates
 
 
 def run(case: Case) -> None:
@@ -42,7 +42,7 @@ def ids(cases):
     return [c.id for c in cases]
 
 
-# ================================================================ A. La misma grabación escrita distinto
+# ================================================================ A. The same recording written differently
 
 SAME_RECORDING = [
     Case("remaster entre paréntesis (Tidal agrega la versión)",
@@ -80,8 +80,8 @@ SAME_RECORDING = [
     Case("sin duración en un servicio", S("Take On Me", "a-ha", dur=225), S("Take On Me", "a-ha"), OK, True),
     Case("mismo ISRC con el título en otro idioma", S("Gangnam Style", "PSY", isrc="KRA381200234"),
          S("강남스타일", "싸이", isrc="kra381200234"), OK, True),
-    # Lo encontró la primera usuaria (2026-11-08): en un servicio parte del título va entre paréntesis y en
-    # el otro no (y con "Artista - " adelante). Los paréntesis casi siempre son ruido, pero acá son el título
+    # Found by the first user (2026-11-08): in one service part of the title is in parentheses and in
+    # the other it isn't (and has "Artist - " in front). Parentheses are almost always noise, but here they are the title
     Case("parte del título entre paréntesis en un servicio y sin paréntesis en el otro",
          S("(I Can't Get No) Satisfaction", "The Rolling Stones", dur=223),
          S("The Rolling Stones - I Can't Get No Satisfaction", "The Rolling Stones", dur=224), OK, True),
@@ -98,7 +98,7 @@ def test_same_recording(case):
     run(case)
 
 
-# ================================================================ B. Varios artistas en la misma canción
+# ================================================================ B. Several artists on the same song
 
 MANY_ARTISTS = [
     Case("dúo: en un servicio los dos, en el otro uno",
@@ -133,7 +133,7 @@ def test_many_artists(case):
     run(case)
 
 
-# ================================================================ C. La misma canción cantada por otro artista
+# ================================================================ C. The same song sung by another artist
 
 OTHER_PERFORMER = [
     Case("versión de otro artista conocido", S("Hallelujah", "Jeff Buckley", dur=414),
@@ -187,7 +187,7 @@ def test_the_right_artist_wins_between_versions():
     assert found.id == "cash" and classify(sc) == OK
 
 
-# ================================================================ D. Otra canción del mismo artista
+# ================================================================ D. Another song by the same artist
 
 OTHER_SONG_SAME_ARTIST = [
     Case("negativo real: Sunshine ≠ Sunkissed", S("Sunshine", "Khai Dreams", "Atwood", dur=167),
@@ -219,7 +219,7 @@ def test_other_song_same_artist(case):
     run(case)
 
 
-# ================================================================ E. Otra versión de la misma canción
+# ================================================================ E. Another version of the same song
 
 OTHER_VERSION_CASES = [
     Case("en vivo", S("Bohemian Rhapsody", "Queen", dur=354), S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356), DOUBTFUL, True),
@@ -256,7 +256,7 @@ def test_original_wins_over_versions_when_both_exist():
     assert found.id == "orig" and classify(sc) == OK
 
 
-# ================================================================ F. Quitar repetidos en una playlist
+# ================================================================ F. Removing duplicates in a playlist
 
 def test_same_video_twice_is_a_duplicate():
     a = S("Take On Me", "a-ha", dur=226, id="v1")
@@ -308,18 +308,18 @@ def test_the_first_one_stays_even_if_it_is_the_video():
     assert dup.kept is video and dup.song is album
 
 
-# ================================================================ G. Límites conocidos (fallan para el lado seguro)
+# ================================================================ G. Known limits (they fail on the safe side)
 
 def test_limit_artist_alias_is_not_detected_as_duplicate():
-    """'P!nk' y 'Pink' son la misma artista. Al transferir se encuentra, pero al limpiar no se
-    detecta como repetido: es el lado seguro (no se quita nada)."""
+    """'P!nk' and 'Pink' are the same artist. When transferring it is found, but when cleaning it isn't
+    detected as a duplicate: that's the safe side (nothing is removed)."""
     a, b = S("So What", "P!nk", dur=215), S("So What", "Pink", dur=215)
     assert classify(score(a, b)) == OK
     assert not same_song(a, b)
 
 
 def test_limit_artist_in_another_alphabet_needs_isrc():
-    """'米津玄師' es 'Kenshi Yonezu': sin ISRC no se puede saber. Queda como no encontrado."""
+    """'米津玄師' is 'Kenshi Yonezu': without an ISRC there's no way to know. It stays not found."""
     a, b = S("Lemon", "米津玄師", dur=255), S("Lemon", "Kenshi Yonezu", dur=255)
     assert classify(score(a, b)) == NOT_FOUND
     assert classify(score(S("Lemon", "米津玄師", isrc="JPU901800001"),
@@ -327,19 +327,19 @@ def test_limit_artist_in_another_alphabet_needs_isrc():
 
 
 def test_limit_translated_title_without_isrc():
-    """Un título traducido ("La Bamba" / "The Bamba") sin ISRC queda como no encontrado."""
+    """A translated title ("La Bamba" / "The Bamba") without an ISRC stays not found."""
     assert classify(score(S("La Bamba", "Ritchie Valens", dur=124), S("The Bamba", "Ritchie Valens", dur=124))) == NOT_FOUND
 
 
 def test_limit_live_word_in_both_titles():
-    """Si el título ya tiene la palabra ("Live and Let Die"), la versión en vivo no se distingue:
-    queda OK en vez de dudosa. Raro y de bajo riesgo (es la misma canción del mismo artista)."""
+    """If the title already has the word ("Live and Let Die"), the live version can't be told apart:
+    it ends up OK instead of doubtful. Rare and low risk (it's the same song by the same artist)."""
     assert classify(score(S("Live and Let Die", "Wings", dur=192),
                           S("Live and Let Die (Live)", "Wings", dur=200))) == OK
 
 
-# ================================================================ H. Música clásica y temas numerados
-# (encontrado con la prueba de estrés: "Gymnopédie No. 1" y "No. 3" se tomaban como repetidos)
+# ================================================================ H. Classical music and numbered pieces
+# (found with the stress test: "Gymnopédie No. 1" and "No. 3" were taken as duplicates)
 
 CLASSICAL = [
     Case("otra obra con el mismo nombre y otro número", S("Gymnopédie No. 1", "Erik Satie", dur=200),
@@ -375,16 +375,16 @@ def test_classical_playlist_keeps_every_piece():
 
 
 def test_limit_number_on_one_side_only():
-    """"Song 2" vs "Song" (Blur): solo uno tiene número, y separarlos por eso rompería "Live at Wembley
-    '86" vs el original. Antes se agregaba solo; ahora el "2" de más lo deja para revisar."""
+    """"Song 2" vs "Song" (Blur): only one has a number, and telling them apart for that would break "Live at
+    Wembley '86" vs the original. It used to be added on its own; now the extra "2" leaves it for review."""
     assert classify(score(S("Song 2", "Blur", dur=122), S("Song", "Blur", dur=122))) == DOUBTFUL
     assert classify(score(S("Bohemian Rhapsody", "Queen", dur=354),
                           S("Bohemian Rhapsody - Live at Wembley '86", "Queen", dur=360))) == DOUBTFUL
 
 
-# ================================================================ Los límites de cada regla
-# Encontrados con errores introducidos a propósito (mutation testing): un cambio chico en estos números o
-# condiciones pasaba sin que ningún test lo notara.
+# ================================================================ The limits of each rule
+# Found with bugs introduced on purpose (mutation testing): a small change in these numbers or
+# conditions got through without any test noticing.
 
 @pytest.mark.parametrize("seconds, same", [(5, True), (6, False)])
 def test_without_artist_the_duration_decides_up_to_5_seconds(seconds, same):
@@ -394,7 +394,7 @@ def test_without_artist_the_duration_decides_up_to_5_seconds(seconds, same):
 @pytest.mark.parametrize("a, b, same", [
     (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", album="Disco Uno (Deluxe)", dur=90), True),
     (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", album="Otra Cosa", dur=60), False),
-    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", dur=63), True),       # falta un álbum: decide la duración
+    (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", dur=63), True),       # an album is missing: the length decides
     (S("Intro", "A", album="Disco Uno", dur=60), S("Intro", "A", dur=64), False),
 ])
 def test_a_generic_title_needs_the_same_album_or_length(a, b, same):
@@ -436,7 +436,7 @@ def test_at_most_three_other_artists_are_offered():
     assert [a.id for a in alternatives(src, others)] == ["Leonard Cohen", "Pentatonix", "Rufus Wainwright"]
 
 
-# Casos de una transferencia real de 1684 temas: se ofrecían artistas que no tenían nada que ver
+# Cases from a real transfer of 1684 songs: unrelated artists were being offered
 @pytest.mark.parametrize("src, cand", [
     (S("Roncan RKT - REMIX", "Alan Gomez RMX"), S("INTRO MATADOR - SORE MIX", "BRIANMIX")),
     (S("Bad Bunny", "Pê"), S("Bad Bunny - Tití Me Preguntó", "Skyline")),
@@ -448,7 +448,7 @@ def test_unrelated_songs_are_not_offered_as_alternatives(src, cand):
 
 
 @pytest.mark.parametrize("src, cand", [
-    (S("Sade - Smooth Operator (RICHIE ROZEX Remix)", "Stay See"), S("Smooth Operator", "RICHIE ROZEX")),   # elegida por el usuario
+    (S("Sade - Smooth Operator (RICHIE ROZEX Remix)", "Stay See"), S("Smooth Operator", "RICHIE ROZEX")),   # chosen by the user
     (S("Sub Urban - Cradles (slowed Reverb)", "iji macu"), S("Cradles", "Sub Urban")),
     (S("Roncan RKT - REMIX", "Alan Gomez RMX"), S("Roncan RKT - REMIX", "BRIANMIX")),
 ])
@@ -463,51 +463,51 @@ def test_alternatives_do_not_repeat_and_the_closest_length_comes_first():
     assert [a.id for a in alternatives(src, [far, twin, near])] == ["near", "far"]
 
 
-# Coincidencias que se agregaban como buenas en una transferencia real de 1684 temas
+# Matches that were added as good in a real transfer of 1684 songs
 @pytest.mark.parametrize("src, cand, expected", [
-    # Karaoke, 8-bit o cover: el título nombra al original, pero la canta otro
+    # Karaoke, 8-bit or cover: the title names the original, but someone else sings it
     (S("Gentleman", "PSY"), S("Gentleman (made popular by Psy) [backing version]", "Party Tyme"), NOT_FOUND),
     (S("Mine All Day", "pewdiepie", "Party in Backyard"),
      S("Mine All Day (8-Bit PewDiePie Emulation)", "8-Bit Arcade"), NOT_FOUND),
-    # "(feat. Sean Paul)" en el título no dice quién la subió
+    # "(feat. Sean Paul)" in the title doesn't say who uploaded it
     (S("Cheap Thrills (feat. Sean Paul)", "Sia", "Sean Paul"), S("Cheap Thrills (feat. Sean Paul)", "Vermillon League"),
      NOT_FOUND),
-    # Una palabra de verdad de más, o lo que no comparten no se parece: para revisar
+    # A real extra word, or what they don't share isn't alike: to review
     (S("Gettin' Over (feat. Chris Willis & Fergie)", "David Guetta", "Chris Willis", "Fergie"),
      S("Gettin' Over You (feat. Fergie & LMFAO)", "David Guetta", "Chris Willis"), DOUBTFUL),
     (S("God Mission - Español Version", "Teté Llosas & Melodyne MLD"),
      S("Alone (Español Version)", "Lucho Gonzalez", "Teté Llosas & Melodyne MLD"), DOUBTFUL),
-    # El edit de otro es otra versión; el de un artista del tema o el "Radio Edit", no
+    # Someone else's edit is another version; one by an artist of the song or the "Radio Edit" is not
     (S("Help Me Lose My Mind", "Disclosure", "London Grammar"),
      S("Disclosure - Help Me Lose My Mind (Coyote Paul Schranz Edit)", "Coyote Paul"), DOUBTFUL),
     (S("It's A Killa (Shermanology Edit)", "Fisher (OZ)"), S("It's A Killa", "FISHER", "Shermanology"), OK),
     (S("Intoxicated - Radio Edit", "Martin Solveig", "Good Times Ahead"),
      S("Intoxicated (Edit)", "Martin Solveig", "Good Times Ahead"), OK),
-    # El remixer entre corchetes sí es artista del tema ("GTA" es Good Times Ahead)
+    # The remixer in brackets is an artist of the song ("GTA" is Good Times Ahead)
     (S("Red Lips (feat. Sam Bruno) - Skrillex Remix", "Good Times Ahead", "Sam Bruno", "Skrillex"),
      S("Red Lips [Skrillex Remix] (feat. Sam Bruno)", "GTA"), OK),
-    # Erratas y restos cortos siguen siendo el mismo tema
+    # Typos and short leftovers are still the same song
     (S("The Way You Make Me Feel", "Michael Jackson"), S("The Way U Make Me Feel", "Michael Jackson"), OK),
 ])
 def test_what_a_real_transfer_added_by_mistake(src, cand, expected):
     assert classify(score(src, cand)) == expected
 
 
-# Repetidos de una biblioteca real (2026-11-24): se tildaban para quitar grabaciones distintas
+# Duplicates from a real library (2026-11-24): different recordings were being ticked for removal
 @pytest.mark.parametrize("first, again", [
-    # El remix de Majestic (3:07) quedaba y se quitaba el original de Boney M. (4:27 y 5:52)
+    # Majestic's remix (3:07) stayed and Boney M.'s original (4:27 and 5:52) was removed
     (S("Rasputin", "Majestic", "Boney M.", dur=187, album="Rasputin"), S("Rasputin", "Boney M.", dur=267, album="The Magic Of Boney M.")),
     (S("Rasputin", "Majestic", "Boney M.", dur=187), S("Rasputin", "Boney M.", dur=352, album="Nightflight to Venus")),
-    # THE FIRST TAKE es una grabación en vivo de una sola toma, no la de estudio
+    # THE FIRST TAKE is a single-take live recording, not the studio one
     (S("青のすみか - Where Our Blue Is", "Tatsuya Kitani", dur=197),
      S("青のすみか - From THE FIRST TAKE - Where Our Blue Is - From THE FIRST TAKE", "Tatsuya Kitani", dur=198)),
 ])
 def test_a_different_recording_is_never_ticked_to_remove(first, again):
     [d] = find_duplicates([first, again])
-    assert d.kind == OTHER_VERSION                  # la persona decide: no viene tildado
+    assert d.kind == OTHER_VERSION                  # the person decides: it comes unticked
 
 
 def test_a_video_with_a_short_intro_is_still_the_same_recording():
-    """Virtual Insanity (Official Video) dura 17 s más por la intro: sigue siendo la misma."""
+    """Virtual Insanity (Official Video) is 17 s longer because of the intro: still the same one."""
     [d] = find_duplicates([S("Virtual Insanity", "Jamiroquai", dur=228), S("Virtual Insanity (Official Video)", "Jamiroquai", dur=245)])
     assert d.kind == SAME

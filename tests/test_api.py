@@ -1,4 +1,4 @@
-"""La API que usa la ventana, con servicios falsos y una carpeta de datos vacía."""
+"""The API the window uses, with fake services and an empty data folder."""
 from __future__ import annotations
 
 import threading
@@ -40,7 +40,7 @@ def wait(api, job_id, timeout=10):
     return api._jobs.wait(job_id, timeout)
 
 
-# ---------------------------------------------------------------- primer uso
+# ---------------------------------------------------------------- first run
 
 def test_first_run_state(app):
     api, tidal, yt = app
@@ -68,7 +68,7 @@ def test_connect_can_be_cancelled(app):
     api.cancel(job)
     r = wait(api, job)
     assert r["state"] == "cancelled" and not tidal.connected
-    assert "job" in api.connect("ytmusic")             # no queda nada trabado
+    assert "job" in api.connect("ytmusic")             # nothing is left stuck
 
 
 def test_choose_browser(app):
@@ -79,10 +79,10 @@ def test_choose_browser(app):
 
 
 def test_an_uninstalled_browser_is_not_used(app):
-    """Si el navegador elegido se desinstaló, se vuelve al predeterminado en vez de fallar al conectar."""
+    """If the chosen browser was uninstalled, it goes back to the default instead of failing to connect."""
     api, tidal, yt = app
     api.choose_browser(str(CHROME.exe))
-    api._list_browsers = lambda: [VIVALDI]                  # desinstalaron Chrome
+    api._list_browsers = lambda: [VIVALDI]                  # Chrome was uninstalled
     assert api.browsers()["chosen"] is None and api.browsers()["suggested"] == str(VIVALDI.exe)
     tidal.connected = False
     r = wait(api, api.connect("tidal")["job"])
@@ -97,7 +97,7 @@ def test_disconnected_service_gives_a_readable_error(app):
     assert "error" in api.playlists("spotify")
 
 
-# ---------------------------------------------------------------- transferir
+# ---------------------------------------------------------------- transferring
 
 def test_transfer_end_to_end_and_history(app):
     api, tidal, yt = app
@@ -124,14 +124,14 @@ def test_dry_run_is_not_recorded(app):
 def test_add_the_version_of_another_artist_only_when_asked(app):
     api, tidal, yt = app
     r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "Favoritas"}], False)["job"])
-    assert "y2" not in [s.id for s in yt.songs("dst")]                     # Cohen no se agregó solo
+    assert "y2" not in [s.id for s in yt.songs("dst")]                     # Cohen wasn't added on its own
     hallelujah = next(e for e in r["events"] if e["type"] == "track" and e["n"] == 2)
     assert hallelujah["alternatives"][0]["artist"] == "Leonard Cohen"
     a = wait(api, api.add_alternative(r["result"]["transfer"], 2, 0)["job"])
     assert a["state"] == "done" and [s.id for s in yt.songs("dst")] == ["y1", "y2"]
-    assert "error" in api.add_alternative(r["result"]["transfer"], 2, 0)    # un tema se agrega una sola vez
+    assert "error" in api.add_alternative(r["result"]["transfer"], 2, 0)    # a song is added only once
     assert a["result"]["summary"]["not_found"] == 0 and a["result"]["targets"][0]["added"] == 2
-    ops = api.history()                                                     # es la misma transferencia: una sola fila
+    ops = api.history()                                                     # it's the same transfer: a single row
     assert len(ops) == 1 and (ops[0]["added"], ops[0]["not_found"]) == (2, 0)
     assert "ok" in ops[0]["tiles"] and "no_encontrado" not in ops[0]["tiles"]
 
@@ -171,7 +171,7 @@ def test_cancel_a_transfer(app):
     assert yt.calls == [] and api.history() == []
 
 
-# ---------------------------------------------------------------- quitar repetidos
+# ---------------------------------------------------------------- removing duplicates
 
 def scan(api):
     r = wait(api, api.scan_duplicates("ytmusic", "dups")["job"])
@@ -199,7 +199,7 @@ def test_remove_only_the_selected_ones_and_record_it(app):
     res = scan(api)
     r = wait(api, api.remove_duplicates(res["scan"], [0], True)["job"])
     assert r["state"] == "done" and r["result"]["removed"] == 1
-    assert [s.id for s in yt.songs("dups")] == ["v1", "v2", "v4"]       # la en vivo se quedó
+    assert [s.id for s in yt.songs("dups")] == ["v1", "v2", "v4"]       # the live one stayed
     [op] = api.history()
     assert op["kind"] == "dedupe" and op["removed"] == 1
     [t] = api.history_detail(op["id"])
@@ -209,7 +209,7 @@ def test_remove_only_the_selected_ones_and_record_it(app):
 def test_remove_refuses_if_the_playlist_changed(app):
     api, tidal, yt = app
     res = scan(api)
-    yt.add("dups", [S("Otra", "Alguien", id="nuevo")])                   # alguien la cambió desde otro lado
+    yt.add("dups", [S("Otra", "Alguien", id="nuevo")])                   # someone changed it from elsewhere
     yt.calls.clear()
     r = wait(api, api.remove_duplicates(res["scan"], [0, 1], True)["job"])
     assert r["state"] == "error" and "cambió" in r["error"] and "no se quitó nada" in r["error"]
@@ -231,19 +231,19 @@ def test_bad_selection(app):
     assert "error" in api.remove_duplicates("scan-inventado", [0], True)
 
 
-# ---------------------------------------------------------------- varios
+# ---------------------------------------------------------------- miscellaneous
 
 def test_open_url_only_for_music_services(app):
     api, *_ = app
     assert api.open_url("https://music.youtube.com/playlist?list=x") == {"ok": True}
     assert "error" in api.open_url("file:///C:/Windows/System32/calc.exe")
     assert "error" in api.open_url("https://evil.example.com")
-    assert "error" in api.open_url("https://tidal.com.evil.example/")         # el prefijo incluye la barra
+    assert "error" in api.open_url("https://tidal.com.evil.example/")         # the prefix includes the slash
     assert len(api._open_url_calls) == 1
 
 
 def test_services_come_from_the_registry(app):
-    """Un solo lugar define los servicios: la API y la ventana los toman de ahí."""
+    """A single place defines the services: the API and the window take them from there."""
     from app.connectors import registry
     api, *_ = app
     assert api.services() == [{"key": "tidal", "name": "Tidal", "available": True},
@@ -271,8 +271,8 @@ def test_unexpected_errors_become_messages(app):
 
 
 def test_without_internet_the_message_says_so(app):
-    """Un error de conexión de `requests` (lo usan las librerías de Tidal y YouTube Music) no sale como
-    "algo salió mal (ConnectionError: HTTPSConnectionPool…)", ni en una tarea ni en un llamado directo."""
+    """A connection error from `requests` (used by the Tidal and YouTube Music libraries) doesn't come out as
+    "something went wrong (ConnectionError: HTTPSConnectionPool…)", neither in a task nor in a direct call."""
     import requests
     api, tidal, yt = app
 
@@ -286,7 +286,7 @@ def test_without_internet_the_message_says_so(app):
 
 
 def test_api_exposes_no_public_state(app):
-    """pywebview publica a la página todo atributo público: solo tienen que verse métodos."""
+    """pywebview publishes every public attribute to the page: only methods should be visible."""
     api, *_ = app
     public = [n for n in vars(api) if not n.startswith("_") and n != "opened"]
     assert public == []
@@ -296,7 +296,7 @@ def test_jobs_poll_unknown():
     assert Jobs().poll("nada")["state"] == "error"
 
 
-# ---------------------------------------------------------------- historial en texto y umbrales
+# ---------------------------------------------------------------- history as text, and thresholds
 
 @pytest.fixture
 def saving(app, tmp_path):
@@ -312,7 +312,7 @@ def saving(app, tmp_path):
 
 def test_download_history_on_request(saving):
     api, yt, chosen = saving
-    assert "error" in api.export_history()                                  # vacío: nada para descargar
+    assert "error" in api.export_history()                                  # empty: nothing to download
     wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], False)["job"])
     r = api.export_history()
     assert r["operations"] == 1 and r["name"] == "historial.txt" and chosen["asked"][0].startswith("historial-")
@@ -338,7 +338,7 @@ def test_txt_extension_is_added(saving):
 
 
 def test_there_is_no_per_transfer_report_anymore(app):
-    """Se quitó el reporte de cada transferencia: lo que pasó queda en el Historial."""
+    """The per-transfer report was removed: what happened stays in the History."""
     api, *_ = app
     assert not hasattr(api, "export_transfer")
 
@@ -363,8 +363,8 @@ def test_thresholds_are_validated_and_used(app):
     assert api.save_thresholds("0.9", "0.8") == {"ok": True, "score_ok": 0.9, "score_min": 0.8}
     assert api.settings()["score_ok"] == 0.9
 
-    # Un candidato con puntaje entre 0.80 y 0.90: con los umbrales de fábrica es OK, con 0.90 queda dudoso
-    yt.catalog = [S("Take On Me", "a-ha", dur=262, id="lejos")]           # misma canción, 37 s de diferencia
+    # A candidate scoring between 0.80 and 0.90: with the factory thresholds it's OK, with 0.90 it's doubtful
+    yt.catalog = [S("Take On Me", "a-ha", dur=262, id="lejos")]           # same song, 37 s apart
     def status():
         r = wait(api, api.start_transfer("tidal", "ytmusic", "src", [{"id": "dst", "name": "x"}], True)["job"])
         return next((e["status"], e["score"]) for e in r["events"] if e["type"] == "track" and e["n"] == 1)
@@ -372,7 +372,7 @@ def test_thresholds_are_validated_and_used(app):
     st, sc = status()
     assert 0.8 <= sc < 0.9 and st == "ok"
     api.save_thresholds(0.9, 0.8)
-    assert status() == ("dudoso_omitido", sc)                              # "?": queda para decidir al final
+    assert status() == ("dudoso_omitido", sc)                              # "?": left to decide at the end
 
 
 def test_thresholds_edited_by_hand_out_of_range_fall_back(app):
@@ -396,7 +396,7 @@ def test_history_tiles_say_which_song_each_one_is(app):
     assert op["tiles_total"] == 2
 
 
-# ---------------------------------------------------------------- "+ Agregar igual" para los "?"
+# ---------------------------------------------------------------- "+ Add anyway" for the "?"
 
 @pytest.fixture
 def doubtful_app(app):
@@ -411,12 +411,12 @@ def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
     api, tidal, yt = doubtful_app
     r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False)["job"])
     assert r["result"]["summary"]["skipped"] == 1
-    assert [s.id for s in yt.songs("dst")] == ["y1"]                        # el "?" no se agregó solo
+    assert [s.id for s in yt.songs("dst")] == ["y1"]                        # the "?" wasn't added on its own
     key = r["result"]["transfer"]
     a = wait(api, api.add_doubtful(key, [1])["job"])
     assert a["state"] == "done" and a["result"]["added_ns"] == [1]
     assert [s.id for s in yt.songs("dst")] == ["y1", "ylive"]
-    assert "error" in api.add_doubtful(key, [1])                            # ya no se ofrece de nuevo
+    assert "error" in api.add_doubtful(key, [1])                            # it isn't offered again
     ops = api.history()
     assert len(ops) == 1 and (ops[0]["added"], ops[0]["doubtful"], ops[0]["skipped"]) == (2, 1, 0)
     assert a["result"]["summary"]["skipped"] == 0 and a["result"]["targets"][0]["added"] == 2
@@ -425,7 +425,7 @@ def test_skipped_doubtful_can_be_added_later_and_only_once(doubtful_app):
 def test_add_later_does_not_duplicate_what_is_already_there(doubtful_app):
     api, tidal, yt = doubtful_app
     r = wait(api, api.start_transfer("tidal", "ytmusic", "live", [{"id": "dst", "name": "x"}], False)["job"])
-    yt.add("dst", [S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356, id="ylive")])   # alguien lo agregó
+    yt.add("dst", [S("Bohemian Rhapsody (Live Aid 1985)", "Queen", dur=356, id="ylive")])   # someone added it
     yt.calls.clear()
     a = wait(api, api.add_doubtful(r["result"]["transfer"], [1])["job"])
     assert a["result"]["added_ns"] == [] and a["result"]["already"] == 1 and yt.calls == []
@@ -451,10 +451,10 @@ def test_old_history_gets_the_new_column(tmp_path):
     assert (op.source_name, op.added, op.skipped) == ("Anime", 21, 0)
 
 
-# ---------------------------------------------------------------- estabilidad
+# ---------------------------------------------------------------- stability
 
 def test_when_the_second_destination_fails_the_first_stays_in_history(app):
-    """Antes se perdía el registro de lo que sí se había pasado."""
+    """The record of what did get moved used to be lost."""
     from app.connectors.base import ConnectorError
     api, tidal, yt = app
     yt.add_playlist("dst2", "Otra", [])
@@ -482,7 +482,7 @@ def test_a_history_that_cannot_be_written_does_not_fail_the_transfer(app):
 
 
 def test_services_are_asked_at_the_same_time(app):
-    """Cada consulta espera a la otra: si fueran de a una, se vencería la espera."""
+    """Each query waits for the other: if they ran one at a time, the wait would time out."""
     import threading
     from app.connectors.base import Status
     api, tidal, yt = app
@@ -513,7 +513,7 @@ def test_finished_jobs_are_forgotten():
     assert len(j._jobs) <= jobs.KEEP_FINISHED + 1 and j.poll(ids[-1])["state"] == "done"
 
 
-# ---------------------------------------------------------------- repetidos en todas las playlists
+# ---------------------------------------------------------------- duplicates in every playlist
 
 def more_playlists(yt):
     yt.add_playlist("otra", "Otra lista", [S("Dos", "X", id="d1"), S("Dos", "X", id="d2"), S("Tres", "X", id="t1")])
@@ -529,7 +529,7 @@ def more_playlists(yt):
 
 
 def test_scan_all_playlists_one_by_one(app):
-    """Una que no se puede leer no frena las demás; las de menos de 2 temas no se revisan."""
+    """One that can't be read doesn't stop the others; those with fewer than 2 songs aren't checked."""
     api, tidal, yt = app
     more_playlists(yt)
     r = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])
@@ -537,7 +537,7 @@ def test_scan_all_playlists_one_by_one(app):
     res = r["result"]
     assert [g["name"] for g in res["groups"]] == ["Clásicos", "Otra lista"]
     assert res["clean"] == ["Sin nada"] and [f["name"] for f in res["failed"]] == ["Rota"]
-    assert res["checked"] == 4                                    # "Para correr" tiene 1 tema: no cuenta
+    assert res["checked"] == 4                                    # "Para correr" has 1 song: it doesn't count
     kinds = [e["type"] for e in r["events"]]
     assert kinds[0] == "scan_list" and kinds.count("scan_start") == 4 and kinds.count("scan_result") == 4
 
@@ -547,27 +547,27 @@ def test_remove_from_several_playlists_at_once(app):
     more_playlists(yt)
     res = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])["result"]
     choices = [{"scan": g["scan"], "selected": [0]} for g in res["groups"]]
-    assert "error" in api.remove_many(choices, False)                         # sin el diálogo, nada
+    assert "error" in api.remove_many(choices, False)                         # without the dialog, nothing
     r = wait(api, api.remove_many(choices, True)["job"])
     assert r["state"] == "done" and r["result"]["removed"] == 2 and r["result"]["names"] == ["Clásicos", "Otra lista"]
     assert [s.id for s in yt.songs("dups")] == ["v1", "v2", "v4"] and [s.id for s in yt.songs("otra")] == ["d1", "t1"]
-    after = {g["name"]: len(g["duplicates"]) for g in r["result"]["groups"]}  # se revisaron de nuevo
+    after = {g["name"]: len(g["duplicates"]) for g in r["result"]["groups"]}  # they were checked again
     assert after == {"Clásicos": 1, "Otra lista": 0}
-    assert [o["source_name"] for o in api.history()] == ["Otra lista", "Clásicos"]   # una fila por playlist
+    assert [o["source_name"] for o in api.history()] == ["Otra lista", "Clásicos"]   # one row per playlist
 
 
 def test_several_playlists_stop_at_one_that_changed_and_say_what_was_done(app):
     api, tidal, yt = app
     more_playlists(yt)
     res = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])["result"]
-    yt.add("otra", [S("Nueva", "Y", id="n1")])                                # cambió desde otro lado
+    yt.add("otra", [S("Nueva", "Y", id="n1")])                                # it changed from elsewhere
     r = wait(api, api.remove_many([{"scan": g["scan"], "selected": [0]} for g in res["groups"]], True)["job"])
     assert r["state"] == "error" and "Clásicos" in r["error"] and "«Otra lista» cambió" in r["error"]
-    assert len(yt.songs("dups")) == 3 and len(yt.songs("otra")) == 4         # la segunda no se tocó
+    assert len(yt.songs("dups")) == 3 and len(yt.songs("otra")) == 4         # the second one wasn't touched
 
 
 def test_a_service_slow_to_answer_its_status_is_written_in_the_log(app, monkeypatch, caplog):
-    """Al arrancar, un servicio tardó y no quedaba registrado cuál: ahora el log lo dice."""
+    """At startup a service was slow and nothing recorded which one: now the log says it."""
     import logging
     from app.api import services
     api, tidal, yt = app

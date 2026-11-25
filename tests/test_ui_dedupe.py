@@ -1,4 +1,4 @@
-"""Quitar repetidos: elegir la playlist, revisar y confirmar."""
+"""Remove duplicates: pick the playlist, check and confirm."""
 from __future__ import annotations
 
 import pytest
@@ -9,8 +9,8 @@ from tests.ui_helpers import check, make_api, open_page, shot, with_spotify
 
 
 def test_dedupe_playlist_list_has_the_app_style_and_scrolls(browser, tmp_path):
-    """La lista de playlists de Quitar repetidos usa el mismo estilo que De/a, y con muchas playlists
-    tiene alto máximo y scroll en vez de tapar la pantalla."""
+    """Remove duplicates' playlist list uses the same style as From/to, and with many playlists
+    it has a max height and scroll instead of covering the screen."""
     api, tidal, yt = make_api(tmp_path)
     for i in range(40):
         yt.add_playlist(f"x{i}", f"Lista número {i} con un nombre bastante largo para ver cómo se corta",
@@ -25,10 +25,10 @@ def test_dedupe_playlist_list_has_the_app_style_and_scrolls(browser, tmp_path):
     box = page.evaluate("""() => { const o = document.querySelector('#dup-playlist option[value=x20]').parentElement;
         const r = document.querySelector('#dup-playlist option').getBoundingClientRect(); return innerHeight; }""")
     last = page.locator("#dup-playlist option[value=x39]").bounding_box()
-    assert last is None or last["y"] > box                             # la lista no entra entera: hay scroll
+    assert last is None or last["y"] > box                             # the list doesn't fit whole: there is scroll
     cut = page.evaluate("""() => [...document.querySelectorAll('#dup-playlist option')]
         .filter(o => o.scrollWidth > o.clientWidth + 1).map(o => o.textContent)""")
-    assert cut == []                                                  # ningún nombre cortado: pasa a dos renglones
+    assert cut == []                                                  # no name cut off: it wraps to two lines
     shot(page, "repetidos-lista-abierta")
     page.locator("#dup-playlist option[value=dups]").click()
     assert page.input_value("#dup-playlist") == "dups"
@@ -46,14 +46,14 @@ def test_remove_duplicates_needs_the_dialog(browser, tmp_path):
     page.click("#dup-scan")
     page.wait_for_selector("#dups li")
     boxes = page.query_selector_all("#dups input")
-    assert [b.is_checked() for b in boxes] == [True, False]             # la en vivo, sin tildar
+    assert [b.is_checked() for b in boxes] == [True, False]             # the live one, unticked
     assert "Otra versión" in page.inner_text("#dups li >> nth=1")
     assert page.inner_text("#remove") == "Quitar 1 tema"
     shot(page, "6-repetidos")
     page.click("#remove")
     assert page.is_visible("#confirm")
     shot(page, "7-repetidos-confirmar")
-    page.click("#confirm-no")                                            # cancelar: no pasa nada
+    page.click("#confirm-no")                                            # cancel: nothing happens
     assert yt.calls == [] and len(yt.songs("dups")) == 4
     page.click("#remove")
     page.click("#confirm-yes")
@@ -83,7 +83,7 @@ def test_spotify_duplicates_warn_before_removing_every_copy(browser, tmp_path):
     shot(page, "repetidos-spotify-confirmar")
     page.click("#confirm-yes")
     page.wait_for_selector("text=Quitaste 1 tema de «Repetidos en Spotify».")
-    assert fake.uris("d" * 22) == [a["uri"], b["uri"]]                # quedó la primera, en su lugar
+    assert fake.uris("d" * 22) == [a["uri"], b["uri"]]                # the first one stayed, in its place
     assert errors == []
 
 
@@ -102,7 +102,7 @@ def test_other_services_do_not_show_the_readd_warning(browser, tmp_path):
 
 
 def test_playlists_that_cannot_have_duplicates_are_not_offered(browser, tmp_path):
-    """Con menos de 2 temas no puede haber repetidos: no se ofrecen."""
+    """With fewer than 2 songs there can't be duplicates: they aren't offered."""
     api, tidal, yt = make_api(tmp_path)
     yt.add_playlist("uno", "Un solo tema", [S("Tema", "Artista", id="u1")])
     yt.add_playlist("cero", "Vacía", [])
@@ -129,8 +129,8 @@ def open_dedupe(page):
 
 @pytest.mark.parametrize("keeps_enough", [True, False])
 def test_after_removing_it_never_checks_another_playlist(browser, tmp_path, keeps_enough):
-    """Al redibujar la lista se volvía a la primera: después de quitar se revisaba otra playlist.
-    Si le queda un solo tema, sale de la lista y no se revisa ninguna."""
+    """Redrawing the list went back to the first one: after removing, another playlist was checked.
+    If it has a single song left, it leaves the list and none is checked."""
     api, tidal, yt = make_api(tmp_path)
     two_playlists(yt, keeps_enough)
     page, errors = open_page(browser, api)
@@ -144,13 +144,13 @@ def test_after_removing_it_never_checks_another_playlist(browser, tmp_path, keep
     page.wait_for_function("!state.busy")
     page.wait_for_timeout(500)
     assert (page.input_value("#dup-playlist") == "bbb") is keeps_enough
-    assert page.locator("#dups li").count() == 0                       # "Primera" tiene repetidos: no se miró
+    assert page.locator("#dups li").count() == 0                       # "Primera" has duplicates: it wasn't looked at
     assert len(yt.songs("bbb")) == (2 if keeps_enough else 1) and len(yt.songs("aaa")) == 2
     assert errors == []
 
 
 def test_a_new_playlist_shows_up_on_the_screen_being_watched(browser, tmp_path):
-    """Una transferencia que termina (o un servicio que se conecta) actualiza lo que se está viendo."""
+    """A transfer that finishes (or a service that connects) updates what is on screen."""
     api, tidal, yt = make_api(tmp_path)
     two_playlists(yt)
     page, errors = open_page(browser, api)
@@ -159,7 +159,7 @@ def test_a_new_playlist_shows_up_on_the_screen_being_watched(browser, tmp_path):
     yt.add_playlist("ccc", "Recién creada", [S("Tres", "X", id="t1"), S("Cuatro", "X", id="t2")])
     page.evaluate("serviceChanged('ytmusic')")
     page.wait_for_selector("#dup-playlist option[value=ccc]", state="attached")
-    assert page.input_value("#dup-playlist") == "bbb"             # lo elegido no se pierde
+    assert page.input_value("#dup-playlist") == "bbb"             # what was chosen isn't lost
     assert errors == []
 
 
@@ -177,9 +177,9 @@ def test_a_slow_answer_does_not_overwrite_the_service_chosen_later(browser, tmp_
     assert errors == []
 
 
-# ---------------------------------------------------------------- todas las playlists (diseño aprobado el 2026-11-24)
+# ---------------------------------------------------------------- all playlists (design approved on 2026-11-24)
 
-# Lo que se ve raro aunque cumpla las normas de tamaños: medido en la pantalla, en píxeles
+# What looks odd even when it meets the size rules: measured on screen, in pixels
 ALIGN = """() => {
   const vis = el => el && el.getBoundingClientRect().width > 0, out = [];
   const r = el => el.getBoundingClientRect();
@@ -236,7 +236,7 @@ def test_before_checking_the_three_steps_are_shown_and_aligned(browser, tmp_path
     page, errors = open_page(browser, api)
     page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
     open_all(page)
-    assert page.input_value("#dup-playlist") == "__all__"                     # de entrada, todas
+    assert page.input_value("#dup-playlist") == "__all__"                     # all of them, from the start
     assert page.inner_text("#dup-playlist option >> nth=0") == "Todas las playlists (10)"
     assert page.is_visible("#dup-how") and page.inner_text("#dup-scan") == "Revisar"
     shot(page, f"repetidos-antes-{size}")
@@ -249,7 +249,7 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     page, errors = open_page(browser, api)
     page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
     open_all(page)
-    # A mitad de camino: se ve cuál va y cómo dio cada una (se frena la respuesta para mirarla)
+    # Halfway: it shows which one is next and how each one came out (the answer is held to look at it)
     page.evaluate("""() => { const real = onScanEvent; window.mid = null;
         onScanEvent = (p, e) => { real(p, e); if (e.type === 'scan_result' && e.k === 3 && !mid)
           mid = { text: document.querySelector('#dup-progress-text').textContent,
@@ -258,7 +258,7 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     page.wait_for_selector(".dup-group")
     mid = page.evaluate("mid")
     assert mid["text"] == "Revisando 4 de 10 playlists" and "en espera" in mid["pills"] and "sin repetidos" in mid["pills"]
-    # La barra a mitad de camino, para la captura y la alineación
+    # The bar halfway, for the screenshot and the alignment
     page.evaluate("""() => { window.saved = state.scan; clearDups(); document.querySelector('#dup-progress').hidden = false; document.querySelector('#dup-how').hidden = true;
         const p = {}; onScanEvent(p, { type: 'scan_list', names: ['Primera', 'Clásicos', 'Limpia número 0', 'Una playlist con un nombre larguísimo que no entra en un renglón'] });
         onScanEvent(p, { type: 'scan_start', k: 0, name: 'Primera' }); onScanEvent(p, { type: 'scan_result', k: 0, found: 1 });
@@ -271,7 +271,7 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\nse quita 1 de 2\nDestildar todos",
                                                                    "Primera\nse quita 1 de 1\nDestildar todos"]
     assert page.inner_text("#dup-clean") == "Sin repetidos: Limpia número 0, Limpia número 1, Limpia número 2, Limpia número 3 y 4 más."
-    assert "tildado se quita" in page.inner_text("#dup-hint")                # qué significa tildar, antes de la lista
+    assert "tildado se quita" in page.inner_text("#dup-hint")                # what ticking means, before the list
     assert page.inner_text("#remove") == "Quitar 2 temas" and page.inner_text("#dup-scan") == "Revisar de nuevo"
     assert page.inner_text("#dup-decide-text") == "Se van a quitar 2 temas de 2 playlists. Queda la versión de la derecha en cada caso."
     shot(page, f"repetidos-resultado-{size}")
@@ -283,7 +283,7 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
     page.wait_for_selector("text=Quitaste 2 temas de 2 playlists.")
     page.wait_for_function("!state.busy")
     assert [s.id for s in yt.songs("aaa")] == ["d1", "t3"] and len(yt.songs("dups")) == 3
-    # Lo que queda: la "Otra versión" de Clásicos (sin tildar), y Primera pasó a las que están bien
+    # What's left: Clásicos' "Other version" (unticked), and Primera moved to the clean ones
     assert page.locator(".dup-group header").all_inner_texts() == ["Clásicos\nse quitan 0 de 1\nTildar todos"]
     assert page.inner_text("#dup-decide-text") == "No hay nada tildado: no se va a quitar nada." and page.is_disabled("#remove")
     assert page.inner_text("#dup-clean").startswith("Sin repetidos: Primera,")
@@ -291,7 +291,7 @@ def test_checking_all_shows_progress_then_one_card_per_playlist(browser, tmp_pat
 
 
 def test_when_every_playlist_is_fine_it_says_which_ones_were_checked(browser, tmp_path):
-    """Comprobado con datos reales (7 playlists de Tidal sin repetidos): solo decía "Ninguna tiene repetidos"."""
+    """Seen with real data (7 Tidal playlists with no duplicates): it only said "None has duplicates"."""
     api, tidal, yt = make_api(tmp_path)
     yt.playlists.pop("dups")
     for i in range(3):
@@ -309,8 +309,8 @@ def test_when_every_playlist_is_fine_it_says_which_ones_were_checked(browser, tm
 
 
 def test_each_row_says_what_will_happen_and_the_decision_is_always_in_sight(browser, tmp_path):
-    """Pedido del usuario (2026-11-24): no dejar nada a la intuición. Tildada: se quita (tachada) → queda.
-    Sin tildar: se conserva. La barra con la decisión se ve aunque la lista sea larga."""
+    """The user's request (2026-11-24): leave nothing to intuition. Ticked: removed (struck through) → stays.
+    Unticked: kept. The bar with the decision shows even when the list is long."""
     api, tidal, yt = make_api(tmp_path)
     many = []
     for i in range(12):
@@ -331,21 +331,21 @@ def test_each_row_says_what_will_happen_and_the_decision_is_always_in_sight(brow
     row.locator("input").uncheck()
     assert row.evaluate(shown) == ["Se conserva"] and not row.locator(".arrow").is_visible()
     assert "Se van a quitar 11 temas" in page.inner_text("#dup-decide-text")
-    # La otra grabación viene sin tildar y dice por qué
+    # The other recording comes unticked and says why
     ras = page.locator(".dups li", has_text="Rasputin")
     assert not ras.locator("input").is_checked() and ras.locator(".why").inner_text() == "Dura 2:45 más: es otra grabación."
-    # Con la lista larga, la barra queda pegada abajo de la ventana mientras se baja
+    # With a long list, the bar stays stuck to the bottom of the window while scrolling
     page.evaluate("document.querySelector('main').scrollTop = 400")
     page.wait_for_timeout(100)
     bar = page.evaluate("(() => { const r = document.querySelector('#dup-actions').getBoundingClientRect(); return [r.bottom, document.querySelector('main').getBoundingClientRect().bottom]; })()")
     assert abs(bar[0] - bar[1]) <= 1, bar
     shot(page, "repetidos-barra-fija")
-    # "Destildar todos" y vuelta
+    # "Untick all" and back
     page.click(".dup-toggle")
     assert page.inner_text("#dup-decide-text") == "No hay nada tildado: no se va a quitar nada."
     page.click(".dup-toggle")
     assert "Se van a quitar 13 temas" in page.inner_text("#dup-decide-text")
-    # El aviso negro no tapa la barra de decisión
+    # The black toast doesn't cover the decision bar
     page.add_style_tag(content=".toast { transition: none !important; }")
     page.evaluate("toast('Quitaste 3 temas de «Larga».')")
     t, b = page.evaluate("[document.querySelector('#toast').getBoundingClientRect().bottom, document.querySelector('#dup-actions').getBoundingClientRect().top]")
@@ -354,13 +354,13 @@ def test_each_row_says_what_will_happen_and_the_decision_is_always_in_sight(brow
 
 
 def test_a_long_check_can_be_cancelled(browser, tmp_path):
-    """Revisar muchas playlists largas tarda: se puede cortar, y dice que no se quitó nada."""
+    """Checking many long playlists takes a while: it can be stopped, and it says nothing was removed."""
     import threading
     api, tidal, yt = all_api(tmp_path)
     real, gate = yt.read, threading.Event()
 
     def slow(pid):
-        gate.wait(5)                                   # la primera lectura espera a que se toque Cancelar
+        gate.wait(5)                                   # the first read waits until Cancel is clicked
         return real(pid)
     yt.read = slow
     page, errors = open_page(browser, api)
@@ -380,11 +380,11 @@ def test_if_removing_stops_halfway_the_screen_says_so_and_drops_the_old_list(bro
     open_all(page)
     page.click("#dup-scan")
     page.wait_for_selector(".dup-group + .dup-group")
-    yt.add("aaa", [S("Nueva", "Y", id="n1")])          # "Primera" cambió desde otro lado
+    yt.add("aaa", [S("Nueva", "Y", id="n1")])          # "Primera" changed from elsewhere
     page.click("#remove")
     page.click("#confirm-yes")
     page.wait_for_selector("#dup-summary .error")
     msg = page.inner_text("#dup-summary")
-    assert "Clásicos" in msg and "«Primera» cambió" in msg                   # de cuál se quitó y cuál revisar
+    assert "Clásicos" in msg and "«Primera» cambió" in msg                   # which one was changed and which to check
     assert page.locator(".dup-group").count() == 0 and page.is_hidden("#dup-actions")
     assert len(yt.songs("dups")) == 3 and len(yt.songs("aaa")) == 4 and errors == []

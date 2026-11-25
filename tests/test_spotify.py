@@ -1,5 +1,5 @@
-"""Spotify contra una API falsa en memoria que se comporta como la real (2026): `/items`, búsqueda de
-hasta 10, quitar por URI saca todas las copias, 429 con Retry-After, refresh token que vence."""
+"""Spotify against an in-memory fake API that behaves like the real one (2026): `/items`, searches of
+up to 10, removing by URI takes out every copy, 429 with Retry-After, a refresh token that expires."""
 from __future__ import annotations
 
 import threading
@@ -38,7 +38,7 @@ def song_of(t):
     return SpotifyConnector.to_song(t)
 
 
-# ---------------------------------------------------------------- configuración y sesión
+# ---------------------------------------------------------------- setup and session
 
 def test_needs_a_client_id_first(tmp_path, api):
     c = make(tmp_path, api, client_id=None, logged=False)
@@ -47,7 +47,7 @@ def test_needs_a_client_id_first(tmp_path, api):
         c.set_client_id("no-es-un-id")
     with pytest.raises(ConnectorError, match="configurá Spotify"):
         c.connect(None)
-    assert c.set_client_id("  " + CID.upper() + " ") == CID       # se limpia: espacios y mayúsculas
+    assert c.set_client_id("  " + CID.upper() + " ") == CID       # it gets cleaned: spaces and capitals
     assert c.status() is Status.DISCONNECTED
     info = c.setup_info()
     assert info["client_id"] == CID
@@ -55,15 +55,15 @@ def test_needs_a_client_id_first(tmp_path, api):
     from app.connectors import registry
     links = [st["link"] for st in steps if "link" in st]
     assert links == [sp.PREMIUM, sp.CREATE_APP, sp.DASHBOARD]
-    assert all(registry.is_allowed_link(u) for u in links)                 # la app los deja abrir
+    assert all(registry.is_allowed_link(u) for u in links)                 # the app lets them be opened
     assert [st.get("copy") for st in steps if st.get("copy")] == ["http://127.0.0.1:8973/callback"]
-    assert sum(1 for st in steps if st.get("input")) == 1                  # un solo lugar para pegar el Client ID
+    assert sum(1 for st in steps if st.get("input")) == 1                  # a single place to paste the Client ID
 
 
 def test_changing_the_client_id_drops_the_old_session(tmp_path, api):
     c = make(tmp_path, api)
     assert c.status() is Status.CONNECTED
-    c.set_client_id(CID)                                            # el mismo: no cambia nada
+    c.set_client_id(CID)                                            # the same one: nothing changes
     assert c.session_file.exists()
     c.set_client_id("f" * 32)
     assert not c.session_file.exists() and c.status() is Status.DISCONNECTED
@@ -76,15 +76,15 @@ def test_disconnect_keeps_the_client_id(tmp_path, api):
 
 
 def test_login_with_pkce_through_the_local_server(tmp_path, api):
-    """De punta a punta: el servidor real en 127.0.0.1 recibe el código que manda el "navegador"."""
+    """End to end: the real server on 127.0.0.1 receives the code the "browser" sends."""
     seen, reader = {}, []
 
     def browser_opens(url, browser):
         q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
         seen.update(q)
         assert url.startswith(sp.AUTHORIZE) and q["client_id"] == CID and q["code_challenge_method"] == "S256"
-        assert urlparse(q["redirect_uri"]).hostname == "127.0.0.1"          # nunca "localhost"
-        # exactamente la que el usuario registró en su app (con el puerto): si no, Spotify la rechaza
+        assert urlparse(q["redirect_uri"]).hostname == "127.0.0.1"          # never "localhost"
+        # exactly the one the user registered in their app (with the port): otherwise Spotify rejects it
         assert q["redirect_uri"] == sp.REDIRECT_URI == "http://127.0.0.1:8973/callback"
         back = f"{q['redirect_uri']}?code=CODE123&state={q['state']}"
         reader.append(threading.Thread(target=lambda: seen.setdefault("page", urllib.request.urlopen(back).read().decode())))
@@ -92,7 +92,7 @@ def test_login_with_pkce_through_the_local_server(tmp_path, api):
 
     c = make(tmp_path, api, logged=False, open_browser=browser_opens)
     c.connect(None)
-    # connect() termina apenas llega el código; el "navegador" puede seguir leyendo la página (falló en CI el 2026-11-24)
+    # connect() returns as soon as the code arrives; the "browser" may still be reading the page (failed on CI on 2026-11-24)
     reader[0].join(10)
     exchange = next(d for m, p, _, _, d in api.calls if d and d.get("grant_type") == "authorization_code")
     assert exchange["code"] == "CODE123" and exchange["redirect_uri"] == seen["redirect_uri"]
@@ -169,21 +169,21 @@ def test_waits_when_spotify_asks(tmp_path, api, monkeypatch):
     monkeypatch.setattr(sp.time, "sleep", slept.append)
     c = make(tmp_path, api)
     c.listen(told.append)
-    api.forced = [Resp(429, {}, {"Retry-After": "240"})]            # 4 minutos: se espera, con cuenta regresiva
+    api.forced = [Resp(429, {}, {"Retry-After": "240"})]            # 4 minutes: it waits, with a countdown
     assert c.status() is Status.CONNECTED and sum(slept) == 240
     assert told[0] == {"type": "waiting", "service": "Spotify", "why": "rate", "seconds": 240}
     assert told[-1]["type"] == "waited"
     c._me = None
-    api.forced = [Resp(429, {}, {"Retry-After": "7200"})]           # dos horas: se corta y se dice hasta cuándo
+    api.forced = [Resp(429, {}, {"Retry-After": "7200"})]           # two hours: it stops and says until when
     with pytest.raises(sp.RateLimited, match=r"2 h\. Se puede seguir desde las \d"):
         c._call("GET", "/me")
 
 
 def test_after_a_pause_spotify_is_searched_more_slowly(tmp_path, api, monkeypatch):
-    """Con miles de temas se llegaba al límite de las apps en modo desarrollo: más despacio de entrada,
-    y cada pedido de pausa duplica la pausa entre búsquedas (con un tope)."""
+    """Thousands of songs reached the limit of apps in development mode: slower from the start,
+    and each pause request doubles the pause between searches (with a cap)."""
     monkeypatch.setattr(sp.time, "sleep", lambda s: None)
-    assert sp.SpotifyConnector.search_pause > SEARCH_PAUSE           # nunca más rápido que los demás
+    assert sp.SpotifyConnector.search_pause > SEARCH_PAUSE           # never faster than the others
     c = make(tmp_path, api)
     c.search_pause = sp.SEARCH_PAUSE_SPOTIFY
     for expected in (1.6, 3.2, sp.MAX_SEARCH_PAUSE):
@@ -197,7 +197,7 @@ def test_cancel_stops_a_long_wait(tmp_path, api, monkeypatch):
     import threading
     from app.core.models import Cancelled
     stop = threading.Event()
-    monkeypatch.setattr(sp.time, "sleep", lambda s: stop.set())      # se cancela durante la espera
+    monkeypatch.setattr(sp.time, "sleep", lambda s: stop.set())      # cancelled during the wait
     c = make(tmp_path, api)
     c.listen(lambda e: None, stop)
     api.forced = [Resp(429, {}, {"Retry-After": "200"})]
@@ -205,11 +205,11 @@ def test_cancel_stops_a_long_wait(tmp_path, api, monkeypatch):
         c._call("GET", "/me")
 
 
-# ---------------------------------------------------------------- leer y buscar
+# ---------------------------------------------------------------- reading and searching
 
 def test_a_new_playlist_listed_with_no_songs_gets_its_real_count(tmp_path, api):
-    """Comprobado el 2026-11-24: /me/playlists dice 0 de una playlist recién creada que ya tiene 5 temas,
-    y Quitar repetidos la escondía. Solo se pregunta por las que dicen 0 o 1."""
+    """Seen on 2026-11-24: /me/playlists says 0 for a just-created playlist that already has 5 songs,
+    and Remove duplicates hid it. Only the ones that say 0 or 1 are asked about."""
     api.add_tracks(track(1, "Uno", "A"), track(2, "Dos", "A"))
     api.add_playlist("n" * 22, "Nueva", ["spotify:track:1", "spotify:track:2", "spotify:track:1"], listed=0)
     api.add_playlist("v" * 22, "Vacía", [])
@@ -239,7 +239,7 @@ def test_reads_every_song_with_isrc_and_skips_podcasts(tmp_path, api):
     name, songs = make(tmp_path, api).read("p" * 22)
     assert name == "Larga" and len(songs) == 120
     assert songs[0] == Song("Tema 0", ["Artista"], "Album", 181, "US0000000000", tracks[0]["uri"])
-    assert sum(1 for c in api.calls if c[1].endswith("/items")) == 3        # de a 50
+    assert sum(1 for c in api.calls if c[1].endswith("/items")) == 3        # 50 at a time
 
 
 def test_search_by_isrc_first(tmp_path, api):
@@ -247,7 +247,7 @@ def test_search_by_isrc_first(tmp_path, api):
     api.add_tracks(exact, track(2, "Take On Me (Live)", "a-ha", dur=300))
     found = make(tmp_path, api).search(Song("Take On Me", ["a-ha"], duration=226, isrc="NOA0000001"))
     assert [s.id for s in found] == [exact["uri"]]
-    assert [c[2]["q"] for c in api.calls if c[1] == "/search"] == ["isrc:NOA0000001"]   # alcanzó con una
+    assert [c[2]["q"] for c in api.calls if c[1] == "/search"] == ["isrc:NOA0000001"]   # one was enough
 
 
 def test_search_by_text_without_isrc(tmp_path, api):
@@ -266,7 +266,7 @@ def test_parse_id_and_url():
         SpotifyConnector.parse_id("https://open.spotify.com/album/corto")
 
 
-# ---------------------------------------------------------------- escribir
+# ---------------------------------------------------------------- writing
 
 def test_create_and_add_in_batches_of_100(tmp_path, api):
     c = make(tmp_path, api)
@@ -283,10 +283,10 @@ def test_adding_to_someone_elses_playlist(tmp_path, api):
         make(tmp_path, api).add("o" * 22, [Song("T", ["A"], id="spotify:track:" + "1" * 22)])
 
 
-# ---------------------------------------------------------------- quitar repetidos (la parte delicada)
+# ---------------------------------------------------------------- removing duplicates (the delicate part)
 
 def dedupe_setup(api, order):
-    """`order` usa letras: la misma letra es la misma URI."""
+    """`order` uses letters: the same letter is the same URI."""
     t = {k: track(i, f"Tema {k}", "Artista", dur=200 + i) for i, k in enumerate(sorted(set(order)))}
     api.add_tracks(*t.values())
     api.add_playlist("d" * 22, "Repetidos", [t[k]["uri"] for k in order])
@@ -306,7 +306,7 @@ def letters(api, t):
 def test_removing_an_exact_copy_keeps_the_original_in_place(tmp_path, api):
     t = dedupe_setup(api, "ABACD")
     c = make(tmp_path, api)
-    remove_at(c, [2])                                    # la segunda A
+    remove_at(c, [2])                                    # the second A
     assert letters(api, t) == "ABCD"
     posted = [x[3] for x in api.calls if x[0] == "POST" and x[1].endswith("/items")]
     assert posted == [{"uris": [t["A"]["uri"]], "position": 0}]
@@ -314,13 +314,13 @@ def test_removing_an_exact_copy_keeps_the_original_in_place(tmp_path, api):
 
 def test_three_copies_and_several_songs_at_once(tmp_path, api):
     t = dedupe_setup(api, "AXBAYABZB")
-    remove_at(make(tmp_path, api), [3, 5, 8])            # dos A repetidas y la B del final
-    assert letters(api, t) == "AXBYBZ"                   # la otra B (posición 6) queda en su lugar
+    remove_at(make(tmp_path, api), [3, 5, 8])            # two repeated As and the B at the end
+    assert letters(api, t) == "AXBYBZ"                   # the other B (position 6) stays in its place
 
 
 def test_removing_every_copy_of_a_different_recording_needs_no_readd(tmp_path, api):
     t = dedupe_setup(api, "ABC")
-    remove_at(make(tmp_path, api), [2])                  # C es otra grabación de A (otra URI)
+    remove_at(make(tmp_path, api), [2])                  # C is another recording of A (another URI)
     assert letters(api, t) == "AB"
     assert not [x for x in api.calls if x[0] == "POST" and x[1].endswith("/items")]
 
@@ -341,24 +341,24 @@ def test_remove_needs_confirmation_and_an_unchanged_playlist(tmp_path, api):
     _, songs = c.read("d" * 22)
     with pytest.raises(RemovalNotConfirmedError):
         c.remove("d" * 22, [Duplicate(2, songs[2], songs[0])])
-    api.uris("d" * 22).insert(0, t["B"]["uri"])            # alguien la cambió mientras tanto
+    api.uris("d" * 22).insert(0, t["B"]["uri"])            # someone changed it in the meantime
     with pytest.raises(ConnectorError, match="cambió"):
         c.remove("d" * 22, [Duplicate(2, songs[2], songs[0])], confirmed=True)
-    assert letters(api, t) == "BABA"                       # no se tocó nada
+    assert letters(api, t) == "BABA"                       # nothing was touched
 
 
 def test_if_spotify_loses_a_song_it_is_added_back_and_reported(tmp_path, api):
     t = dedupe_setup(api, "ABA")
     c = make(tmp_path, api)
     _, songs = c.read("d" * 22)
-    api.ignore_adds = True                                 # Spotify no guardó la que se volvió a agregar
+    api.ignore_adds = True                                 # Spotify didn't keep the one that was added back
     with pytest.raises(ConnectorError, match="Tema A"):
         c.remove("d" * 22, [Duplicate(2, songs[2], songs[0])], confirmed=True)
     retries = [x[3] for x in api.calls if x[0] == "POST" and x[1].endswith("/items") and "position" not in x[3]]
     assert retries == [{"uris": [t["A"]["uri"]]}]
 
 
-# ---------------------------------------------------------------- con el motor
+# ---------------------------------------------------------------- with the engine
 
 def test_transfer_from_tidal_to_spotify_matches_by_isrc(tmp_path, api):
     from app.core.transfer import Target, run_transfer, summary
@@ -375,11 +375,11 @@ def test_transfer_from_tidal_to_spotify_matches_by_isrc(tmp_path, api):
     assert api.uris(pid) == [f"spotify:track:{1:0>22}"]
 
 
-# ---------------------------------------------------------------- revisión de bugs
+# ---------------------------------------------------------------- bug review
 
 def test_account_without_api_access_does_not_look_expired(tmp_path, api):
-    """Login bien, pero Spotify no deja usar la API (sin Premium o fuera de la lista): no se guarda
-    la sesión y queda "sin conectar" (no "venció"), con el motivo explicado."""
+    """Sign-in fine, but Spotify won't allow using the API (no Premium or not on the list): the session
+    isn't saved and it stays "not connected" (not "expired"), with the reason explained."""
     def browser_opens(url, browser):
         q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
         threading.Thread(target=lambda: urllib.request.urlopen(f"{q['redirect_uri']}?code=C&state={q['state']}").read()).start()
@@ -399,11 +399,11 @@ def test_rate_limit_during_search_stops_instead_of_saying_not_found(tmp_path, ap
         c.search(Song("Take On Me", ["a-ha"], duration=226))
 
 
-# ---------------------------------------------------------------- sin internet
+# ---------------------------------------------------------------- no internet
 
 def test_without_internet_the_search_stops_with_a_clear_message(tmp_path, api):
-    """Sin red, `requests` lanza ConnectionError: no es "no encontrado" ni "algo salió mal", es "no hay
-    conexión", y corta la búsqueda en la primera consulta."""
+    """Without a network, `requests` raises ConnectionError: it's not "not found" or "something went wrong",
+    it's "no connection", and the search stops at the first query."""
     import requests
     c = make(tmp_path, api)
     c._me = "me"
@@ -421,15 +421,15 @@ def test_without_internet_the_search_stops_with_a_clear_message(tmp_path, api):
 
 
 def test_the_redirect_uri_has_a_fixed_port(tmp_path, api):
-    """El panel de Spotify rechaza "http://127.0.0.1/callback" (sin puerto) como "not secure" y no deja
-    guardar: la dirección que se registra lleva puerto, y la app espera siempre en ese."""
+    """Spotify's dashboard rejects "http://127.0.0.1/callback" (no port) as "not secure" and won't
+    save: the registered address has a port, and the app always waits on that one."""
     assert urlparse(sp.REDIRECT_URI).port == sp.CALLBACK_PORT
     steps = [st for sec in make(tmp_path, api).setup_info()["sections"] for st in sec["steps"]]
     assert [st["copy"] for st in steps if "copy" in st] == [sp.REDIRECT_URI]
 
 
 def test_if_the_port_is_taken_the_message_says_so(tmp_path, api):
-    """Otro programa escucha en el puerto: la app no lo abre y explica qué pasa (no "algo salió mal")."""
+    """Another program listens on the port: the app doesn't open it and explains what's going on (not "something went wrong")."""
     import socket
     other = socket.socket()
     other.bind(("127.0.0.1", sp.CALLBACK_PORT))
@@ -442,19 +442,19 @@ def test_if_the_port_is_taken_the_message_says_so(tmp_path, api):
         other.close()
 
 
-# ---------------------------------------------------------------- canciones que te gustan
+# ---------------------------------------------------------------- liked songs
 
 def test_liked_songs_read_add_and_remove(tmp_path, api):
-    """Se leen con /me/tracks; desde 2026 se guardan y quitan con /me/library (URIs, hasta 40 por pedido).
-    El orden entre pedidos lo pone la app: los primeros de la lista, en el pedido de arriba. Dentro de un
-    pedido lo decide Spotify (medido con la cuenta real el 2026-11-25)."""
+    """Read with /me/tracks; since 2026 saved and removed with /me/library (URIs, up to 40 per request).
+    The order between requests is the app's: the first songs of the list, in the top request. Inside one
+    request Spotify decides (measured with the real account on 2026-11-25)."""
     tracks = [track(i, f"Tema {i}", "Artista") for i in range(45)]
     api.add_tracks(*tracks)
     api.liked = [tracks[0]["uri"]]
     c = make(tmp_path, api)
     assert c.list_playlists()[0].name == "Canciones que te gustan" and c.list_playlists()[0].count == 1
     c.add(sp.LIKED, [song_of(t) for t in tracks[1:]])
-    uris = [t["uri"] for t in tracks[1:]]                   # 44 temas: una tanda de 4 arriba y una de 40
+    uris = [t["uri"] for t in tracks[1:]]                   # 44 songs: a batch of 4 on top and one of 40
     assert set(api.liked[:4]) == set(uris[:4]) and set(api.liked[4:44]) == set(uris[4:]) and api.liked[44] == tracks[0]["uri"]
     assert all(len(p["uris"].split(",")) <= 40 for m, path, p, _, _ in api.calls if path == "/me/library")
     name, songs = c.read(sp.LIKED)
@@ -465,7 +465,7 @@ def test_liked_songs_read_add_and_remove(tmp_path, api):
 
 
 def test_an_old_session_without_library_permission_still_lists_playlists(tmp_path, api):
-    """Una sesión de antes de pedir permiso para "Me gusta": las playlists se ven igual (reconectar lo suma)."""
+    """A session from before liked songs permission was asked for: playlists still show (reconnecting adds it)."""
     api.add_playlist("p".ljust(22, "0"), "Mía", [])
     api.library_scope = False
     assert [p.name for p in make(tmp_path, api).list_playlists()] == ["Mía"]
@@ -476,8 +476,8 @@ def test_login_asks_for_the_liked_songs_permission():
 
 
 def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
-    """De punta a punta: de una playlist de Tidal a las canciones que te gustan de Spotify. Lo que ya
-    te gustaba no se repite, y lo nuevo queda arriba."""
+    """End to end: from a Tidal playlist to Spotify's liked songs. What was already liked isn't
+    repeated, and the new ones end up on top."""
     from app.core.transfer import Target, run_transfer
     from tests.fakes import FakeService, S
     a, b, cc = track(1, "Take On Me", "a-ha"), track(2, "Mr. Blue Sky", "Electric Light Orchestra"), track(3, "Hallelujah", "Jeff Buckley")
@@ -490,21 +490,21 @@ def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
     t = res.targets[0]
     assert t.target.name == "Canciones que te gustan" and not t.created
     assert [s.id for s in t.added] == [a["uri"], cc["uri"]] and [s.id for s in t.already] == [b["uri"]]
-    assert set(api.liked[:2]) == {a["uri"], cc["uri"]} and api.liked[2] == b["uri"]   # un solo pedido: orden de Spotify
+    assert set(api.liked[:2]) == {a["uri"], cc["uri"]} and api.liked[2] == b["uri"]   # a single request: Spotify's order
 
 
 def test_a_session_from_before_liked_songs_asks_to_reconnect(tmp_path, api):
-    """Una sesión de una versión anterior no tiene permiso para "Me gusta": se veía conectada, pero la lista
-    no aparecía hasta desconectar y conectar. Ahora dice que hay que reconectar."""
+    """A session from an earlier version has no liked songs permission: it looked connected, but the list
+    didn't show until disconnecting and connecting. Now it says reconnecting is needed."""
     c = make(tmp_path, api, logged=False)
-    c._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)       # como las viejas
+    c._store({"access_token": "tok0", "refresh_token": "ref", "expires_in": 3600}, first=True)       # like the old ones
     assert make(tmp_path, api, logged=False).status() is Status.EXPIRED
     c._store({"access_token": "tok1", "refresh_token": "ref", "expires_in": 3600, "scope": "user-library-read"}, first=True)
-    assert make(tmp_path, api, logged=False).status() is Status.EXPIRED     # falta el de guardar
+    assert make(tmp_path, api, logged=False).status() is Status.EXPIRED     # the save one is missing
 
 
 def test_refreshing_the_token_keeps_the_permissions_it_had(tmp_path, api):
-    """Al renovar, Spotify puede no repetir los permisos: no por eso hay que volver a pedirlos."""
+    """When renewing, Spotify may not repeat the permissions: that's no reason to ask for them again."""
     c = make(tmp_path, api)
     c._store({"access_token": "tok2", "expires_in": 3600})
     assert c.status() is Status.CONNECTED

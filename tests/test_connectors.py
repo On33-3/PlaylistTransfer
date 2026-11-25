@@ -1,4 +1,4 @@
-"""Conectores con clientes falsos: sin red ni cuentas reales."""
+"""Connectors with fake clients: no network and no real accounts."""
 from __future__ import annotations
 
 import json
@@ -34,7 +34,7 @@ class FakeTidalPlaylist:
 
 
 class FakeTidalFavorites:
-    """Los favoritos de Tidal: el más reciente primero; cada pedido de agregar entra arriba."""
+    """Tidal's favorites: newest first; each add request goes in at the top."""
 
     def __init__(self, tracks=()):
         self._tracks, self.calls = list(tracks), []
@@ -47,8 +47,8 @@ class FakeTidalFavorites:
         return self._tracks[offset:offset + limit]
 
     def add_track(self, ids):
-        # Medido con una cuenta real (2026-11-25, tools/real_check.py): el pedido entra arriba, pero el orden
-        # dentro del pedido lo decide Tidal, no el orden en que se mandan. Acá: por id
+        # Measured with a real account (2026-11-25, tools/real_check.py): the request goes in at the top, but the order
+        # inside the request is Tidal's, not the order they're sent in. Here: by id
         self.calls.append(("add", list(ids)))
         self._tracks[0:0] = [track(i, f"Tema {i}", "Artista") for i in sorted(ids, key=str, reverse=True)]
         return True
@@ -104,7 +104,7 @@ def test_tidal_search_stops_when_first_query_is_good():
     s = FakeTidalSession(search_results={"Electric Light Orchestra Mr. Blue Sky": [hit]})
     found = tidal(s).search(Song("Mr. Blue Sky", ["Electric Light Orchestra"], duration=303))
     assert [f.id for f in found] == ["9"]
-    assert s.queries == ["Electric Light Orchestra Mr. Blue Sky"]   # no hizo la segunda búsqueda
+    assert s.queries == ["Electric Light Orchestra Mr. Blue Sky"]   # it didn't run the second search
 
 
 def test_tidal_add_in_batches():
@@ -121,7 +121,7 @@ def test_tidal_remove_needs_confirmation_and_goes_backwards(video_playlist):
     with pytest.raises(RemovalNotConfirmedError):
         c.remove("p", dups)
     with pytest.raises(RemovalNotConfirmedError):
-        c.remove("p", dups, confirmed="sí")     # solo vale True
+        c.remove("p", dups, confirmed="sí")     # only True counts
     assert pl.removed == []
     c.remove("p", dups, confirmed=True)
     assert pl.removed == sorted((d.index for d in dups), reverse=True)
@@ -156,17 +156,17 @@ def test_tidal_login_link():
 
 
 class FakeTidalLogin:
-    """La parte de tidalapi que usa el login por link: aprueba después de `pending` consultas."""
+    """The part of tidalapi the link sign-in uses: it approves after `pending` checks."""
     def __init__(self, pending=2):
         self.pending, self.asked = pending, 0
-        self.interval = 0          # la falsa contesta enseguida: sin intervalo, no parece vencida
+        self.interval = 0          # the fake one answers at once: with no interval, it doesn't look expired
         self.token_type, self.access_token, self.refresh_token, self.expiry_time = "Bearer", "a", "r", None
 
     def get_link_login(self):
         return NS(verification_uri_complete="link.tidal.com/ABCDE", expires_in=300, interval=self.interval)
 
     def process_link_login(self, link, until_expiry=True):
-        assert until_expiry is False          # una consulta por vez: así se puede cancelar
+        assert until_expiry is False          # one check at a time: that way it can be cancelled
         self.asked += 1
         if self.asked <= self.pending:
             raise TimeoutError("todavía no")
@@ -199,7 +199,7 @@ def test_tidal_login_can_be_cancelled(tmp_path, monkeypatch):
     original = fake.process_link_login
     def ask(link, until_expiry=True):
         if fake.asked == 3:
-            cancel.set()                      # el usuario tocó "Cancelar" mientras esperaba
+            cancel.set()                      # the user clicked "Cancel" while waiting
         return original(link, until_expiry)
     fake.process_link_login = ask
     c = TidalConnector(tmp_path / "tidal_session.json")
@@ -210,11 +210,11 @@ def test_tidal_login_can_be_cancelled(tmp_path, monkeypatch):
 
 
 def test_tidal_login_with_an_expired_link_stops_instead_of_hammering(tmp_path, monkeypatch):
-    """Con el link vencido, tidalapi contesta enseguida: no hay que seguir consultando sin pausa."""
+    """With the link expired, tidalapi answers at once: it must not keep asking without a pause."""
     import app.connectors.tidal as tidal_mod
     monkeypatch.setattr(tidal_mod, "open_url", lambda url, browser: None)
     fake = FakeTidalLogin(pending=10 ** 6)
-    fake.interval = 2                         # Tidal pide esperar 2 s, pero contesta al instante: venció
+    fake.interval = 2                         # Tidal asks to wait 2 s, but answers instantly: it expired
     c = TidalConnector(tmp_path / "tidal_session.json")
     c._s = fake
     with pytest.raises(ConnectorError, match="tiempo"):
@@ -235,12 +235,12 @@ def test_firefox_login_can_be_cancelled(monkeypatch):
     start = time.monotonic()
     with pytest.raises(Cancelled):
         firefox.login_and_read_cookies("https://example.com", "youtube.com", {"SID"}, cancel=cancel)
-    assert time.monotonic() - start < 2       # no espera los 3 segundos enteros
+    assert time.monotonic() - start < 2       # it doesn't wait the whole 3 seconds
 
 
 
 def test_firefox_login_opens_in_firefox_not_the_default_browser(monkeypatch):
-    """Si eligió Firefox pero su predeterminado es otro, el login se abre en Firefox (ahí se leen las cookies)."""
+    """If Firefox was chosen but the default is another one, the sign-in opens in Firefox (that's where the cookies are read)."""
     from app.auth import firefox
     calls, seen = [], iter([{}, {"SID": "x"}])
     monkeypatch.setattr(firefox, "read_cookies", lambda domain, wanted: next(seen))
@@ -269,7 +269,7 @@ class FakeYT:
         self.added, self.removed, self.searches = [], [], []
 
     def get_library_playlists(self, limit=25):
-        return [{"playlistId": "LM", "title": "Me gusta"},      # como la real: es automática, sin cantidad
+        return [{"playlistId": "LM", "title": "Me gusta"},      # like the real one: it's automatic, with no count
                 {"playlistId": "SE", "title": "Episodios"},
                 {"playlistId": "PL1", "title": "Old songs", "count": "1.234 canciones"},
                 {"playlistId": "PL2", "title": None, "count": None}]
@@ -317,7 +317,7 @@ def test_yt_list_skips_special_playlists_and_parses_counts():
 def test_yt_read_keeps_set_video_id():
     tracks = [{"title": "Take On Me", "artists": [{"name": "a-ha"}], "album": {"name": "Hunting High and Low"},
                "duration_seconds": 226, "videoId": "v1", "setVideoId": "s1"},
-              {"title": None, "videoId": "gone"}]       # tema no disponible: se ignora
+              {"title": None, "videoId": "gone"}]       # unavailable song: ignored
     name, songs = ytc(FakeYT(tracks)).read("PL1")
     assert name == "Old songs"
     assert songs == [Song("Take On Me", ["a-ha"], "Hunting High and Low", 226, None, "v1", "s1")]
@@ -340,7 +340,7 @@ def test_yt_remove_uses_each_appearance(video_playlist):
     sent = [item for batch in fake.removed for item in batch]
     assert sent == [{"videoId": d.song.id, "setVideoId": d.song.set_id} for d in dups]
     kept_ids = {d.kept.set_id for d in dups}
-    assert not kept_ids & {i["setVideoId"] for i in sent}       # nunca la que queda
+    assert not kept_ids & {i["setVideoId"] for i in sent}       # never the one that stays
 
 
 def test_yt_remove_refuses_without_set_video_id():
@@ -393,7 +393,7 @@ def test_parse_count():
     assert parse_count(None) is None and parse_count("") is None and parse_count("muchas") is None
 
 
-# ---------------------------------------------------------------- sesión de navegador (SAPISIDHASH)
+# ---------------------------------------------------------------- browser session (SAPISIDHASH)
 
 def test_sapisid_hash_is_deterministic():
     # sha1("1700000000 abc https://music.youtube.com")
@@ -417,8 +417,8 @@ def test_browser_headers_without_session_cookie():
 
 
 def test_saved_session_is_recognized_as_browser_auth(tmp_path):
-    """El problema de "oauth_credentials not provided": ytmusicapi tiene que tomar el archivo como
-    sesión de navegador. Sin red: solo se arma el archivo y se abre."""
+    """The "oauth_credentials not provided" problem: ytmusicapi has to take the file as a browser
+    session. No network: the file is only built and opened."""
     ytmusicapi = pytest.importorskip("ytmusicapi")
     f = tmp_path / "browser.json"
     c = YTMusicConnector(f, tmp_path)
@@ -429,7 +429,7 @@ def test_saved_session_is_recognized_as_browser_auth(tmp_path):
     assert ytmusicapi.YTMusic(str(f)).auth_type == AuthType.BROWSER
 
 
-# ---------------------------------------------------------------- la búsqueda común (Connector.collect)
+# ---------------------------------------------------------------- the shared search (Connector.collect)
 
 def test_collect_stops_at_the_first_good_match_and_skips_failed_queries():
     from tests.fakes import FakeService, S
@@ -443,12 +443,12 @@ def test_collect_stops_at_the_first_good_match_and_skips_failed_queries():
             raise RuntimeError("se cortó")
         return {"nada": [S("Otra", "Otro", id="o1")], "bien": [S("Take On Me", "a-ha", dur=226, id="t1")]}[q]
     found = svc.collect(wanted, ["falla", "nada", "bien", "de más"], fetch)
-    assert asked == ["falla", "nada", "bien"]                           # "de más" ya no hizo falta
+    assert asked == ["falla", "nada", "bien"]                           # "extra" wasn't needed anymore
     assert sorted(found) == ["o1", "t1"]
 
 
 def test_collect_fatal_errors_stop_everything():
-    """Si la sesión venció o el servicio pidió esperar, se corta: si no, cada tema saldría "no encontrado"."""
+    """If the session expired or the service asked to wait, it stops: otherwise every song would come out "not found"."""
     from app.connectors.base import NotConnectedError
     from tests.fakes import FakeService, S
     svc = FakeService("x", "X")
@@ -460,9 +460,9 @@ def test_collect_fatal_errors_stop_everything():
 
 
 def test_collect_stops_when_the_service_stops_answering():
-    """Tidal y YouTube Music no avisan "sesión vencida" con un error propio: cada búsqueda falla y se
-    saltea. Si varias rondas seguidas fallan en todas sus consultas, el servicio no contesta: se corta
-    (si no, todos los temas saldrían "no encontrado") y se olvida la sesión en memoria."""
+    """Tidal and YouTube Music don't report "expired session" with an error of their own: each search fails
+    and is skipped. If several rounds in a row fail in all their queries, the service isn't answering: it
+    stops (otherwise every song would come out "not found") and the session in memory is forgotten."""
     from app.connectors.base import FAILURES_IN_A_ROW
     from tests.fakes import FakeService, S
     svc = FakeService("x", "X")
@@ -472,7 +472,7 @@ def test_collect_stops_when_the_service_stops_answering():
     def broken(q):
         raise RuntimeError("401")
     for _ in range(FAILURES_IN_A_ROW - 1):
-        assert svc.collect(S("A", "B"), ["a", "b"], broken) == {}       # unas pocas: se saltean
+        assert svc.collect(S("A", "B"), ["a", "b"], broken) == {}       # a few: they're skipped
     with pytest.raises(ConnectorError, match="dejó de responder"):
         svc.collect(S("A", "B"), ["a", "b"], broken)
     assert forgot == [True]
@@ -488,16 +488,16 @@ def test_collect_a_search_that_answers_resets_the_count():
     for _ in range(3):
         for _ in range(FAILURES_IN_A_ROW - 1):
             svc.collect(S("A", "B"), ["a"], broken)
-        svc.collect(S("A", "B"), ["a"], lambda q: [])                   # contestó (aunque sin resultados)
-    # una consulta que falla y otra que contesta, en la misma ronda, tampoco cuenta
+        svc.collect(S("A", "B"), ["a"], lambda q: [])                   # it answered (even with no results)
+    # one query failing and another answering in the same round doesn't count either
     for _ in range(FAILURES_IN_A_ROW + 1):
         svc.collect(S("A", "B"), ["a", "b"], lambda q: (_ for _ in ()).throw(RuntimeError()) if q == "a" else [])
 
 
 def test_a_transfer_to_a_service_that_stopped_answering_changes_nothing(tmp_path):
-    """De punta a punta con el conector real de YouTube Music: la sesión venció en medio (ytmusicapi
-    falla en cada búsqueda). La transferencia frena con un mensaje claro, no toca el destino y
-    Conexiones vuelve a comprobar la sesión."""
+    """End to end with the real YouTube Music connector: the session expired midway (ytmusicapi
+    fails on every search). The transfer stops with a clear message, doesn't touch the destination and
+    Connections checks the session again."""
     from app.core.transfer import run_transfer, Target
     from tests.fakes import FakeService, S
     src = FakeService("tidal", "Tidal")
@@ -511,8 +511,8 @@ def test_a_transfer_to_a_service_that_stopped_answering_changes_nothing(tmp_path
     yt = ytc(fake)
     with pytest.raises(ConnectorError, match="YouTube Music dejó de responder"):
         run_transfer(src, yt, "p", [Target("Mix", "PL1")])
-    assert fake.added == [] and len(fake.searches) < 20                  # cortó enseguida, sin agregar nada
-    assert yt.yt is None                                                 # la sesión se vuelve a comprobar
+    assert fake.added == [] and len(fake.searches) < 20                  # it stopped right away, without adding anything
+    assert yt.yt is None                                                 # the session is checked again
 
 
 def test_yt_untitled_playlist_follows_the_language():
@@ -521,11 +521,11 @@ def test_yt_untitled_playlist_follows_the_language():
     assert [p.name for p in ytc(FakeYT()).list_playlists()] == ["Liked songs", "Old songs", "(untitled)"]
 
 
-# ---------------------------------------------------------------- canciones que te gustan
+# ---------------------------------------------------------------- liked songs
 
 def test_tidal_liked_songs_read_add_and_remove():
-    """Los favoritos de Tidal como una playlist más: se leen del más reciente al más viejo; lo agregado
-    queda arriba (dentro de un pedido, en el orden que decide Tidal); quitar saca ese tema y nada más."""
+    """Tidal's favorites as one more playlist: read newest to oldest; what is added ends up on top
+    (inside one request, in the order Tidal decides); removing takes out that song and nothing else."""
     fav = FakeTidalFavorites([track(3, "Nuevo", "A"), track(2, "Medio", "A")])
     c = tidal(FakeTidalSession(favorites=fav))
     name, songs = c.read(LIKED)
@@ -542,15 +542,15 @@ def test_tidal_liked_songs_read_add_and_remove():
 
 
 def test_tidal_liked_songs_keep_the_order_between_batches():
-    """Más temas que un pedido: el orden entre pedidos lo pone la app (el primero de la lista, en el pedido
-    de arriba); dentro de un pedido lo decide Tidal (medido con la cuenta real el 2026-11-25)."""
+    """More songs than one request: the order between requests is the app's (the first of the list, in the top
+    request); inside one request Tidal decides (measured with the real account on 2026-11-25)."""
     from app.connectors.base import BATCH
     fav = FakeTidalFavorites([track(999, "Viejo", "A")])
     c = tidal(FakeTidalSession(favorites=fav))
     ids = [str(i) for i in range(1, BATCH + 12)]
     c.add(LIKED, [Song(f"Tema {i}", ["A"], id=i) for i in ids])
     got = [s.id for s in c.read(LIKED)[1]]
-    top = len(ids) - BATCH                         # la tanda de arriba: los primeros 11 de la lista
+    top = len(ids) - BATCH                         # the top batch: the list's first 11
     assert len([x for x in fav.calls if x[0] == "add"]) == 2 and got[-1] == "999"
     assert set(got[:top]) == set(ids[:top]) and set(got[top:-1]) == set(ids[top:])
 
@@ -560,22 +560,22 @@ def test_yt_liked_songs_are_the_lm_list_and_add_means_like():
     name, songs = c.read(LIKED)
     assert name == "Canciones que te gustan" and fake.read_ids == ["LM"] and [s.id for s in songs] == ["v1"]
     c.add(LIKED, [Song("Uno", ["A"], id="a"), Song("Dos", ["A"], id="b")])
-    assert fake.rated == [("b", "LIKE"), ("a", "LIKE")] and fake.added == []      # nunca "agregar a la lista"
+    assert fake.rated == [("b", "LIKE"), ("a", "LIKE")] and fake.added == []      # never "add to the list"
     c.remove(LIKED, [Duplicate(0, Song("Uno", ["A"], id="a"), Song("Uno", ["A"], id="v1"), "exact")], confirmed=True)
     assert fake.rated[-1] == ("a", "INDIFFERENT") and fake.removed == []
     assert c.url(LIKED) == "https://music.youtube.com/playlist?list=LM"
 
 
-# ---------------------------------------------------------------- el servicio pide frenar
+# ---------------------------------------------------------------- the service asks to slow down
 
 class TooManyRequests(Exception):
-    """Como la de tidalapi."""
+    """Like tidalapi's."""
     retry_after = 7
 
 
 @pytest.mark.parametrize("error, waited", [
-    (TooManyRequests(), [7]),                                  # Tidal dice cuánto
-    (Exception("Server returned HTTP 429: Too Many Requests."), [2]),   # YouTube Music no: se usa la propia
+    (TooManyRequests(), [7]),                                  # Tidal says how long
+    (Exception("Server returned HTTP 429: Too Many Requests."), [2]),   # YouTube Music doesn't: the app's own is used
 ])
 def test_a_rate_limit_waits_and_retries_instead_of_losing_the_song(monkeypatch, error, waited):
     from app.connectors import base
@@ -590,7 +590,7 @@ def test_a_rate_limit_waits_and_retries_instead_of_losing_the_song(monkeypatch, 
             raise error
         return [S("A", "B", id="ok")]
     assert list(svc.collect(S("A", "B"), ["a"], fetch)) == ["ok"]
-    assert asked == ["a", "a"] and sum(slept) == sum(waited)          # en pedazos: se puede cancelar
+    assert asked == ["a", "a"] and sum(slept) == sum(waited)          # in pieces: it can be cancelled
 
 
 def test_a_rate_limit_that_never_ends_gives_up():
@@ -621,7 +621,7 @@ def test_yt_liked_songs_without_a_count_are_still_offered(answer, expected):
 
 
 class FlakyYT(FakeYT):
-    """YouTube a veces contesta vacío: ytmusicapi falla al interpretarlo."""
+    """YouTube sometimes answers empty: ytmusicapi fails parsing it."""
     def __init__(self, bad):
         super().__init__([{"title": "Uno", "videoId": "v1", "artists": [{"name": "A"}]}])
         self.bad, self.reads = bad, 0
@@ -648,7 +648,7 @@ def test_a_service_that_keeps_answering_badly_gets_a_readable_message(monkeypatc
 
 
 def test_yt_a_bad_answer_when_checking_the_session_is_not_an_expired_session(tmp_path, monkeypatch):
-    """Una respuesta ilegible de paso, al abrir la app, hacía pedir reconectar sin motivo."""
+    """A one-off unreadable answer when opening the app used to ask for reconnecting for no reason."""
     monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
     answers = iter([json.JSONDecodeError("Expecting value", "", 0), []])
 
@@ -679,7 +679,7 @@ def test_yt_a_rejected_session_is_still_expired(tmp_path, monkeypatch):
 
 
 def test_yt_adding_many_liked_songs_says_how_many_went(monkeypatch):
-    """Los "Me gusta" de YouTube Music van de a uno: con 1600 son ~15 minutos sin decir nada."""
+    """YouTube Music likes go one at a time: 1600 of them were ~15 minutes without a word."""
     monkeypatch.setattr("app.connectors.ytmusic.time.sleep", lambda s: None)
     c, told = ytc(FakeYT()), []
     c.listen(told.append)
