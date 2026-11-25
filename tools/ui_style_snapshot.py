@@ -44,13 +44,20 @@ def states(browser):
         tmp = Path(tempfile.mkdtemp())
         return tmp, make_api(tmp, **kw)
 
+    def opened(api):
+        """La página, con los avisos (toast) quietos: uno que aparece queda hasta que lo reemplaza otro.
+        Si no, que llegue a la foto o no dependía de lo rápida que estuviera la máquina (se va a los 3,2 s)."""
+        page, errors = open_page(browser, api)
+        page.evaluate("() => { const show = toast; window.toast = msg => { show(msg); clearTimeout(show._t); }; }")
+        return page, errors
+
     # 1. primer uso (Inicio, Conexiones con pasos reales y el panel de Spotify, conectando)
     tmp, (api, tidal, yt) = fresh(connected=False)
     with_spotify(api, tmp)
     tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
     yt.login_steps = lambda b: YTMusicConnector.login_steps(None, b)
     tidal.login_hangs = True
-    page, errors = open_page(browser, api)
+    page, errors = opened(api)
     yield "inicio-primer-uso", page
     page.click("nav [data-go=conexiones]"); page.wait_for_selector(".svc-steps")
     yield "conexiones", page
@@ -58,7 +65,7 @@ def states(browser):
     yield "conexiones-spotify", page
     page.click("[data-connect=tidal]"); page.wait_for_selector("#cancel-login")
     yield "conexiones-conectando", page
-    page.click("#cancel-login"); page.wait_for_timeout(300)
+    page.click("#cancel-login"); page.wait_for_selector("#toast.show")   # «cancelado» llega con la consulta siguiente
     page.click("nav [data-go=ajustes]"); page.wait_for_function("document.querySelector('#th-ok').value !== ''")
     yield "ajustes", page
     page.click("#wipe"); page.wait_for_selector("#wipe-confirm[open]"); page.wait_for_timeout(300)
@@ -72,7 +79,7 @@ def states(browser):
     yt.add_playlist("otra", "Otra lista", [S("Rasputin", "Majestic", "Boney M.", dur=187, id="r1"),
                                            S("Rasputin", "Boney M.", dur=352, id="r2"),
                                            S("Take On Me", "a-ha", dur=225, id="t1"), S("Take On Me", "a-ha", dur=226, id="t2")])
-    page, errors = open_page(browser, api)
+    page, errors = opened(api)
     page.click("nav [data-go=transferir]"); page.wait_for_selector("input[name=src]")
     page.check("input[name=src][value=src]"); page.check("#dst-new")
     yield "transferir-elegir", page
