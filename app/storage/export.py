@@ -1,8 +1,8 @@
-"""El historial en un archivo de texto liviano, para que lo lea una persona o una IA.
+"""The history in a light text file, for a person or an AI to read.
 
-Texto plano (.txt, UTF-8) con títulos y listas al estilo Markdown: se abre con doble clic en el
-Bloc de notas, pesa unos pocos KB y una IA lo entiende sin preparación. Siempre a pedido del
-usuario (Historial › Descargar historial), nunca solo. Sale en el idioma de la app.
+Plain text (.txt, UTF-8) with Markdown-style headings and lists: it opens with a double click in
+Notepad, weighs a few KB and an AI understands it with no preparation. Always on the user's
+request (History › Download history), never on its own. It comes out in the app's language.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class ReportOperation:
 
 
 def from_history(history: History, kind: str | None = None) -> list[ReportOperation]:
-    """Las operaciones del historial, la más vieja primero."""
+    """The history's operations, oldest first."""
     return [ReportOperation(op, history.tracks(op.id)) for op in reversed(history.list()) if kind in (None, op.kind)]
 
 
@@ -71,7 +71,7 @@ def render(operations: list[ReportOperation], service_names: dict[str, str]) -> 
 
 
 def write_report(path: Path, operations: Iterable[ReportOperation], service_names: dict[str, str]) -> int:
-    """Escribe el archivo (en un .tmp que se renombra al final). Devuelve cuántas operaciones."""
+    """Writes the file (to a .tmp that is renamed at the end). Returns how many operations."""
     ops = list(operations)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

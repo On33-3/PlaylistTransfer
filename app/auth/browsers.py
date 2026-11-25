@@ -1,4 +1,4 @@
-"""Navegadores instalados en Windows y el predeterminado (registro de Windows)."""
+"""Browsers installed on Windows and the default one (Windows registry)."""
 from __future__ import annotations
 
 import re
@@ -34,10 +34,10 @@ def kind_of(exe: Path | str) -> str:
 
 
 def default_browser() -> tuple[str, Path | None]:
-    """('vivaldi' | 'firefox' | ..., ruta del .exe) del navegador predeterminado. ('', None) si no se sabe."""
+    """('vivaldi' | 'firefox' | ..., path to the .exe) of the default browser. ('', None) if unknown."""
     try:
         import winreg
-    except ImportError:          # no es Windows
+    except ImportError:          # not Windows
         return "", None
     base = r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https"
     progid = None
@@ -63,7 +63,7 @@ def default_browser() -> tuple[str, Path | None]:
 
 
 def installed_browsers() -> list[Browser]:
-    """Navegadores registrados en Windows (los de "Aplicaciones predeterminadas"), el predeterminado primero."""
+    """Browsers registered on Windows (the ones in "Default apps"), the default one first."""
     try:
         import winreg
     except ImportError:
@@ -108,13 +108,13 @@ def sort_browsers(browsers: list[Browser], default_exe: Path | None) -> list[Bro
 
 
 def suggested_browser(browsers: list[Browser]) -> Browser | None:
-    """El que se propone si el usuario todavía no eligió: el predeterminado de Windows (va primero en la
-    lista) o, si no se reconoce, el primero instalado. Ningún navegador queda afuera: cada uno usa el suyo."""
+    """The one suggested if the user hasn't chosen yet: the Windows default (it comes first in the
+    list) or, if it isn't recognized, the first one installed. No browser is left out: everyone uses their own."""
     return browsers[0] if browsers else None
 
 
 def open_url(url: str, browser: Browser | None = None) -> None:
-    """Abre un link en el navegador elegido (en su perfil normal); si no hay, en el predeterminado."""
+    """Opens a link in the chosen browser (in its normal profile); if there is none, in the default one."""
     if browser and browser.exe.exists():
         try:
             subprocess.Popen([str(browser.exe), url])

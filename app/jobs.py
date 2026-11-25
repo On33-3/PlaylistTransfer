@@ -1,7 +1,7 @@
-"""Tareas largas en segundo plano, con una cola de eventos que la UI lee periódicamente.
+"""Long tasks in the background, with an event queue the UI reads periodically.
 
-Corre una tarea por vez: las librerías de Tidal y YouTube Music no están pensadas para usarse
-desde varios hilos a la vez, y la UI no deja empezar otra mientras hay una en curso.
+One task runs at a time: the Tidal and YouTube Music libraries aren't meant to be used from
+several threads at once, and the UI doesn't allow starting another while one is running.
 """
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ log = logging.getLogger(__name__)
 
 RUNNING, DONE, ERROR, CANCELLED = "running", "done", "error", "cancelled"
 
-KEEP_FINISHED = 20      # tareas terminadas que se recuerdan (cada una guarda sus eventos)
+KEEP_FINISHED = 20      # finished tasks that are kept (each one keeps its events)
 
-# Errores pensados para mostrarse tal cual; cualquier otro se muestra con un mensaje genérico
+# Errors meant to be shown as they are; any other one is shown with a generic message
 USER_ERRORS = (ConnectorError, LoginError, ValueError)
 
 
@@ -41,10 +41,10 @@ class Job:
 
 
 def unexpected_message(e: BaseException) -> str:
-    """Lo que ve el usuario ante un error no previsto: sin internet se dice así; lo demás, con su detalle."""
+    """What the user sees for an unexpected error: no internet is said as such; the rest, with its detail."""
     if is_network_error(e):
         return tr("err.no_network_generic")
-    if isinstance(e, json.JSONDecodeError):          # el servicio contestó algo que no es lo que debía
+    if isinstance(e, json.JSONDecodeError):          # the service answered something it shouldn't have
         return tr("err.bad_answer")
     return tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
 
@@ -65,12 +65,12 @@ class Jobs:
             return next((j for j in self._jobs.values() if j.state == RUNNING), None)
 
     def start(self, kind: str, fn: Callable[[Callable[[dict], None], threading.Event], Any]) -> str:
-        """`fn(emit, cancel)` corre en otro hilo. Lo que devuelve queda como resultado."""
+        """`fn(emit, cancel)` runs in another thread. What it returns becomes the result."""
         with self._lock:
             running = next((j for j in self._jobs.values() if j.state == RUNNING), None)
             if running:
                 raise BusyError(tr("err.busy", kind=tr(f"job.{running.kind}")))
-            for old in [j.id for j in self._jobs.values()][:-KEEP_FINISHED or None]:   # sin crecer para siempre
+            for old in [j.id for j in self._jobs.values()][:-KEEP_FINISHED or None]:   # without growing forever
                 del self._jobs[old]
                 self._threads.pop(old, None)
             job = Job(f"{kind}-{next(self._ids)}", kind)
@@ -89,10 +89,10 @@ class Jobs:
                 with job.lock:
                     job.state = CANCELLED
             except Exception as e:
-                # JSONDecodeError es un ValueError, pero su texto no le dice nada a nadie
+                # JSONDecodeError is a ValueError, but its text means nothing to anyone
                 if isinstance(e, USER_ERRORS) and not isinstance(e, json.JSONDecodeError):
                     message = str(e)
-                else:                   # error inesperado: se registra completo y se avisa corto
+                else:                   # unexpected error: logged in full and reported briefly
                     log.error("Falló %s:\n%s", job.id, traceback.format_exc())
                     message = unexpected_message(e)
                 with job.lock:
@@ -119,7 +119,7 @@ class Jobs:
             job.cancel.set()
 
     def wait(self, job_id: str, timeout: float = 10) -> dict:
-        """Para los tests: espera a que termine."""
+        """For the tests: waits until it finishes."""
         t = self._threads.get(job_id)
         if t is not None:
             t.join(timeout)

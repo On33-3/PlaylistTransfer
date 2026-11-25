@@ -1,9 +1,9 @@
-"""Borrar todo lo que la app guardó en esta PC (Ajustes › Borrar todo): sesiones de cada servicio, historial,
-preferencias, búsquedas guardadas, perfiles de navegador propios (tienen la sesión de Google) y el log.
-La app vuelve a quedar como la primera vez. Las playlists de los servicios no se tocan.
+"""Erase everything the app saved on this PC (Settings › Erase everything): each service's session, the
+history, preferences, saved searches, the app's own browser profiles (they hold the Google session) and the log.
+The app is left as it was the first time. The services' playlists are not touched.
 
-Lo que está en uso mientras la app sigue abierta (la carpeta de la ventana, `webview`) no se puede borrar en
-Windows: se devuelve en la lista y se vuelve a intentar al cerrar la app (`app/main.py`).
+What is in use while the app is still open (the window's folder, `webview`) can't be deleted on Windows:
+it is returned in the list and tried again when the app closes (`app/main.py`).
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 
 def _close_logs_inside(folder: Path) -> None:
-    """Windows no deja borrar un archivo abierto: se cierra el log (se vuelve a abrir solo al escribir)."""
+    """Windows won't delete an open file: the log is closed (it reopens on its own when written to)."""
     for h in logging.getLogger().handlers:
         name = getattr(h, "baseFilename", None)
         if name and Path(name).resolve().is_relative_to(folder.resolve()):
@@ -23,7 +23,7 @@ def _close_logs_inside(folder: Path) -> None:
 
 
 def wipe(folder: Path) -> list[str]:
-    """Borra el contenido de `folder`. Devuelve lo que no se pudo borrar (en uso)."""
+    """Deletes the contents of `folder`. Returns what couldn't be deleted (in use)."""
     folder = Path(folder)
     if not folder.exists():
         return []
@@ -36,7 +36,7 @@ def wipe(folder: Path) -> list[str]:
             else:
                 item.unlink()
         except OSError:
-            # Una carpeta en uso puede quedar a medias: se borra lo que se pueda y se anota
+            # A folder in use may be left half-deleted: what can be deleted is, and the rest is noted
             if item.is_dir():
                 shutil.rmtree(item, ignore_errors=True)
             if item.exists():

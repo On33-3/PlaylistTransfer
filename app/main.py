@@ -1,4 +1,4 @@
-"""Arranca la ventana. Uso: `py -m app` (o doble clic en "PlaylistTransfer.bat")."""
+"""Starts the window. Usage: `py -m app` (or double-click "Abrir PlaylistTransfer.bat")."""
 from __future__ import annotations
 
 import logging
@@ -19,17 +19,17 @@ def ui_dir() -> Path:
 
 
 def own_taskbar_icon() -> None:
-    """Windows agrupa la ventana con el proceso que la abrió: con `py -m app`, la barra de tareas mostraba
-    el ícono de Python. Con un id propio, la app aparece como ella misma (con su ícono)."""
+    """Windows groups the window with the process that opened it: with `py -m app`, the taskbar showed
+    Python's icon. With an id of its own, the app shows up as itself (with its icon)."""
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PlaylistTransfer.App")
-    except (AttributeError, OSError):    # no es Windows
+    except (AttributeError, OSError):    # not Windows
         pass
 
 
 def setup_logging() -> Path:
-    """app.log en la carpeta de datos, con tope: hasta 1 MB y una copia anterior (app.log.1)."""
+    """app.log in the data folder, with a cap: up to 1 MB and one previous copy (app.log.1)."""
     from logging.handlers import RotatingFileHandler
     log_file = paths.data_dir() / "app.log"
     handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=1, encoding="utf-8")
@@ -41,36 +41,36 @@ def setup_logging() -> Path:
 
 
 def show_startup_error(e: BaseException) -> None:
-    """Si la app no llega a abrir la ventana, el .exe (que no tiene consola) se cerraría sin decir nada:
-    se registra el error y se avisa con un cuadro de Windows que dice dónde quedó el detalle."""
+    """If the app can't open the window, the .exe (which has no console) would close without a word:
+    the error is logged and a Windows message box says where the details are."""
     from app.i18n import t as tr
     logging.getLogger(__name__).exception("No se pudo abrir la app")
     msg = tr("err.startup_failed", detail=f"{type(e).__name__}: {e}", log=paths.data_dir() / "app.log")
-    if os.environ.get("PT_SMOKE") == "1":      # en la prueba automática nadie va a tocar "Aceptar"
+    if os.environ.get("PT_SMOKE") == "1":      # in the automated test nobody will click "OK"
         print(msg, file=sys.stderr, flush=True)
         return
     try:
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, msg, TITLE, 0x10)    # 0x10: ícono de error
-    except (AttributeError, OSError):    # no es Windows
+        ctypes.windll.user32.MessageBoxW(None, msg, TITLE, 0x10)    # 0x10: error icon
+    except (AttributeError, OSError):    # not Windows
         print(msg, file=sys.stderr)
 
 
-# Lo que la app recién importa al conectar o al usar internet: la prueba de arranque lo importa a propósito,
-# así un módulo que falte en el paquete se detecta al armarlo y no cuando alguien toca Conectar
+# What the app only imports when connecting or going online: the startup test imports it on purpose,
+# so a module missing from the package is caught when building it, not when someone clicks Connect
 LOADED_LATER = ("tidalapi", "ytmusicapi", "requests", "ssl", "sqlite3")
 
 
-# Lo que la ventana (WebView2) guarda de las páginas que carga. pywebview sirve la UI con un servidor local
-# (siempre http://127.0.0.1:42001) sin decir que no se guarde: la ventana usaba copias viejas de algunos
-# archivos y nuevas de otros. Pasó al actualizar (2026-11-24): un index.html del 8/11 con el JavaScript
-# nuevo, y Quitar repetidos no mostraba sus pasos y se colgaba al revisar.
+# What the window (WebView2) keeps from the pages it loads. pywebview serves the UI with a local server
+# (always http://127.0.0.1:42001) without saying not to cache: the window used old copies of some
+# files and new ones of others. It happened after an update (2026-11-24): an index.html from 11/8 with the new
+# JavaScript, and Remove duplicates didn't show its steps and hung while checking.
 PAGE_CACHES = ("Cache", "Code Cache")
 
 
 def forget_page_cache(webview_dir: Path) -> None:
-    """Antes de abrir la ventana: que cargue siempre los archivos de esta versión. Solo son copias de la UI
-    de la app (no hay sesiones ahí: el login pasa en el navegador de la persona)."""
+    """Before opening the window: make sure it always loads this version's files. These are only copies of the
+    app's UI (there are no sessions there: sign-in happens in the person's browser)."""
     import shutil
     for name in PAGE_CACHES:
         shutil.rmtree(Path(webview_dir) / "EBWebView" / "Default" / name, ignore_errors=True)
@@ -115,9 +115,9 @@ def run() -> None:
 
     api._save_dialog = save_dialog
 
-    smoke = os.environ.get("PT_SMOKE") == "1"   # prueba automática: abre, espera la UI y cierra
+    smoke = os.environ.get("PT_SMOKE") == "1"   # automated test: opens, waits for the UI and closes
     ready = threading.Event()
-    api._on_ready = ready.set                    # la UI llama a api.ui_ready() al terminar de cargar
+    api._on_ready = ready.set                    # the UI calls api.ui_ready() when it finishes loading
 
     failed = {"modules": []}
 
@@ -133,11 +133,11 @@ def run() -> None:
     forget_page_cache(paths.data_dir() / "webview")
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
                   storage_path=str(paths.data_dir() / "webview"), icon=str(ui_dir() / "icon.ico"))
-    if getattr(api, "_wiped", False):          # Ajustes › Borrar todo: lo que estaba en uso, ahora que se cerró
+    if getattr(api, "_wiped", False):          # Settings › Erase everything: what was in use, now that it closed
         from app.storage.wipe import wipe
         logging.shutdown()
         wipe(paths.data_dir())
-    if smoke:   # el .exe no tiene consola: el resultado sale como código de salida
+    if smoke:   # the .exe has no console: the result comes out as the exit code
         sys.exit(0 if ready.is_set() and not failed["modules"] else 1)
 
 

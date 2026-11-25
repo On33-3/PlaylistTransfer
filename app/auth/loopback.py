@@ -1,8 +1,8 @@
-"""Login OAuth con PKCE para apps de escritorio: un servidor mínimo en 127.0.0.1 recibe el código.
+"""OAuth sign-in with PKCE for desktop apps: a minimal server on 127.0.0.1 receives the code.
 
-Spotify (y otros) redirigen al navegador a `http://127.0.0.1:<puerto>/callback?code=…&state=…`.
-Escuchamos solo en 127.0.0.1 (nunca en la red), en un puerto libre, y una sola respuesta.
-Sin librerías externas.
+Spotify (and others) redirect the browser to `http://127.0.0.1:<port>/callback?code=…&state=…`.
+We listen only on 127.0.0.1 (never on the network), on a free port, for a single answer.
+No external libraries.
 """
 from __future__ import annotations
 
@@ -22,32 +22,32 @@ CALLBACK_PATH = "/callback"
 
 
 def make_verifier() -> str:
-    """El "code_verifier" de PKCE: 64 caracteres al azar (el estándar pide entre 43 y 128)."""
+    """The PKCE "code_verifier": 64 random characters (the standard asks for 43 to 128)."""
     return secrets.token_urlsafe(48)[:64]
 
 
 def challenge(verifier: str) -> str:
-    """El "code_challenge" S256: SHA-256 del verificador en base64url, sin "="."""
+    """The S256 "code_challenge": SHA-256 of the verifier in base64url, without "="."""
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
 class LoginFailed(Exception):
-    """El servicio devolvió un error en la redirección (por ejemplo, el usuario tocó "Cancelar")."""
+    """The service returned an error in the redirect (for example, the user clicked "Cancel")."""
 
 
 class _Server(http.server.HTTPServer):
-    # En Windows, SO_REUSEADDR deja que dos programas escuchen el mismo puerto: con un puerto fijo,
-    # la respuesta de Spotify podría llegarle a otro. Sin eso, si está ocupado, falla al abrirlo.
+    # On Windows, SO_REUSEADDR lets two programs listen on the same port: with a fixed port,
+    # Spotify's answer could reach another one. Without it, if the port is taken, opening it fails.
     allow_reuse_address = False
 
 
 class CallbackServer:
-    """Espera una sola redirección a /callback. Uso:
+    """Waits for a single redirect to /callback. Usage:
 
         with CallbackServer() as cb:
-            abrir(f"...&redirect_uri={cb.redirect_uri}")
-            code = cb.wait(state, cancel=evento, timeout=600)
+            open_browser(f"...&redirect_uri={cb.redirect_uri}")
+            code = cb.wait(state, cancel=event, timeout=600)
     """
 
     def __init__(self, port: int = 0):
@@ -56,7 +56,7 @@ class CallbackServer:
         outer = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self):                          # noqa: N802 (nombre de http.server)
+            def do_GET(self):                          # noqa: N802 (http.server's name)
                 url = urlparse(self.path)
                 if url.path != CALLBACK_PATH:
                     self.send_error(404)
@@ -73,7 +73,7 @@ class CallbackServer:
                 self.wfile.write(body)
                 outer._got.set()
 
-            def log_message(self, *args):              # sin imprimir en la consola
+            def log_message(self, *args):              # without printing to the console
                 pass
 
         self._server = _Server(("127.0.0.1", port), Handler)
@@ -100,7 +100,7 @@ class CallbackServer:
         self._server.server_close()
 
     def wait(self, state: str, cancel: threading.Event | None = None, timeout: float = 600) -> str:
-        """El código de autorización. Comprueba `state` (que la respuesta sea la nuestra)."""
+        """The authorization code. Checks `state` (that the answer is ours)."""
         deadline = time.monotonic() + timeout
         while not self._got.wait(0.25):
             if cancel is not None and cancel.is_set():

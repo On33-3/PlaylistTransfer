@@ -1,8 +1,8 @@
-"""Login con el navegador elegido, sin Playwright.
+"""Sign-in with the chosen browser, without Playwright.
 
-El navegador se lanza como un proceso común, con `--remote-debugging-port` y un perfil propio,
-abierto directamente en la página de login. Las cookies se leen con `Storage.getCookies` por el
-protocolo de DevTools. No se manipulan pestañas: Vivaldi no deja que un programa las cree.
+The browser is launched as a normal process, with `--remote-debugging-port` and a profile of its own,
+opened straight on the sign-in page. The cookies are read with `Storage.getCookies` over the
+DevTools protocol. Tabs are never touched: Vivaldi doesn't let a program create them.
 """
 from __future__ import annotations
 
@@ -25,12 +25,12 @@ from app.i18n import t as tr
 
 
 class LoginError(Exception):
-    """El inicio de sesión no se pudo completar (el mensaje se puede mostrar al usuario)."""
+    """The sign-in couldn't be completed (the message can be shown to the user)."""
 
 
 class CDP:
-    """Cliente mínimo del protocolo de depuración de Chrome (DevTools), sin dependencias.
-    Solo hace falta para pedirle las cookies al navegador y cerrarlo."""
+    """A minimal client for Chrome's debugging protocol (DevTools), with no dependencies.
+    It is only needed to ask the browser for its cookies and to close it."""
 
     def __init__(self, ws_url: str, timeout: float = 15, sock: socket.socket | None = None):
         u = urlparse(ws_url)
@@ -103,7 +103,7 @@ class CDP:
 
 
 def encode_frame(data: bytes, opcode: int = 0x1, mask: bytes | None = None) -> bytes:
-    """Frame de WebSocket (FIN=1). Los clientes siempre enmascaran (RFC 6455)."""
+    """A WebSocket frame (FIN=1). Clients always mask (RFC 6455)."""
     n = len(data)
     mask_bit = 0x80 if mask else 0
     header = bytearray([0x80 | opcode])
@@ -125,18 +125,18 @@ def free_port() -> int:
 
 
 def devtools_info(port: int) -> dict:
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # localhost: sin proxy
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # localhost: no proxy
     with opener.open(f"http://127.0.0.1:{port}/json/version", timeout=2) as r:
         return json.loads(r.read().decode())
 
 
 def profile_dir_for(profiles_dir: Path, browser_name: str) -> Path:
-    """Un perfil aparte por navegador: Chrome y sus derivados no dejan automatizar el perfil normal."""
+    """A separate profile per browser: Chrome and its derivatives don't allow automating the normal profile."""
     return profiles_dir / (re.sub(r"\W", "", browser_name.lower()) or "browser")
 
 
 def cookies_for_domain(cookies: list[dict], domain: str) -> dict[str, str]:
-    """{nombre: valor} de las cookies de `domain` y sus subdominios; las del dominio raíz ganan."""
+    """{name: value} of the cookies of `domain` and its subdomains; the root domain's win."""
     own = [c for c in cookies if c.get("domain", "").lstrip(".").endswith(domain)]
     own.sort(key=lambda c: c.get("domain") != f".{domain}")
     jar: dict[str, str] = {}
@@ -146,17 +146,17 @@ def cookies_for_domain(cookies: list[dict], domain: str) -> dict[str, str]:
 
 
 def forget_previous_tabs(profile: Path) -> None:
-    """Vivaldi reabre las pestañas de la vez anterior: cada inicio de sesión sumaba una (comprobado).
-    Solo se borra la lista de pestañas; las cookies están en otra carpeta y la sesión se conserva."""
+    """Vivaldi reopens the tabs from last time: each sign-in added one (seen).
+    Only the tab list is deleted; the cookies live in another folder and the session is kept."""
     shutil.rmtree(profile / "Default" / "Sessions", ignore_errors=True)
 
 
 def has_web_page(cdp: CDP) -> bool:
-    """¿Queda alguna página web abierta? (Solo lee la lista: no toca pestañas, que Vivaldi no deja.)
-    La interfaz de Vivaldi y las extensiones de Edge también aparecen, pero no son http(s)."""
+    """Is any web page still open? (It only reads the list: it doesn't touch tabs, which Vivaldi forbids.)
+    Vivaldi's interface and Edge's extensions show up too, but they aren't http(s)."""
     try:
         targets = cdp.send("Target.getTargets").get("targetInfos", [])
-    except RuntimeError:          # el navegador no lo permite: no se sabe, se sigue esperando como siempre
+    except RuntimeError:          # the browser doesn't allow it: unknown, keep waiting as usual
         return True
     return any(t.get("type") == "page" and str(t.get("url", "")).startswith(("http://", "https://")) for t in targets)
 
@@ -165,8 +165,8 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
                            domain: str, wanted: set[str], timeout: float = 600,
                            on_status: Callable[[str], None] | None = None,
                            cancel: threading.Event | None = None) -> tuple[dict[str, str], str]:
-    """Abre el navegador en `login_url` y espera hasta que aparezca alguna cookie de `wanted` en
-    `domain`. Devuelve (cookies de ese dominio, user-agent). Cierra el navegador al terminar."""
+    """Opens the browser on `login_url` and waits until one of the `wanted` cookies shows up in
+    `domain`. Returns (that domain's cookies, user-agent). Closes the browser when done."""
     say = on_status or (lambda _msg: None)
     port = free_port()
     profile = profile_dir_for(profiles_dir, browser_name)
@@ -210,9 +210,9 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
             if time.time() > deadline:
                 raise LoginError(tr("err.login_timeout"))
             time.sleep(1.5)
-            # ¿La persona cerró la ventana? Brave y Edge se cierran del todo (se corta la conexión), pero
-            # Vivaldi sigue abierto sin ninguna página (comprobado): sin esto, la app esperaría hasta el
-            # tiempo límite con Conectar deshabilitado. Dos veces seguidas, por si justo estaba cambiando de página.
+            # Did the person close the window? Brave and Edge close completely (the connection drops), but
+            # Vivaldi stays open with no page (seen): without this, the app would wait until the
+            # time limit with Connect disabled. Twice in a row, in case it was just changing pages.
             if has_web_page(cdp):
                 seen_page, closed_checks = True, 0
             elif seen_page:
@@ -220,18 +220,18 @@ def login_and_read_cookies(exe: Path, browser_name: str, profiles_dir: Path, log
                 if closed_checks >= 2:
                     raise LoginError(tr("err.login_window_closed", browser=browser_name))
             cookies = jar()
-        time.sleep(3)              # deja terminar la redirección
+        time.sleep(3)              # let the redirect finish
         cookies = jar()
         user_agent = cdp.send("Browser.getVersion").get("userAgent") or info.get("User-Agent", "")
     except (LoginError, Cancelled):
         raise
-    except OSError as e:           # se cortó la conexión: Brave y Edge se cierran del todo al cerrar la ventana
+    except OSError as e:           # the connection dropped: Brave and Edge close completely when the window is closed
         raise LoginError(tr("err.login_window_closed", browser=browser_name)) from e
-    except Exception as e:         # cualquier otra cosa
+    except Exception as e:         # anything else
         raise LoginError(tr("err.login_interrupted", detail=e)) from e
     finally:
         try:
-            cdp.send("Browser.close")   # cierre prolijo: el perfil guarda la sesión para la próxima
+            cdp.send("Browser.close")   # a clean close: the profile keeps the session for next time
         except Exception:
             pass
         cdp.close()

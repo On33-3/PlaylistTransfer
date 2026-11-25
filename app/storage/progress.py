@@ -1,11 +1,12 @@
-"""Lo ya buscado en una transferencia que no terminó: el servicio pidió una pausa de horas, se canceló, se
-cortó internet. La próxima vez que se transfiere la misma playlist al mismo servicio, sigue desde ahí en
-vez de buscar todo de nuevo (con miles de temas, volver a empezar chocaba otra vez con el mismo límite).
+"""What was already searched in a transfer that didn't finish: the service asked for a pause of hours,
+it was cancelled, the internet dropped. The next time the same playlist goes to the same service, it
+continues from there instead of searching everything again (with thousands of songs, starting over hit
+the same limit again).
 
-Un archivo por recorrido (servicio de origen, playlist, servicio de destino) en
-%LOCALAPPDATA%\\PlaylistTransfer\\busquedas\\. Se borra cuando la transferencia termina bien; si no, vence
-a los KEEP_DAYS días (el catálogo del servicio cambia). Solo guarda la mejor coincidencia de cada tema y
-su puntaje: si cambian los umbrales de Ajustes, se vuelve a clasificar con los nuevos.
+One file per route (source service, playlist, destination service) in
+%LOCALAPPDATA%\\PlaylistTransfer\\busquedas\\. It is deleted when the transfer ends well; otherwise it
+expires after KEEP_DAYS days (the service's catalog changes). It only keeps each song's best match and
+its score: if the thresholds in Settings change, it is classified again with the new ones.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from app.core.models import Song
 log = logging.getLogger(__name__)
 
 KEEP_DAYS = 7
-SAVE_EVERY = 20      # temas buscados entre una escritura y la siguiente (si la app se cierra, se pierden pocos)
+SAVE_EVERY = 20      # songs searched between one write and the next (if the app closes, few are lost)
 
 
 def _song(d) -> Song | None:
@@ -55,18 +56,18 @@ class SearchProgress:
             return dict(data["songs"])
         except FileNotFoundError:
             return {}
-        except (OSError, ValueError, KeyError, TypeError) as e:     # un archivo roto no impide transferir
+        except (OSError, ValueError, KeyError, TypeError) as e:     # a broken file doesn't prevent transferring
             log.warning("No pude leer lo buscado antes (%s): %s", self.path.name, e)
             return {}
 
     def get(self, song: Song) -> tuple[Song | None, float, list[Song]] | None:
-        """(mejor coincidencia, puntaje, alternativas) si ya se buscó; None si no."""
+        """(best match, score, alternatives) if already searched; None if not."""
         d = self._songs.get(self.song_key(song))
         try:
             match, score, alts = _song(d["match"]) if d["match"] else None, float(d["score"]), d.get("alts") or []
             if d["match"] and match is None or not isinstance(alts, list):
                 raise ValueError("coincidencia rota")
-        except (TypeError, ValueError, KeyError):         # nada guardado, o una entrada rota: se busca de nuevo
+        except (TypeError, ValueError, KeyError):         # nothing saved, or a broken entry: it is searched again
             return None
         return match, score, [a for a in map(_song, alts) if a]
 
@@ -78,7 +79,7 @@ class SearchProgress:
             self.save()
 
     def done(self, songs: list[Song]) -> int:
-        """Cuántos de estos temas ya están buscados."""
+        """How many of these songs have already been searched."""
         return sum(1 for s in songs if self.song_key(s) in self._songs)
 
     def save(self) -> None:
@@ -89,7 +90,7 @@ class SearchProgress:
             tmp = self.path.with_suffix(".tmp")
             tmp.write_text(json.dumps({"saved": datetime.now().isoformat(timespec="seconds"), "songs": self._songs},
                                       ensure_ascii=False), encoding="utf-8")
-            os.replace(tmp, self.path)          # nunca queda un archivo a medio escribir
+            os.replace(tmp, self.path)          # a half-written file is never left behind
             self._unsaved = 0
         except OSError as e:
             log.warning("No pude guardar lo buscado: %s", e)

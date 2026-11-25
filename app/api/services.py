@@ -1,4 +1,4 @@
-"""Los servicios: estado, navegador, conectar y playlists."""
+"""The services: status, browser, connecting and playlists."""
 from __future__ import annotations
 
 import logging
@@ -14,25 +14,25 @@ from app.api.base import ApiBase
 
 log = logging.getLogger(__name__)
 
-SLOW_STATUS = 5     # segundos: un servicio que tarda más en decir si hay sesión queda anotado en el log
+SLOW_STATUS = 5     # seconds: a service that takes longer to say whether there is a session is written to the log
 
 
 class ServicesApi(ApiBase):
 
     def services(self) -> list[dict]:
-        """Los servicios en el orden en que se muestran, y cuáles se pueden usar. Es inmediato (no
-        consulta a nadie): la UI lo pide al arrancar, antes de `status()`."""
+        """The services in the order they are shown, and which can be used. It's immediate (it asks
+        no one): the UI asks for it at startup, before `status()`."""
         out = []
         for s in registry.SERVICES:
             c = self._connectors.get(s.key)
             d = {"key": s.key, "name": s.name, "available": c is not None}
-            if getattr(c, "needs_setup", False):          # Spotify: el usuario carga su Client ID
+            if getattr(c, "needs_setup", False):          # Spotify: the user enters their Client ID
                 d["setup"] = c.setup_info()
             out.append(d)
         return out
 
     def set_client_id(self, key: str, client_id: str) -> dict:
-        """Guarda el Client ID de la app del usuario (Spotify). Después, la UI conecta."""
+        """Saves the Client ID of the user's app (Spotify). Then the UI connects."""
         def work():
             c = self._connector(key)
             if not getattr(c, "needs_setup", False):
@@ -51,13 +51,13 @@ class ServicesApi(ApiBase):
             log.warning("No pude ver el estado de %s: %s", s.name, e)
             st = Status.EXPIRED.value
         took = time.monotonic() - started
-        if took > SLOW_STATUS:          # pasó al arrancar (2026-11-24) y no quedaba dicho cuál fue
+        if took > SLOW_STATUS:          # it happened at startup (2026-11-24) and nothing said which one it was
             log.warning("%s tardó %.0f s en contestar si hay sesión (%s)", s.name, took, st)
         return {"key": s.key, "name": s.name, "status": st}
 
     def status(self) -> list[dict]:
-        """Cada servicio se consulta en su propio hilo (cada uno es un pedido por internet): al abrir la
-        app, tarda lo que el más lento y no la suma."""
+        """Each service is asked in its own thread (each one is a request over the internet): opening the
+        app takes as long as the slowest one, not the sum."""
         with ThreadPoolExecutor(max_workers=len(registry.SERVICES)) as pool:
             return list(pool.map(self._status_of, registry.SERVICES))
 
@@ -70,8 +70,8 @@ class ServicesApi(ApiBase):
                 "suggested": str(suggested.exe) if suggested else None}
 
     def login_steps(self) -> dict:
-        """{servicio: [claves de los pasos]} para el navegador que se va a usar (el elegido o el propuesto).
-        Ajustes los muestra antes de conectar, así se leen antes de que se abra nada."""
+        """{service: [step keys]} for the browser that will be used (the chosen or the suggested one).
+        Settings shows them before connecting, so they are read before anything opens."""
         found = self._list_browsers()
         browser = self._browser(found) or browsers_mod.suggested_browser(found)
         return {s.key: self._connectors[s.key].login_steps(browser)

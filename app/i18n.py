@@ -1,7 +1,7 @@
-"""Idiomas de la app (español e inglés). Todos los textos viven en app/locales/<idioma>.json:
-"ui" para la ventana y "py" para los mensajes que arma Python (errores, CSV, nombres de archivo).
+"""The app's languages (Spanish and English). Every text lives in app/locales/<language>.json:
+"ui" for the window and "py" for the messages Python builds (errors, CSV, file names).
 
-Agregar un idioma = agregar un .json con las mismas claves (hay un test que lo verifica).
+Adding a language = adding a .json with the same keys (a test checks it).
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def get_language() -> str:
 
 
 def t(key: str, n: int | None = None, **values) -> str:
-    """Mensaje en el idioma actual. Con `n`, usa la variante _one / _other si existe."""
+    """A message in the current language. With `n`, it uses the _one / _other variant if there is one."""
     msgs = catalog(_current)["py"]
     if n is not None:
         key_n = f"{key}_one" if n == 1 else f"{key}_other"
@@ -57,7 +57,7 @@ def language_names() -> list[dict]:
 
 
 def system_language() -> str:
-    """El idioma de Windows: "es" si está en castellano (cualquier país), si no "en"."""
+    """The Windows language: "es" if it's Spanish (any country), otherwise "en"."""
     try:
         import ctypes
         langid = ctypes.windll.kernel32.GetUserDefaultUILanguage()   # type: ignore[attr-defined]

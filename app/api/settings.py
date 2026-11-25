@@ -1,4 +1,4 @@
-"""Datos de la app, idioma y ajustes."""
+"""App data, language and settings."""
 from __future__ import annotations
 
 import logging
@@ -13,7 +13,7 @@ from app.storage.wipe import wipe
 from app.api.base import ApiBase
 
 
-# Lo que se muestra en Ajustes › Acerca de (verificar al actualizar requirements.txt)
+# What Settings › About shows (check it when updating requirements.txt)
 LICENSES = [
     {"name": "tidalapi", "license": "LGPL-3.0", "url": "https://github.com/tamland/python-tidal"},
     {"name": "ytmusicapi", "license": "MIT", "url": "https://github.com/sigma67/ytmusicapi"},
@@ -27,22 +27,22 @@ log = logging.getLogger(__name__)
 class SettingsApi(ApiBase):
 
     def wipe_data(self, confirmed: bool = False) -> dict:
-        """Ajustes › Borrar todo: deja la app como la primera vez (sesiones, historial, preferencias, búsquedas
-        guardadas, perfiles de navegador, log). Las playlists de los servicios no se tocan. Exige la confirmación
-        del diálogo, como quitar temas."""
+        """Settings › Erase everything: leaves the app as it was the first time (sessions, history, preferences,
+        saved searches, browser profiles, log). The services' playlists are not touched. It requires the
+        dialog's confirmation, like removing songs."""
         if confirmed is not True:
             return {"error": tr("err.wipe_not_confirmed")}
         running = self._jobs.busy()
         if running:
             return {"error": tr("err.busy", kind=tr(f"job.{running.kind}"))}
-        for c in self._connectors.values():        # también lo que tienen en memoria
+        for c in self._connectors.values():        # also what they hold in memory
             try:
                 c.disconnect()
-            except Exception as e:                  # noqa: BLE001  (igual se borra el archivo)
+            except Exception as e:                  # noqa: BLE001  (the file is deleted anyway)
                 log.warning("No pude desconectar %s: %s", c.name, e)
         self._transfers.clear()
         left = wipe(self._data_dir)
-        self._wiped = True                          # al cerrar, se borra lo que estaba en uso
+        self._wiped = True                          # on close, what was in use is deleted
         log.info("Se borraron los datos de la app; quedan en uso: %s", left or "nada")
         return {"ok": True, "left": left}
 
@@ -52,7 +52,7 @@ class SettingsApi(ApiBase):
 
 
     def ui_strings(self) -> dict:
-        """Los textos de la ventana en el idioma actual (la UI los pide al arrancar)."""
+        """The window's texts in the current language (the UI asks for them at startup)."""
         return {"language": i18n.get_language(), "strings": i18n.ui_strings()}
 
     def languages(self) -> dict:
@@ -87,7 +87,7 @@ class SettingsApi(ApiBase):
         return {"ok": True, "score_ok": ok, "score_min": mn}
 
     def ui_ready(self) -> dict:
-        """La UI avisa que cargó (lo usa la prueba automática de arranque)."""
+        """The UI says it has loaded (used by the automated startup test)."""
         cb = getattr(self, "_on_ready", None)
         if cb:
             cb()
@@ -95,7 +95,7 @@ class SettingsApi(ApiBase):
 
     def open_data_dir(self) -> dict:
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        os.startfile(self._data_dir)  # type: ignore[attr-defined]  (solo Windows)
+        os.startfile(self._data_dir)  # type: ignore[attr-defined]  (Windows only)
         return {"ok": True}
 
     def open_url(self, url: str) -> dict:

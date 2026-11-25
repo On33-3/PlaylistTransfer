@@ -1,4 +1,4 @@
-"""Dónde guarda la app los datos del usuario: %LOCALAPPDATA%\\PlaylistTransfer (fuera del repo)."""
+"""Where the app keeps the user's data: %LOCALAPPDATA%\\PlaylistTransfer (outside the repo)."""
 from __future__ import annotations
 
 import os
@@ -27,7 +27,7 @@ def spotify_session_file() -> Path:
 
 
 def spotify_app_file() -> Path:
-    """El Client ID de la app de Spotify del usuario (no es secreto, pero es suyo)."""
+    """The Client ID of the user's Spotify app (not a secret, but it's theirs)."""
     return data_dir() / "spotify_app.json"
 
 
@@ -40,5 +40,5 @@ def history_file() -> Path:
 
 
 def browser_profiles_dir() -> Path:
-    """Perfiles de navegador propios de la app (guardan la sesión de Google)."""
+    """The app's own browser profiles (they keep the Google session)."""
     return data_dir() / "browser-profiles"

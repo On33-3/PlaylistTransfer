@@ -1,4 +1,4 @@
-"""Firefox: las cookies se leen del perfil del usuario (Firefox no las cifra en Windows)."""
+"""Firefox: the cookies are read from the user's profile (Firefox doesn't encrypt them on Windows)."""
 from __future__ import annotations
 
 import os
@@ -22,15 +22,15 @@ def cookie_dbs() -> list[Path]:
     roots = [Path(os.environ.get("APPDATA", "")) / "Mozilla" / "Firefox" / "Profiles",
              Path.home() / ".mozilla" / "firefox"]
     dbs = [db for r in roots if r.is_dir() for db in r.glob("*/cookies.sqlite")]
-    return sorted(dbs, key=lambda d: d.stat().st_mtime, reverse=True)   # el perfil más usado primero
+    return sorted(dbs, key=lambda d: d.stat().st_mtime, reverse=True)   # the most used profile first
 
 
 def read_cookies(domain: str, wanted: set[str], dbs: list[Path] | None = None) -> dict[str, str]:
-    """Cookies de `domain` del primer perfil que tenga alguna de `wanted`. {} si ninguno."""
+    """Cookies of `domain` from the first profile that has one of `wanted`. {} if none does."""
     for db in cookie_dbs() if dbs is None else dbs:
         rows = []
         with tempfile.TemporaryDirectory() as tmp:
-            # Firefox tiene el archivo abierto: se copia (junto con el -wal, que tiene lo más reciente)
+            # Firefox has the file open: it is copied (along with the -wal, which has the newest data)
             try:
                 for suffix in ("", "-wal"):
                     src = db.with_name(db.name + suffix)
@@ -39,7 +39,7 @@ def read_cookies(domain: str, wanted: set[str], dbs: list[Path] | None = None) -
                 con = sqlite3.connect(Path(tmp) / db.name)
                 rows = con.execute(
                     "SELECT name, value FROM moz_cookies WHERE host LIKE ? "
-                    "ORDER BY originAttributes != '', expiry", (f"%{domain}",)).fetchall()  # sin contenedores, primero
+                    "ORDER BY originAttributes != '', expiry", (f"%{domain}",)).fetchall()  # without containers, first
                 con.close()
             except Exception:
                 continue
@@ -53,8 +53,8 @@ def read_cookies(domain: str, wanted: set[str], dbs: list[Path] | None = None) -
 
 def login_and_read_cookies(login_url: str, domain: str, wanted: set[str], timeout: float = 600,
                            cancel: threading.Event | None = None, exe: Path | None = None) -> tuple[dict[str, str], str]:
-    """Usa la sesión ya abierta en Firefox; si no hay, abre el login *en Firefox* y espera a que aparezca.
-    (Con `webbrowser.open` se abría en el predeterminado: si era otro, la sesión nunca llegaba a Firefox.)"""
+    """Uses the session already open in Firefox; if there is none, opens the sign-in *in Firefox* and waits for it.
+    (With `webbrowser.open` it opened in the default browser: if that was another one, the session never reached Firefox.)"""
     jar = read_cookies(domain, wanted)
     if jar:
         return jar, FIREFOX_UA
@@ -69,7 +69,7 @@ def login_and_read_cookies(login_url: str, domain: str, wanted: set[str], timeou
         webbrowser.open(login_url)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if (cancel or threading.Event()).wait(3):       # espera 3 s, o corta si se canceló
+        if (cancel or threading.Event()).wait(3):       # waits 3 s, or stops if cancelled
             raise Cancelled()
         jar = read_cookies(domain, wanted)
         if jar:

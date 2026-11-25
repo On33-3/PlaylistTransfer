@@ -1,7 +1,7 @@
-"""Historial de transferencias y limpiezas, en SQLite, dentro de la carpeta de datos del usuario.
+"""History of transfers and clean-ups, in SQLite, inside the user's data folder.
 
-Primer uso: el archivo no existe y el historial está vacío. Leerlo no lo crea; recién la primera
-transferencia (o limpieza) real lo crea y lo alimenta. Nunca viene nada con la app ni con el repo.
+First run: the file doesn't exist and the history is empty. Reading it doesn't create it; only the first
+real transfer (or clean-up) creates it and fills it. Nothing ever ships with the app or the repo.
 """
 from __future__ import annotations
 
@@ -93,14 +93,14 @@ class History:
 
     @staticmethod
     def _migrate(con: sqlite3.Connection) -> None:
-        """Historiales de versiones anteriores: agrega las columnas nuevas sin tocar lo que hay."""
+        """Histories from earlier versions: adds the new columns without touching what is there."""
         cols = {r["name"] for r in con.execute("PRAGMA table_info(operations)")}
         if "skipped" not in cols:
             con.execute("ALTER TABLE operations ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0")
             con.commit()
 
     def _set_aside(self) -> None:
-        """Archivo dañado: se aparta (nunca se borra) y se empieza un historial nuevo."""
+        """A damaged file: it is set aside (never deleted) and a new history starts."""
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.path.rename(self.path.with_name(f"{self.path.stem}.dañado-{stamp}{self.path.suffix}"))
 
@@ -108,7 +108,7 @@ class History:
         return not self.list(limit=1)
 
     def list(self, limit: int | None = None) -> list[Operation]:
-        """Lo más reciente primero. [] si todavía no se hizo nada."""
+        """Newest first. [] if nothing has been done yet."""
         con = self._connect(create=False)
         if con is None:
             return []
@@ -119,8 +119,8 @@ class History:
         return [Operation(**dict(r)) for r in rows]
 
     def tiles(self, operation_ids: list[int], limit: int = 60) -> dict[int, dict]:
-        """Para los mosaicos: {operación: {"statuses", "songs" [(tema, artista)], "total"}}, con los
-        primeros `limit` temas de cada una (en orden) y el total, para mostrar "+N"."""
+        """For the mosaics: {operation: {"statuses", "songs" [(song, artist)], "total"}}, with the
+        first `limit` songs of each (in order) and the total, to show "+N"."""
         con = self._connect(create=False)
         if con is None or not operation_ids:
             return {}
@@ -150,7 +150,7 @@ class History:
         return [TrackRecord(**dict(r)) for r in rows]
 
     def record(self, op: Operation, tracks: list[TrackRecord]) -> int:
-        """Guarda una operación real (las pruebas sin cambios no se registran). Devuelve su id."""
+        """Saves a real operation (dry runs are not recorded). Returns its id."""
         data = {k: v for k, v in asdict(op).items() if k != "id"}
         con = self._connect(create=True)
         with con:
@@ -164,8 +164,8 @@ class History:
         return op.id
 
     def amend(self, operation_id: int, tracks: list[TrackRecord], **deltas: int) -> None:
-        """Lo que la persona decide después sobre una transferencia cambia esa misma operación:
-        el estado de esos temas y las cantidades (`added=1, not_found=-1`)."""
+        """What the person decides later about a transfer changes that same operation:
+        those songs' status and the counts (`added=1, not_found=-1`)."""
         allowed = {"added", "already", "doubtful", "not_found", "skipped"}
         if not deltas.keys() <= allowed:
             raise ValueError(deltas)

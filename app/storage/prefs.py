@@ -1,4 +1,4 @@
-"""Preferencias del usuario (navegador elegido, umbrales). Primer uso: valores por defecto."""
+"""User preferences (chosen browser, thresholds). First run: default values."""
 from __future__ import annotations
 
 import json
@@ -9,19 +9,19 @@ from app.core.matching import SCORE_MIN, SCORE_OK
 from app.i18n import t as tr
 
 DEFAULTS: dict = {
-    "browser": None,          # {"name", "kind", "exe"}: se pregunta en el primer login
+    "browser": None,          # {"name", "kind", "exe"}: asked at the first sign-in
     "score_ok": SCORE_OK,
     "score_min": SCORE_MIN,
-    "language": None,         # "es" | "en"; None = todavía no se eligió (ver Api._resolve_language)
+    "language": None,         # "es" | "en"; None = not chosen yet (see Api._resolve_language)
 }
 
 
 def threshold_limits() -> dict:
-    """Rangos permitidos para los umbrales.
+    """Allowed ranges for the thresholds.
 
-    "Agregar sin dudar" tiene que quedar por encima del tope de "otra versión" (en vivo, remix):
-    si no, esas versiones pasarían como OK. "Agregar para revisar" tiene que quedar por encima del
-    tope de "otra canción" (otro artista, cover): si no, se agregarían como dudosas."""
+    "Add without doubt" has to stay above the "another version" cap (live, remix):
+    otherwise those versions would pass as OK. "Add for review" has to stay above the
+    "another song" cap (another artist, cover): otherwise they would be added as doubtful."""
     from app.core.matching import NO_MATCH_CAP, VERSION_CAP
     return {"ok_min": round(VERSION_CAP + 0.01, 2), "ok_max": 0.99,
             "min_min": round(NO_MATCH_CAP + 0.01, 2), "gap": 0.05}
@@ -43,8 +43,8 @@ def validate_thresholds(score_ok, score_min) -> tuple[float, float]:
 
 
 def load(path: Path) -> dict:
-    """Las preferencias guardadas sobre los valores por defecto. Si no hay archivo, o está roto,
-    devuelve los valores por defecto (sin pisar el archivo roto)."""
+    """The saved preferences over the default values. If there is no file, or it is broken,
+    returns the defaults (without overwriting the broken file)."""
     prefs = dict(DEFAULTS)
     try:
         saved = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -52,7 +52,7 @@ def load(path: Path) -> dict:
         return prefs
     if isinstance(saved, dict):
         prefs.update({k: v for k, v in saved.items() if k in DEFAULTS})
-    try:   # umbrales editados a mano y fuera de rango: se usan los de fábrica
+    try:   # thresholds edited by hand and out of range: the factory ones are used
         prefs["score_ok"], prefs["score_min"] = validate_thresholds(prefs["score_ok"], prefs["score_min"])
     except ValueError:
         prefs["score_ok"], prefs["score_min"] = DEFAULTS["score_ok"], DEFAULTS["score_min"]
@@ -65,4 +65,4 @@ def save(path: Path, prefs: dict) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps({k: prefs[k] for k in DEFAULTS if k in prefs}, ensure_ascii=False, indent=2),
                    encoding="utf-8")
-    os.replace(tmp, path)     # nunca queda un archivo a medio escribir
+    os.replace(tmp, path)     # a half-written file is never left behind

@@ -1,4 +1,4 @@
-"""El historial: listar, detalle y descarga."""
+"""The history: list, detail and download."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -20,15 +20,15 @@ class HistoryApi(ApiBase):
             d = op.__dict__.copy()
             d["source_label"] = registry.name(op.source)
             d["target_label"] = registry.name(op.target)
-            # El mosaico de cada fila: un cuadrado por tema (hasta 60) con su estado, y qué tema es
-            # (para mostrarlo al pasar el mouse); "tiles_total" permite mostrar "+N" si hay más.
+            # Each row's mosaic: one square per song (up to 60) with its status, and which song it is
+            # (shown on hover); "tiles_total" lets the UI show "+N" if there are more.
             info = tiles.get(op.id, {"statuses": [], "songs": [], "total": 0})
             d["tiles"], d["tile_songs"], d["tiles_total"] = info["statuses"], info["songs"], info["total"]
             out.append(d)
         return out
 
     def export_history(self, kind: str | None = None) -> dict:
-        """Todo el historial (o solo transferencias / solo repetidos) en un .txt liviano, a pedido."""
+        """The whole history (or only transfers / only duplicates) in a light .txt, on request."""
         ops = from_history(self._history, kind=kind or None)
         if not ops:
             return {"error": tr("err.history_empty")}
@@ -36,7 +36,7 @@ class HistoryApi(ApiBase):
         return self._save_report(f"{base}-{datetime.now():%Y-%m-%d}.txt", ops)
 
     def _save_report(self, default_name: str, ops: list[ReportOperation]) -> dict:
-        """Abre "Guardar como" y escribe el .txt. {"cancelled": True} si el usuario cerró el diálogo."""
+        """Opens "Save as" and writes the .txt. {"cancelled": True} if the user closed the dialog."""
         if self._save_dialog is None:
             return {"error": tr("err.no_save_dialog")}
         chosen = self._save_dialog(default_name)
@@ -55,7 +55,7 @@ class HistoryApi(ApiBase):
         return {"path": str(path), "name": path.name, "operations": count}
 
     def open_export(self) -> dict:
-        """Abre el último historial descargado (con el Bloc de notas u otro editor). Solo ese archivo."""
+        """Opens the last downloaded history (with Notepad or another editor). Only that file."""
         if self._last_export is None or not self._last_export.exists():
             return {"error": tr("err.export_first")}
         self._open_file(self._last_export)

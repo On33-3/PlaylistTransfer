@@ -1,4 +1,4 @@
-"""Transferir: empezar, agregar después lo que la persona decide y registrar en el historial."""
+"""Transfer: start, add later what the person decides, and record it in the history."""
 from __future__ import annotations
 
 import logging
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 class TransfersApi(ApiBase):
 
     def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False) -> dict:
-        """Los "?" (pueden ser otra versión) no se agregan solos: el usuario decide al final con
+        """The "?" (may be another version) are not added on their own: the user decides at the end with
         `add_doubtful`."""
         if source == target:
             return {"error": tr("err.same_service")}
@@ -37,7 +37,7 @@ class TransfersApi(ApiBase):
                 result = run_transfer(src, dst, source_id, tgts, dry_run=bool(dry_run), emit=emit, cancel=cancel,
                                       score_ok=p["score_ok"], score_min=p["score_min"],
                                       progress=SearchProgress(self._data_dir / "busquedas", source, source_id, target))
-            except PartialTransfer as partial:          # lo que ya se pasó queda en el historial
+            except PartialTransfer as partial:          # what was already moved stays in the history
                 if not partial.result.dry_run:
                     self._record_transfer(partial.result)
                 cause = partial.__cause__
@@ -46,14 +46,14 @@ class TransfersApi(ApiBase):
             if not result.dry_run:
                 self._record_transfer(result)
             key = f"transfer-{next(self._ids)}"
-            _remember(self._transfers, key, result)      # para "agregar la versión de otro artista"
+            _remember(self._transfers, key, result)      # for "add another artist's version"
             return {"transfer": key, "source_name": result.source_name, "dry_run": result.dry_run, **self._outcome(result)}
 
         return self._start("transfer", work)
 
     @staticmethod
     def _outcome(result: TransferResult) -> dict:
-        """Las cantidades de la pantalla de resultado (cambian si después se agrega algo)."""
+        """The counts on the result screen (they change if something is added later)."""
         return {"summary": summary(result),
                 "targets": [{"name": t.target.name, "id": t.target.id, "url": t.url, "added": len(t.added),
                              "already": len(t.already), "versions": already_there(t) - len(t.already),
@@ -61,14 +61,14 @@ class TransfersApi(ApiBase):
                             for t in result.targets]}
 
     def add_alternative(self, transfer: str, n: int, k: int) -> dict:
-        """El usuario eligió agregar la versión de otro artista (tema `n`, alternativa `k`)."""
+        """The user chose to add another artist's version (song `n`, alternative `k`)."""
         result = self._transfers.get(transfer)
         if result is None or result.dry_run:
             return {"error": tr("err.transfer_gone")}
         track = next((t for t in result.tracks if t.n == int(n)), None)
         if track is None or not (0 <= int(k) < len(track.alternatives)):
             return {"error": tr("err.version_not_found")}
-        if track.status != NOT_FOUND:        # ya se eligió una: un tema no se agrega dos veces
+        if track.status != NOT_FOUND:        # one was already chosen: a song is not added twice
             return {"error": tr("err.version_not_found")}
         alt = track.alternatives[int(k)]
 
@@ -87,8 +87,8 @@ class TransfersApi(ApiBase):
         return self._start("alternative", work)
 
     def add_doubtful(self, transfer: str, ns: list[int]) -> dict:
-        """El usuario eligió agregar igual temas "?" que no se habían agregado (uno o todos).
-        Antes de agregar vuelve a leer cada destino: lo que ya está no se agrega dos veces."""
+        """The user chose to add "?" songs anyway that hadn't been added (one or all).
+        Before adding it reads each destination again: what is already there is not added twice."""
         result = self._transfers.get(transfer)
         if result is None or result.dry_run:
             return {"error": tr("err.transfer_gone")}
@@ -121,7 +121,7 @@ class TransfersApi(ApiBase):
                 added_total += len(to_add)
                 added_ns |= {x.n for x in tracks if id(x.match) in present}
                 already_total += len(already) + len(versions)
-            for x in tracks:              # ya no se ofrecen de nuevo
+            for x in tracks:              # they are not offered again
                 x.status = DOUBTFUL
             return {"ns": [x.n for x in tracks], "added_ns": sorted(added_ns), "added": added_total,
                     "already": already_total,
@@ -130,21 +130,21 @@ class TransfersApi(ApiBase):
 
     @staticmethod
     def _ensure_playlist(dst: Connector, t: TargetResult, result: TransferResult) -> None:
-        """Al agregar después (un "?" u otro artista): si la playlist nueva no se había creado porque no
-        había nada para agregar, se crea ahora."""
+        """When adding later (a "?" or another artist): if the new playlist wasn't created because there
+        was nothing to add, it is created now."""
         if ensure_playlist(dst, t.target, registry.name(result.source_service)):
             t.created, t.url = True, dst.url(t.target.id)
 
     @staticmethod
     def _transfer_op(result: TransferResult, t: TargetResult, **counts) -> Operation:
-        """La operación del historial para una playlist de destino de una transferencia."""
+        """The history operation for one destination playlist of a transfer."""
         return Operation(kind="transfer", source=result.source_service, source_name=result.source_name,
                          target=result.target_service, target_name=t.target.name, target_url=t.url, **counts)
 
     @classmethod
     def _transfer_operations(cls, result: TransferResult) -> list[tuple[Operation, list[TrackRecord]]]:
-        """Una operación por playlist de destino, con el estado de cada tema respecto de esa playlist.
-        La usan el historial y el reporte, así los dos dicen exactamente lo mismo."""
+        """One operation per destination playlist, with each song's status for that playlist.
+        The history and the report both use it, so they say exactly the same."""
         s = summary(result)
         out = []
         for t in result.targets:
@@ -166,7 +166,7 @@ class TransfersApi(ApiBase):
         return out
 
     def _record_transfer(self, result: TransferResult) -> None:
-        """El historial es un registro: si no se puede escribir, la transferencia igual salió bien."""
+        """The history is a record: if it can't be written, the transfer still went fine."""
         for t, (op, tracks) in zip(result.targets, self._transfer_operations(result)):
             try:
                 t.history_id = self._history.record(op, tracks)
@@ -174,7 +174,7 @@ class TransfersApi(ApiBase):
                 log.exception("No pude guardar en el historial")
 
     def _amend_history(self, t: TargetResult, tracks: list[TrackRecord], **deltas: int) -> None:
-        """Lo agregado después es parte de la misma transferencia: corrige su fila, no suma otra."""
+        """What is added later is part of the same transfer: it corrects its row instead of adding another."""
         if t.history_id is None:
             return
         try:

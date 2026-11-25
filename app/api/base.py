@@ -1,4 +1,4 @@
-"""Lo que comparten todas las partes de la API: el estado, los servicios y las tareas en segundo plano."""
+"""What every part of the API shares: the state, the services and the background tasks."""
 from __future__ import annotations
 
 import itertools
@@ -21,11 +21,11 @@ from app.storage.history import History
 log = logging.getLogger(__name__)
 
 
-KEEP_RESULTS = 5     # transferencias y búsquedas de repetidos que se recuerdan para actuar sobre ellas
+KEEP_RESULTS = 5     # transfers and duplicate checks kept in memory to act on them
 
 
 def _remember(store: dict, key: str, value) -> None:
-    """Guarda sin crecer para siempre: la UI solo actúa sobre lo último."""
+    """Stores without growing forever: the UI only acts on the latest ones."""
     store[key] = value
     while len(store) > KEEP_RESULTS:
         del store[next(iter(store))]
@@ -42,7 +42,7 @@ class ApiBase:
                  save_dialog: Callable[[str], str | None] | None = None,
                  open_file: Callable[[Path], None] | None = None,
                  system_language: Callable[[], str] = i18n.system_language):
-        self._save_dialog = save_dialog          # main.py pone el diálogo "Guardar como" de la ventana
+        self._save_dialog = save_dialog          # main.py sets the window's "Save as" dialog
         self._open_file = open_file or (lambda p: os.startfile(p))  # type: ignore[attr-defined]
         self._last_export: Path | None = None
         self._connectors = connectors
@@ -58,8 +58,8 @@ class ApiBase:
         i18n.set_language(self._resolve_language(system_language))
 
     def _resolve_language(self, system_language: Callable[[], str]) -> str:
-        """El elegido en Ajustes. Si nunca se eligió: castellano para quien ya usaba la app (antes
-        solo existía en castellano) y el idioma de Windows para una instalación nueva."""
+        """The one chosen in Settings. If none was ever chosen: Spanish for someone who already used the app
+        (it used to exist only in Spanish) and the Windows language for a new install."""
         chosen = self._prefs().get("language")
         if chosen in i18n.LANGUAGES:
             return chosen
@@ -81,8 +81,8 @@ class ApiBase:
 
     def _start(self, kind: str, fn) -> dict:
         def watched(emit, cancel):
-            # Mientras corre la tarea, cualquier espera de un servicio se ve en pantalla y se puede cancelar
-            # (corre una tarea por vez: no se pisan)
+            # While the task runs, any wait from a service shows on screen and can be cancelled
+            # (one task runs at a time: they don't overlap)
             for c in self._connectors.values():
                 c.listen(emit, cancel)
             try:
@@ -99,13 +99,13 @@ class ApiBase:
         return prefs.load(self._prefs_path)
 
     def _save_prefs(self, p: dict) -> None:
-        """Guarda siempre el idioma en uso: si no, una instalación nueva en inglés volvería a
-        castellano la próxima vez (el archivo ya existiría, sin idioma)."""
+        """Always saves the language in use: otherwise a new install in English would go back to
+        Spanish next time (the file would already exist, without a language)."""
         p["language"] = p.get("language") or i18n.get_language()
         prefs.save(self._prefs_path, p)
 
     def _browser(self, installed: list[Browser] | None = None) -> Browser | None:
-        """El navegador elegido, si sigue instalado. Si lo desinstalaron, None: se vuelve a proponer uno."""
+        """The chosen browser, if it is still installed. If it was uninstalled, None: one is suggested again."""
         b = self._prefs().get("browser")
         if not (b and b.get("exe")):
             return None
@@ -118,7 +118,7 @@ class ApiBase:
             return fn(*args, **kwargs)
         except ConnectorError as e:
             return {"error": str(e)}
-        except Exception as e:   # nunca dejar a la UI sin respuesta
+        except Exception as e:   # never leave the UI without an answer
             log.exception("Error en la API")
             return {"error": unexpected_message(e)}
 
