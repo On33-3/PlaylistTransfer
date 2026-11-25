@@ -201,9 +201,10 @@ class FakeSpotify:
             uris = params["uris"].split(",")
             assert len(uris) <= 40 and json is None
             if method == "PUT":
-                for x in uris:                                   # cada uno queda arriba al guardarlo
-                    if x not in self.liked:
-                        self.liked.insert(0, x)
+                # Medido con una cuenta real (2026-11-25, tools/real_check.py): el pedido entra arriba, pero
+                # el orden dentro del pedido lo decide Spotify, no el orden en que se mandan. Acá: por URI, al
+                # revés (a propósito distinto del de la lista, para que ningún test dependa de él)
+                self.liked[0:0] = sorted((x for x in dict.fromkeys(uris) if x not in self.liked), reverse=True)
             else:
                 self.liked = [x for x in self.liked if x not in uris]
             return Resp(200, None)

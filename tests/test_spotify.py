@@ -446,17 +446,19 @@ def test_if_the_port_is_taken_the_message_says_so(tmp_path, api):
 
 def test_liked_songs_read_add_and_remove(tmp_path, api):
     """Se leen con /me/tracks; desde 2026 se guardan y quitan con /me/library (URIs, hasta 40 por pedido).
-    Al guardar, el primero de la lista queda arriba."""
+    El orden entre pedidos lo pone la app: los primeros de la lista, en el pedido de arriba. Dentro de un
+    pedido lo decide Spotify (medido con la cuenta real el 2026-11-25)."""
     tracks = [track(i, f"Tema {i}", "Artista") for i in range(45)]
     api.add_tracks(*tracks)
     api.liked = [tracks[0]["uri"]]
     c = make(tmp_path, api)
     assert c.list_playlists()[0].name == "Canciones que te gustan" and c.list_playlists()[0].count == 1
     c.add(sp.LIKED, [song_of(t) for t in tracks[1:]])
-    assert api.liked == [t["uri"] for t in tracks[1:]] + [tracks[0]["uri"]]
+    uris = [t["uri"] for t in tracks[1:]]                   # 44 temas: una tanda de 4 arriba y una de 40
+    assert set(api.liked[:4]) == set(uris[:4]) and set(api.liked[4:44]) == set(uris[4:]) and api.liked[44] == tracks[0]["uri"]
     assert all(len(p["uris"].split(",")) <= 40 for m, path, p, _, _ in api.calls if path == "/me/library")
     name, songs = c.read(sp.LIKED)
-    assert name == "Canciones que te gustan" and songs[0].id == tracks[1]["uri"] and len(songs) == 45
+    assert name == "Canciones que te gustan" and songs[0].id in uris[:4] and len(songs) == 45
     c.remove(sp.LIKED, [Duplicate(1, song_of(tracks[2]), song_of(tracks[1]), "exact")], confirmed=True)
     assert tracks[2]["uri"] not in api.liked and len(api.liked) == 44
     assert c.url(sp.LIKED) == "https://open.spotify.com/collection/tracks"
@@ -475,7 +477,7 @@ def test_login_asks_for_the_liked_songs_permission():
 
 def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
     """De punta a punta: de una playlist de Tidal a las canciones que te gustan de Spotify. Lo que ya
-    te gustaba no se repite, y el orden es el del origen."""
+    te gustaba no se repite, y lo nuevo queda arriba."""
     from app.core.transfer import Target, run_transfer
     from tests.fakes import FakeService, S
     a, b, cc = track(1, "Take On Me", "a-ha"), track(2, "Mr. Blue Sky", "Electric Light Orchestra"), track(3, "Hallelujah", "Jeff Buckley")
@@ -488,7 +490,7 @@ def test_transfer_into_liked_songs_end_to_end(tmp_path, api):
     t = res.targets[0]
     assert t.target.name == "Canciones que te gustan" and not t.created
     assert [s.id for s in t.added] == [a["uri"], cc["uri"]] and [s.id for s in t.already] == [b["uri"]]
-    assert api.liked == [a["uri"], cc["uri"], b["uri"]]
+    assert set(api.liked[:2]) == {a["uri"], cc["uri"]} and api.liked[2] == b["uri"]   # un solo pedido: orden de Spotify
 
 
 def test_a_session_from_before_liked_songs_asks_to_reconnect(tmp_path, api):

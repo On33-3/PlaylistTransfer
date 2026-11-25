@@ -271,7 +271,8 @@ class TidalConnector(Connector):
         if not ids:
             return
         if playlist_id == LIKED:
-            # Lo último que se marca queda arriba: se marcan al revés, así el primero de la lista queda primero
+            # Cada pedido entra arriba; dentro de un pedido el orden lo decide Tidal (medido con la cuenta real
+            # el 2026-11-25). Se mandan al revés: la tanda de arriba es la de los primeros de la lista
             fav = self._favorites()
             ids.reverse()
             for i in range(0, len(ids), BATCH):

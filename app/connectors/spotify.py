@@ -412,7 +412,8 @@ class SpotifyConnector(Connector):
         uris = [s.id for s in songs if s.id and s.id.startswith("spotify:track:")]
         self._ready()
         if playlist_id == LIKED:
-            # Lo último que se guarda queda arriba: se guardan al revés, así el primero de la lista queda primero
+            # Cada pedido entra arriba; dentro de un pedido el orden lo decide Spotify (medido con la cuenta
+            # real el 2026-11-25). Se mandan al revés: la tanda de arriba es la de los primeros de la lista
             uris.reverse()
             for i in range(0, len(uris), LIBRARY_BATCH):
                 self._call("PUT", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})

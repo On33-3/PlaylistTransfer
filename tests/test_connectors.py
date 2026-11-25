@@ -34,7 +34,7 @@ class FakeTidalPlaylist:
 
 
 class FakeTidalFavorites:
-    """Los favoritos de Tidal: el más reciente primero; agregar deja lo último arriba."""
+    """Los favoritos de Tidal: el más reciente primero; cada pedido de agregar entra arriba."""
 
     def __init__(self, tracks=()):
         self._tracks, self.calls = list(tracks), []
@@ -47,9 +47,10 @@ class FakeTidalFavorites:
         return self._tracks[offset:offset + limit]
 
     def add_track(self, ids):
+        # Medido con una cuenta real (2026-11-25, tools/real_check.py): el pedido entra arriba, pero el orden
+        # dentro del pedido lo decide Tidal, no el orden en que se mandan. Acá: por id
         self.calls.append(("add", list(ids)))
-        for i in ids:
-            self._tracks.insert(0, track(i, f"Tema {i}", "Artista"))
+        self._tracks[0:0] = [track(i, f"Tema {i}", "Artista") for i in sorted(ids, key=str, reverse=True)]
         return True
 
     def remove_track(self, tid):
@@ -523,21 +524,35 @@ def test_yt_untitled_playlist_follows_the_language():
 # ---------------------------------------------------------------- canciones que te gustan
 
 def test_tidal_liked_songs_read_add_and_remove():
-    """Los favoritos de Tidal como una playlist más: se leen del más reciente al más viejo; al agregar,
-    el primero de la lista queda arriba (se marcan al revés); quitar saca ese tema y nada más."""
+    """Los favoritos de Tidal como una playlist más: se leen del más reciente al más viejo; lo agregado
+    queda arriba (dentro de un pedido, en el orden que decide Tidal); quitar saca ese tema y nada más."""
     fav = FakeTidalFavorites([track(3, "Nuevo", "A"), track(2, "Medio", "A")])
     c = tidal(FakeTidalSession(favorites=fav))
     name, songs = c.read(LIKED)
     assert name == "Canciones que te gustan" and [s.id for s in songs] == ["3", "2"]
     assert fav.calls[0] == ("tracks", "DATE", "DESC")
-    c.add(LIKED, [Song("Uno", ["A"], id="10"), Song("Dos", ["A"], id="11")])
-    assert [s.id for s in c.read(LIKED)[1]] == ["10", "11", "3", "2"]
+    c.add(LIKED, [Song("Dos", ["A"], id="11"), Song("Uno", ["A"], id="10")])
+    ids = [s.id for s in c.read(LIKED)[1]]
+    assert set(ids[:2]) == {"10", "11"} and ids[2:] == ["3", "2"]
     c.remove(LIKED, [Duplicate(1, Song("Dos", ["A"], id="11"), Song("Uno", ["A"], id="10"), "exact")], confirmed=True)
     assert [s.id for s in c.read(LIKED)[1]] == ["10", "3", "2"]
     with pytest.raises(RemovalNotConfirmedError):
         c.remove(LIKED, [Duplicate(0, Song("Uno", ["A"], id="10"), Song("Uno", ["A"], id="3"), "exact")])
     assert c.url(LIKED) == "https://tidal.com/my-collection/tracks"
 
+
+def test_tidal_liked_songs_keep_the_order_between_batches():
+    """Más temas que un pedido: el orden entre pedidos lo pone la app (el primero de la lista, en el pedido
+    de arriba); dentro de un pedido lo decide Tidal (medido con la cuenta real el 2026-11-25)."""
+    from app.connectors.base import BATCH
+    fav = FakeTidalFavorites([track(999, "Viejo", "A")])
+    c = tidal(FakeTidalSession(favorites=fav))
+    ids = [str(i) for i in range(1, BATCH + 12)]
+    c.add(LIKED, [Song(f"Tema {i}", ["A"], id=i) for i in ids])
+    got = [s.id for s in c.read(LIKED)[1]]
+    top = len(ids) - BATCH                         # la tanda de arriba: los primeros 11 de la lista
+    assert len([x for x in fav.calls if x[0] == "add"]) == 2 and got[-1] == "999"
+    assert set(got[:top]) == set(ids[:top]) and set(got[top:-1]) == set(ids[top:])
 
 def test_yt_liked_songs_are_the_lm_list_and_add_means_like():
     fake = FakeYT([{"title": "Take On Me", "artists": [{"name": "a-ha"}], "videoId": "v1"}])
