@@ -1,4 +1,4 @@
 # App (versiones probadas con cuentas reales; actualizar a propósito, no por accidente)
 tidalapi==0.8.11
-ytmusicapi==1.12.3
+ytmusicapi==1.12.4
 pywebview==6.2.1
