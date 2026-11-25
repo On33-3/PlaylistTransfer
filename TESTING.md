@@ -4,9 +4,9 @@ PlaylistTransfer changes people's playlists. A wrong match adds a song nobody as
 
 > When in doubt, the result has to be the safe one. When transferring, "not found" or "doubtful" is better than adding another song as OK. When cleaning, missing a duplicate is better than removing a song that wasn't one.
 
-**At a glance** (v0.3.13)
+**At a glance** (November 2026)
 
-- **493 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
+- **495 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
 - The interface is tested **in the same engine the window uses** (Chromium, through Playwright and Edge), and design rules are measured on every screen.
 - Before each release, **the real interface runs against real accounts**, with every write blocked except inside a throwaway playlist the check creates and deletes.
 - Each release is built and opened in a clean Windows without Python before it is published, with a SHA-256 checksum.
@@ -24,17 +24,17 @@ PlaylistTransfer changes people's playlists. A wrong match adds a song nobody as
 
 ## The layers
 
-Counts as of v0.3.13.
+Counts as of November 2026.
 
 | Layer | What it proves | Where | Tests |
 |---|---|---|---|
 | Matching scenarios | Same recording, other performer, other song by the same artist, live/remix/karaoke/cover, parts and sequels, featured artists. Each rule has its scenario. | `tests/test_scenarios.py`, `tests/test_matching.py` | 169 |
 | Engine and API | Transfers, resuming, duplicates across all playlists, history, first run, erase everything, malformed requests, actions at the wrong time. Uses fake services. | `test_api`, `test_transfer`, `test_resume`, `test_edge_cases`, `test_first_run`, `test_privacy`, `test_export` | 112 |
-| Connectors | Tidal and YouTube Music connectors, and the Spotify connector against a fake Spotify Web API: pagination, `429 Retry-After`, token refresh, the local OAuth (PKCE) server. | `test_connectors`, `test_spotify`, `test_auth` | 101 |
+| Connectors | Tidal and YouTube Music connectors, and the Spotify connector against a fake Spotify Web API: pagination, `429 Retry-After`, token refresh, the local OAuth (PKCE) server. | `test_connectors`, `test_spotify`, `test_auth` | 102 |
 | Interface, end to end | Every screen driven in headless Edge with Playwright, talking to the real API over the same bridge the window uses. | `tests/test_ui_*.py` | 65 |
 | Languages | Spanish and English have the same keys; English screens show no Spanish words. | `test_i18n` | 21 |
 | Packaging and startup | Icon, version info, licenses of what is bundled, package size limit, a startup failure is shown and logged, the window never reuses old copies of the UI. | `test_packaging`, `test_main` | 21 |
-| Tooling and static checks | The real-account check can't write outside its test playlist; pyflakes finds nothing. | `test_real_check`, `test_code` | 4 |
+| Tooling and static checks | The real-account check can't write outside its test playlist and test songs; pyflakes finds nothing. | `test_real_check`, `test_code` | 5 |
 
 ### Design rules, measured
 
@@ -69,9 +69,15 @@ The automated tests use fake services, so they can't notice when a real service 
    - the playlist has to end up as A, B, C, and the history has to record it.
 
    The playlist is then deleted, always (in a `finally`), and a leftover from an interrupted run is deleted first.
-5. Settings, and no JavaScript errors anywhere.
+5. **Liked songs for real**, in each service:
+   - two of the user's songs that weren't liked are liked the way a transfer does it;
+   - they have to show up at the top;
+   - they are unliked (always), and the liked list has to be exactly as it was.
+6. Settings, and no JavaScript errors anywhere.
 
-**Safety.** Before the page opens, `guard()` replaces every write the API and the connectors can do: add, create, remove, disconnect, erase everything, and a real transfer. Only removing from the throwaway playlist goes through, and the run fails if anything else was attempted. A test checks the guard with the fake services.
+A step that fails leaves a screenshot of the screen at that moment.
+
+**Safety.** Before the page opens, `guard()` replaces every write the API and the connectors can do: add, create, remove, disconnect, erase everything, and a real transfer. Only two things go through: removing from the throwaway playlist, and liking or unliking the two test songs. The run fails if anything else was attempted. A test checks the guard with the fake services.
 
 **Where its data goes.** The check's history and saved searches go to a temporary folder. Its screenshots contain real data, so they stay outside the repo.
 
@@ -93,6 +99,7 @@ Each step that passes gets its own commit; one that fails is undone. A refactor 
 | Bug | Caught by | Test that now guards it |
 |---|---|---|
 | Spotify's playlist list kept saying 0 songs for a just-created playlist that already had 5, so it was missing from Remove duplicates | `real_check` (removing for real) | `test_a_new_playlist_listed_with_no_songs_gets_its_real_count`, which fails on the old code |
+| The fakes were too optimistic: they kept the order of the songs inside one "like" request, so the tests "proved" an exact order in Liked songs. Tidal and Spotify decide that order themselves (sent in either order, the result was the same). Only the order between requests is the app's. | `real_check` (liked songs) | The fakes now order each request differently from the list on purpose, and the tests check what is really guaranteed. Exact order would mean one request per song; the author chose speed |
 | A long playlist name wrapped onto two lines inside the closed dropdown | `real_check` screenshot review | `test_a_long_playlist_name_stays_in_one_line_in_the_closed_list`, plus the dropdown rule in `check()`, which fails on the old code |
 | The Spotify login test failed now and then on CI: it read the reply page before the fake browser thread had finished | CI | The test waits for that thread; 30 runs in a row passed |
 | Switching service in the middle of a duplicates check showed one service's result under another's name | Negative-case review | `test_service_and_playlist_cannot_change_while_checking` |
@@ -106,7 +113,6 @@ One bug the tests could not have caught: after an update, the window (WebView2) 
 ## Known limits
 
 - The real-account check is run by hand before each release, not on a schedule.
-- Adding to Spotify's "Liked songs" has not been checked with a real account yet.
 - Tidal and YouTube Music work through unofficial libraries. A change on their side can break them; `real_check` detects it, but nothing can prevent it.
 - The `.exe` is not signed yet, and the code comments are still in Spanish (translating them is planned).
 
