@@ -1,4 +1,4 @@
-"""Conector de YouTube Music (ytmusicapi, no oficial), con sesión de navegador."""
+"""YouTube Music connector (ytmusicapi, unofficial), with a browser session."""
 from __future__ import annotations
 
 import hashlib
@@ -26,24 +26,24 @@ LOGIN_URL = ("https://accounts.google.com/ServiceLogin?service=youtube&passive=t
              "%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F")
 ORIGIN = "https://music.youtube.com"
 SESSION_COOKIES = {"__Secure-3PAPISID", "SAPISID"}
-LIKED_LIST = "LM"               # "Me gusta" de YouTube Music: se lee como lista; se agrega marcando "Me gusta"
-SKIP_PLAYLISTS = {"SE"}         # "Episodios": no admite agregar temas
+LIKED_LIST = "LM"               # YouTube Music's liked songs: read as a list; added by liking
+SKIP_PLAYLISTS = {"SE"}         # "Episodes": songs can't be added to it
 
 
 def sapisid_hash(sapisid: str, origin: str = ORIGIN, ts: int | None = None) -> str:
-    """Header 'authorization' que usa YouTube. ytmusicapi lo necesita para reconocer la sesión de
-    navegador: sin él la toma como OAuth y falla con "oauth_credentials not provided"."""
+    """The 'authorization' header YouTube uses. ytmusicapi needs it to recognize a browser session:
+    without it, it takes it as OAuth and fails with "oauth_credentials not provided"."""
     ts = str(int(time.time()) if ts is None else ts)
     return f"SAPISIDHASH {ts}_{hashlib.sha1(f'{ts} {sapisid} {origin}'.encode()).hexdigest()}"
 
 
 def browser_headers(jar: dict[str, str], user_agent: str, ts: int | None = None) -> str:
-    """Headers en texto (como los copiarías del navegador) a partir de las cookies de YouTube."""
+    """Headers as text (as you would copy them from the browser), built from YouTube's cookies."""
     sapisid = jar.get("__Secure-3PAPISID") or jar.get("SAPISID")
     if not sapisid:
         raise LoginError(tr("err.google_session_missing"))
     cookie = "; ".join(f"{k}={v}" for k, v in jar.items())
-    if "__Secure-3PAPISID" not in jar:   # ytmusicapi busca esta cookie por nombre
+    if "__Secure-3PAPISID" not in jar:   # ytmusicapi looks for this cookie by name
         cookie += f"; __Secure-3PAPISID={sapisid}"
     return "\n".join([
         f"cookie: {cookie}",
@@ -56,7 +56,7 @@ def browser_headers(jar: dict[str, str], user_agent: str, ts: int | None = None)
 
 
 def parse_count(count) -> int | None:
-    """'1.234 canciones' / '25 songs' / 25 → número."""
+    """'1.234 canciones' / '25 songs' / 25 → number."""
     try:
         return int(str(count).replace(".", "").replace(",", "").split()[0]) if count else None
     except (ValueError, IndexError):
@@ -68,16 +68,16 @@ class YTMusicConnector(Connector):
     name = "YouTube Music"
 
     def __init__(self, browser_file: Path, profiles_dir: Path, client=None):
-        """`client` permite pasar un YTMusic falso en los tests."""
+        """`client` lets the tests pass a fake YTMusic."""
         self.browser_file = Path(browser_file)
         self.profiles_dir = Path(profiles_dir)
         self.yt = client
 
-    # ---- sesión
+    # ---- session
 
     def _open(self):
-        """Abre browser.json y prueba la sesión con un pedido liviano. None si no sirve.
-        Una respuesta ilegible de paso no es una sesión vencida (pasó: se pedía reconectar sin motivo)."""
+        """Opens browser.json and tries the session with a light request. None if it doesn't work.
+        A one-off unreadable answer is not an expired session (it happened: reconnecting was asked for no reason)."""
         from ytmusicapi import YTMusic
         try:
             yt = YTMusic(str(self.browser_file))
@@ -110,7 +110,7 @@ class YTMusicConnector(Connector):
             raise ConnectorError(tr("err.yt_session_rejected"))
 
     def login_steps(self, browser: Browser | None) -> list[str]:
-        # Con Firefox se usa su sesión (no se abre una ventana aparte): los pasos son otros
+        # With Firefox its own session is used (no separate window opens): the steps are different
         if browser is not None and browser.is_firefox:
             return [f"login.ytmusic_firefox.{i}" for i in range(1, 4)]
         return [f"login.ytmusic.{i}" for i in range(1, 5)]
@@ -154,7 +154,7 @@ class YTMusicConnector(Connector):
     def url(playlist_id: str) -> str:
         return f"https://music.youtube.com/playlist?list={LIKED_LIST if playlist_id == LIKED else playlist_id}"
 
-    # ---- lectura
+    # ---- reading
 
     @staticmethod
     def to_song(item: dict) -> Song:
@@ -165,7 +165,7 @@ class YTMusicConnector(Connector):
                     id=item.get("videoId"), set_id=item.get("setVideoId"))
 
     def list_playlists(self) -> list[PlaylistInfo]:
-        """Las canciones que te gustan (primero) y las playlists de la biblioteca."""
+        """Liked songs (first) and the library playlists."""
         liked, out = None, []
         for p in self._steady(self._ready().get_library_playlists, None):
             if p.get("playlistId") == LIKED_LIST:
@@ -175,8 +175,8 @@ class YTMusicConnector(Connector):
         return [liked_info(liked if liked is not None else self._liked_count())] + out
 
     def _steady(self, call, *args):
-        """Leer una lista larga son muchos pedidos seguidos, y YouTube a veces contesta uno vacío o sin JSON
-        (ytmusicapi falla al interpretarlo, antes de mirar el código HTTP). Se reintenta la lectura entera."""
+        """Reading a long list is many requests in a row, and YouTube sometimes answers one empty or without
+        JSON (ytmusicapi fails parsing it, before looking at the HTTP code). The whole read is retried."""
         for wait in RATE_LIMIT_WAITS:
             try:
                 return self.patient(call, *args)
@@ -186,7 +186,7 @@ class YTMusicConnector(Connector):
         return self.patient(call, *args)
 
     def _liked_count(self) -> int | None:
-        """La lista "Me gusta" es automática: en la biblioteca no trae cantidad (se veía como vacía)."""
+        """The liked list is automatic: in the library it has no count (it looked empty)."""
         try:
             count = self._ready().get_playlist(LIKED_LIST, limit=1).get("trackCount")
         except Exception as e:
@@ -204,7 +204,7 @@ class YTMusicConnector(Connector):
     def search(self, song: Song) -> list[Song]:
         yt = self._ready()
         found: dict[str, Song] = {}
-        for flt in ("songs", "videos"):        # primero canciones; si no aparece, videos
+        for flt in ("songs", "videos"):        # songs first; if it isn't there, videos
             def fetch(q, flt=flt):
                 return [self.to_song(item) for item in yt.search(q, filter=flt, limit=10) if item.get("videoId")]
             self.collect(song, queries_for(song), fetch, found)
@@ -212,7 +212,7 @@ class YTMusicConnector(Connector):
                 break
         return list(found.values())
 
-    # ---- escritura
+    # ---- writing
 
     def create(self, name: str, description: str, public: bool = False) -> str:
         pid = self._ready().create_playlist(name, description, privacy_status="PUBLIC" if public else "PRIVATE")
@@ -224,8 +224,8 @@ class YTMusicConnector(Connector):
         ids = [s.id for s in songs if s.id]
         yt = self._ready()
         if playlist_id == LIKED:
-            # Se marca "Me gusta" uno por uno. Lo último que se marca queda arriba: se marcan al revés,
-            # así el primero de la lista queda primero
+            # Songs are liked one by one. The last one liked ends up on top: they are liked in reverse,
+            # so the first of the list ends up first
             for k, vid in enumerate(reversed(ids), 1):
                 self.patient(yt.rate_song, vid, "LIKE")
                 self.adding(k, len(ids))
@@ -238,9 +238,9 @@ class YTMusicConnector(Connector):
             self.adding(min(i + BATCH, len(ids)), len(ids))
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
-        """Hace falta el setVideoId de cada aparición: con el videoId solo se quitarían todas las copias."""
+        """Each occurrence's setVideoId is needed: with the videoId alone every copy would be removed."""
         require_confirmation(confirmed)
-        if playlist_id == LIKED:                  # en "Me gusta" cada tema está una vez: se le saca el "Me gusta"
+        if playlist_id == LIKED:                  # in liked songs each song is there once: it gets unliked
             yt = self._ready()
             for d in items:
                 self.patient(yt.rate_song, d.song.id, "INDIFFERENT")

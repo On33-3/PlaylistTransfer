@@ -1,8 +1,8 @@
-"""Los servicios de música que conoce la app, en un solo lugar.
+"""The music services the app knows, in one place.
 
-De acá salen los conectores que arma la app, los nombres que muestra la ventana (la UI los pide con
-`Api.services()`) y los links que se pueden abrir. Para sumar un servicio: su conector en
-`app/connectors/` y una línea en `SERVICES`.
+From here come the connectors the app builds, the names the window shows (the UI asks for them with
+`Api.services()`) and the links that can be opened. To add a service: its connector in
+`app/connectors/` and one line in `SERVICES`.
 """
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from app.storage import paths
 class Service:
     key: str
     name: str
-    links: tuple[str, ...]                    # prefijos de los links que se pueden abrir
-    make: Callable[[], Connector] | None      # None: todavía no está disponible ("próximamente")
+    links: tuple[str, ...]                    # prefixes of the links that can be opened
+    make: Callable[[], Connector] | None      # None: not available yet ("coming soon")
 
 
 def _tidal() -> Connector:
@@ -45,7 +45,7 @@ SERVICES: tuple[Service, ...] = (
 
 
 def names() -> dict[str, str]:
-    """{"tidal": "Tidal", ...} en el orden en que se muestran."""
+    """{"tidal": "Tidal", ...} in the order they are shown."""
     return {s.key: s.name for s in SERVICES}
 
 
@@ -54,10 +54,10 @@ def name(key: str | None) -> str | None:
 
 
 def build_connectors() -> dict[str, Connector]:
-    """Un conector por cada servicio disponible."""
+    """One connector for each available service."""
     return {s.key: s.make() for s in SERVICES if s.make is not None}
 
 
 def is_allowed_link(url: str) -> bool:
-    """Solo se abren links de los servicios de música (nunca una dirección cualquiera)."""
+    """Only links to the music services are opened (never just any address)."""
     return any(str(url).startswith(prefix) for s in SERVICES for prefix in s.links)

@@ -1,4 +1,4 @@
-"""Conector de Tidal (tidalapi, no oficial)."""
+"""Tidal connector (tidalapi, unofficial)."""
 from __future__ import annotations
 
 import json
@@ -25,7 +25,7 @@ _LINK = re.compile(r"(https?://)?(link\.tidal\.com/[A-Za-z0-9]+)")
 
 
 def login_link(text: str) -> str | None:
-    """tidalapi avisa con un texto que trae el link de autorización: lo extrae."""
+    """tidalapi reports a text that contains the authorization link: this extracts it."""
     m = _LINK.search(text) or re.search(r"https?://\S+", text)
     if not m:
         return None
@@ -38,12 +38,12 @@ class TidalConnector(Connector):
     name = "Tidal"
 
     def __init__(self, session_file: Path, session=None):
-        """`session` permite pasar una sesión falsa en los tests; si no, se crea una de tidalapi."""
+        """`session` lets the tests pass a fake session; otherwise a tidalapi one is created."""
         self.session_file = Path(session_file)
         self._s = session
         self._loaded = session is not None
 
-    # ---- sesión
+    # ---- session
 
     @property
     def _tidalapi(self):
@@ -64,7 +64,7 @@ class TidalConnector(Connector):
             s = self._session()
             return bool(s.load_oauth_session(d["token_type"], d["access_token"],
                                              d.get("refresh_token"), expiry)) and s.check_login()
-        except Exception as e:  # token vencido o archivo roto
+        except Exception as e:  # expired token or broken file
             log.info("No se pudo reutilizar la sesión de Tidal: %s", e)
             return False
 
@@ -90,14 +90,14 @@ class TidalConnector(Connector):
             return Status.DISCONNECTED
         if self._load_saved():
             self._loaded = True
-            self._save()            # tidalapi pudo refrescar el token
+            self._save()            # tidalapi was able to refresh the token
             return Status.CONNECTED
         return Status.EXPIRED
 
     def connect(self, browser: Browser | None = None, cancel: threading.Event | None = None) -> None:
-        """Login por link (el del dispositivo): se abre en el navegador elegido y se consulta a Tidal
-        cada pocos segundos hasta que el usuario lo aprueba, el link vence o se cancela.
-        (No usamos `login_oauth_simple`: deja un hilo esperando hasta 5 minutos aunque se cancele.)"""
+        """Sign-in by link (the device one): it opens in the chosen browser and Tidal is asked every few
+        seconds until the user approves it, the link expires or it is cancelled.
+        (We don't use `login_oauth_simple`: it leaves a thread waiting up to 5 minutes even if cancelled.)"""
         s = self._session()
         link = s.get_link_login()
         url = login_link(link.verification_uri_complete)
@@ -112,10 +112,10 @@ class TidalConnector(Connector):
                 raise ConnectorError(tr("err.login_timeout"))
             asked = time.monotonic()
             try:
-                s.process_link_login(link, until_expiry=False)    # una consulta (espera el intervalo)
+                s.process_link_login(link, until_expiry=False)    # one check (waits for the interval)
                 break
-            except TimeoutError:                                   # todavía no lo aprobó...
-                # ...o el link venció: entonces tidalapi contesta enseguida, sin esperar el intervalo
+            except TimeoutError:                                   # not approved yet...
+                # ...or the link expired: then tidalapi answers at once, without waiting for the interval
                 if time.monotonic() - asked < getattr(link, "interval", 2) / 2:
                     raise ConnectorError(tr("err.login_timeout")) from None
         if not s.check_login():
@@ -153,7 +153,7 @@ class TidalConnector(Connector):
             return "https://tidal.com/my-collection/tracks"
         return f"https://tidal.com/playlist/{playlist_id}"
 
-    # ---- lectura
+    # ---- reading
 
     @staticmethod
     def to_song(t) -> Song:
@@ -170,19 +170,19 @@ class TidalConnector(Connector):
                     isrc=getattr(t, "isrc", None), id=str(t.id))
 
     def list_playlists(self) -> list[PlaylistInfo]:
-        """Las canciones que te gustan (primero) y las playlists creadas por el usuario (son las únicas a
-        las que se les puede agregar temas)."""
+        """Liked songs (first) and the playlists the user created (the only ones songs can be
+        added to)."""
         user, seen, offset = self._ready().user, set(), 0
         try:
             liked = int(user.favorites.get_tracks_count())
-        except Exception as e:                    # no se sabe cuántas: igual se ofrecen
+        except Exception as e:                    # unknown how many: offered anyway
             log.info("Tidal: no pude contar los favoritos: %s", e)
             liked = None
         out = [liked_info(liked)]
         while True:
             try:
                 batch = user.playlists(limit=50, offset=offset)
-            except TypeError:                     # versión sin paginado
+            except TypeError:                     # version without pagination
                 batch = user.playlists()
             new = [p for p in batch or [] if str(p.id) not in seen]
             for p in new:
@@ -197,12 +197,12 @@ class TidalConnector(Connector):
         return self._ready().user.favorites
 
     def _read_liked(self) -> tuple[str, list[Song]]:
-        """Los favoritos, del más reciente al más viejo (como se ven en Tidal)."""
+        """The favorites, newest to oldest (as Tidal shows them)."""
         fav, songs, offset = self._favorites(), [], 0
         try:
             from tidalapi.types import ItemOrder, OrderDirection
             order = {"order": ItemOrder.Date, "order_direction": OrderDirection.Descending}
-        except ImportError:                       # tests sin tidalapi
+        except ImportError:                       # tests without tidalapi
             order = {}
         while True:
             batch = fav.tracks(limit=100, offset=offset, **order)
@@ -232,7 +232,7 @@ class TidalConnector(Connector):
     def search(self, song: Song) -> list[Song]:
         s = self._ready()
         found: dict[str, Song] = {}
-        # 1) Por ISRC, si la versión de tidalapi lo soporta (coincidencia exacta)
+        # 1) By ISRC, if the tidalapi version supports it (exact match)
         if song.isrc and hasattr(s, "get_tracks_by_isrc"):
             try:
                 for t in s.get_tracks_by_isrc(song.isrc) or []:
@@ -240,7 +240,7 @@ class TidalConnector(Connector):
                     found[c.id] = c
             except Exception as e:
                 log.warning("Tidal: falló la búsqueda por ISRC %s: %s", song.isrc, e)
-        # 2) Por texto
+        # 2) By text
         def fetch(q):
             res = s.search(q, models=[self._track_model()], limit=10)
             tracks = res.get("tracks", []) if isinstance(res, dict) else getattr(res, "tracks", [])
@@ -250,10 +250,10 @@ class TidalConnector(Connector):
     def _track_model(self):
         try:
             return self._tidalapi.Track
-        except ModuleNotFoundError:   # tests con sesión falsa y sin tidalapi
+        except ModuleNotFoundError:   # tests with a fake session and without tidalapi
             return "Track"
 
-    # ---- escritura
+    # ---- writing
 
     def create(self, name: str, description: str, public: bool = False) -> str:
         return str(self._ready().user.create_playlist(name, description).id)
@@ -271,8 +271,8 @@ class TidalConnector(Connector):
         if not ids:
             return
         if playlist_id == LIKED:
-            # Cada pedido entra arriba; dentro de un pedido el orden lo decide Tidal (medido con la cuenta real
-            # el 2026-11-25). Se mandan al revés: la tanda de arriba es la de los primeros de la lista
+            # Each request goes in at the top; inside one request Tidal decides the order (measured with the real
+            # account on 2026-11-25). They are sent in reverse: the top batch holds the first songs of the list
             fav = self._favorites()
             ids.reverse()
             for i in range(0, len(ids), BATCH):
@@ -289,11 +289,11 @@ class TidalConnector(Connector):
         require_confirmation(confirmed)
         if not items:
             return
-        if playlist_id == LIKED:                  # en favoritos cada tema está una vez: se quita por id
+        if playlist_id == LIKED:                  # in favorites each song is there once: removed by id
             fav = self._favorites()
             for d in items:
                 fav.remove_track(d.song.id)
             return
         pl = self._editable(playlist_id)
-        for index in sorted({d.index for d in items}, reverse=True):   # de atrás para adelante
+        for index in sorted({d.index for d in items}, reverse=True):   # from the back to the front
             pl.remove_by_index(index)

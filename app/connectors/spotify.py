@@ -1,12 +1,12 @@
-"""Spotify con su Web API (cambios de 2026 incluidos), sin librerías aparte: `requests` alcanza.
+"""Spotify through its Web API (2026 changes included), with no extra library: `requests` is enough.
 
-- Cada usuario usa **su propia app** de Spotify (modo desarrollo: hasta 5 usuarios y el dueño con
-  Premium). Su Client ID se guarda en `spotify_app.json`; los tokens, en `spotify_session.json`.
-- Login: Authorization Code con PKCE y un servidor en 127.0.0.1 (ver `app/auth/loopback.py`).
-- Playlists: `/items` (antes `/tracks`). Solo se leen las propias o colaborativas.
-- Quitar: Spotify quita por URI y saca **todas** las copias. Para una copia exacta se quitan todas y
-  se vuelve a agregar la que queda en su lugar; después se relee para verificar (ver `remove`).
-- Refresh token: vence a los 6 meses de la primera autorización → estado "venció" → Reconectar.
+- Each user uses **their own** Spotify app (development mode: up to 5 users, and the owner needs
+  Premium). Its Client ID is saved in `spotify_app.json`; the tokens, in `spotify_session.json`.
+- Sign-in: Authorization Code with PKCE and a server on 127.0.0.1 (see `app/auth/loopback.py`).
+- Playlists: `/items` (formerly `/tracks`). Only your own or collaborative ones can be read.
+- Removing: Spotify removes by URI and takes out **every** copy. For one exact copy, all of them are
+  removed and the one that stays is added back in its place; then it is read again to verify (see `remove`).
+- Refresh token: expires 6 months after the first authorization → "expired" status → Reconnect.
 """
 from __future__ import annotations
 
@@ -35,42 +35,42 @@ log = logging.getLogger(__name__)
 API = "https://api.spotify.com/v1"
 AUTHORIZE = "https://accounts.spotify.com/authorize"
 TOKEN = "https://accounts.spotify.com/api/token"
-DASHBOARD = "https://developer.spotify.com/dashboard"     # "tus apps"
+DASHBOARD = "https://developer.spotify.com/dashboard"     # "your apps"
 CREATE_APP = DASHBOARD + "/create"
 PREMIUM = "https://www.spotify.com/premium/"
-# Lo que el usuario registra en su app. Con puerto fijo: el panel de Spotify rechaza "http://127.0.0.1/callback"
-# (sin puerto) con "This redirect URI is not secure" y no deja guardar, aunque su documentación diga que vale
-# (comprobado por un usuario el 2026-11-08). Con puerto, sí lo acepta.
+# What the user registers in their app. With a fixed port: Spotify's dashboard rejects "http://127.0.0.1/callback"
+# (no port) with "This redirect URI is not secure" and won't save, even though its documentation says it's valid
+# (seen by a user on 2026-11-08). With a port, it is accepted.
 CALLBACK_PORT = 8973
 REDIRECT_URI = f"http://127.0.0.1:{CALLBACK_PORT}{loopback.CALLBACK_PATH}"
-# user-library-*: las canciones que te gustan (leer, guardar y quitar)
+# user-library-*: liked songs (read, save and remove)
 SCOPES = ("playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public "
           "user-library-read user-library-modify")
 LIBRARY_SCOPES = {"user-library-read", "user-library-modify"}
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
 _PLAYLIST_ID = re.compile(r"(?:playlist[/:])?([A-Za-z0-9]{22})(?:\b|$)")
 
-PAGE = 50              # temas o playlists por pedido (máximo de Spotify)
-ADD_BATCH = 100        # temas por pedido al agregar (máximo de Spotify)
-LIBRARY_BATCH = 40     # temas por pedido al guardar o quitar de "Me gusta" (/me/library, desde 2026)
-SEARCH_LIMIT = 10      # máximo desde febrero de 2026
-MAX_WAIT = 300         # segundos: hasta 5 minutos se espera (con cuenta regresiva); más, se corta y se avisa
-# Más despacio que los otros: las apps en modo desarrollo (cada persona crea la suya) tienen un límite bajo,
-# y con miles de temas se llegaba (se pedían horas de pausa). Cada pedido de pausa lo baja más.
+PAGE = 50              # songs or playlists per request (Spotify's maximum)
+ADD_BATCH = 100        # songs per request when adding (Spotify's maximum)
+LIBRARY_BATCH = 40     # songs per request when saving to or removing from liked songs (/me/library, since 2026)
+SEARCH_LIMIT = 10      # maximum since February 2026
+MAX_WAIT = 300         # seconds: up to 5 minutes it waits (with a countdown); longer, it stops and says so
+# Slower than the others: apps in development mode (each person creates their own) have a low limit,
+# and thousands of songs reached it (hours of pause were asked). Each pause request slows it down further.
 SEARCH_PAUSE_SPOTIFY = 0.8
 MAX_SEARCH_PAUSE = 4.0
 
 
 class TokenExpired(ConnectorError):
-    """El permiso venció (a los 6 meses) o se revocó: hay que volver a conectar."""
+    """The permission expired (after 6 months) or was revoked: connecting again is needed."""
 
 
 class RateLimited(ConnectorError):
-    """Spotify pidió esperar más de lo razonable: se corta todo (no es "no encontrado")."""
+    """Spotify asked to wait longer than is reasonable: everything stops (it is not "not found")."""
 
 
 class Forbidden(ConnectorError):
-    """403: Premium vencido, fuera de la lista de usuarios de la app o una playlist ajena."""
+    """403: Premium expired, not on the app's user list, or someone else's playlist."""
 
 
 def valid_client_id(value: str) -> str:
@@ -89,8 +89,8 @@ class SpotifyConnector(Connector):
 
     def __init__(self, session_file: Path, app_file: Path, http=None, open_browser=open_url,
                  callback_server=loopback.CallbackServer):
-        """`http` (algo con `.request(method, url, **kw)` como requests.Session), `open_browser` y
-        `callback_server` se reemplazan en los tests."""
+        """`http` (something with `.request(method, url, **kw)` like requests.Session), `open_browser` and
+        `callback_server` are replaced in the tests."""
         self.session_file = Path(session_file)
         self.app_file = Path(app_file)
         self._http = http
@@ -100,7 +100,7 @@ class SpotifyConnector(Connector):
         self._me: str | None = None
         self._lock = threading.Lock()
 
-    # ---- archivos
+    # ---- files
 
     @staticmethod
     def _read_json(path: Path) -> dict | None:
@@ -125,7 +125,7 @@ class SpotifyConnector(Connector):
         return cid if isinstance(cid, str) and CLIENT_ID.match(cid) else None
 
     def set_client_id(self, value: str) -> str:
-        """Guarda el Client ID de la app del usuario. Si cambia, la sesión anterior ya no sirve."""
+        """Saves the Client ID of the user's app. If it changes, the previous session is no longer valid."""
         cid = valid_client_id(value)
         if cid != self.client_id:
             self.disconnect()
@@ -136,11 +136,11 @@ class SpotifyConnector(Connector):
         return [f"login.spotify.{i}" for i in range(1, 4)]
 
     def setup_info(self) -> dict:
-        """Los pasos para configurar Spotify, uno por acción y en el orden del formulario de Spotify.
-        La UI solo los dibuja. Cada paso: `text` (clave del diccionario), y si hace falta `button` (el botón
-        que el texto nombra como {button}: el mismo texto sale de una sola clave), `link` (ese botón abre
-        esa página), `copy` / `copy_key` (lo que se pega, con su botón Copiar), `input` (acá se pega el
-        Client ID) y `note` (un aviso debajo). Los nombres entre «» son los de la pantalla de Spotify."""
+        """The steps to set up Spotify, one per action and in the order of Spotify's form.
+        The UI only draws them. Each step: `text` (a dictionary key), and when needed `button` (the button
+        the text names as {button}: the same text comes from a single key), `link` (that button opens
+        that page), `copy` / `copy_key` (what gets pasted, with its Copy button), `input` (the Client ID
+        is pasted here) and `note` (a notice below). Names in «» are the ones on Spotify's screen."""
         p = "settings.sp."
         return {"client_id": self.client_id, "sections": [
             {"title": p + "s1", "steps": [
@@ -216,7 +216,7 @@ class SpotifyConnector(Connector):
                                          "client_id": cid}))
 
     def _call(self, method: str, path: str, *, params=None, body=None, retry: bool = True):
-        """Un pedido a la API. Renueva el token una vez si venció y respeta "esperá" (429)."""
+        """One request to the API. Renews the token once if it expired and honors "wait" (429)."""
         url = path if path.startswith("http") else API + path
         for attempt in range(4):
             r = self._request(method, url, params=params, json=body,
@@ -232,7 +232,7 @@ class SpotifyConnector(Connector):
                 continue
             if code == 429:
                 wait = _retry_after(r)
-                self.search_pause = min(max(self.search_pause, SEARCH_PAUSE_SPOTIFY) * 2, MAX_SEARCH_PAUSE)                     if self.search_pause else 0      # de acá en adelante, más despacio
+                self.search_pause = min(max(self.search_pause, SEARCH_PAUSE_SPOTIFY) * 2, MAX_SEARCH_PAUSE)                     if self.search_pause else 0      # from here on, slower
                 log.warning("Spotify pidió esperar %s s (%s); pausa entre búsquedas: %s s", wait,
                             _json(r).get("error") or "", self.search_pause)
                 if wait > MAX_WAIT or attempt == 3:
@@ -255,7 +255,7 @@ class SpotifyConnector(Connector):
         raise ConnectorError(tr("err.spotify_error", code="?", detail=""))
 
     def _pages(self, path: str, params: dict | None = None):
-        """Recorre una lista paginada de Spotify (sigue el link "next")."""
+        """Walks a paginated Spotify list (follows the "next" link)."""
         page = self._call("GET", path, params={"limit": PAGE, **(params or {})})
         while True:
             yield from page.get("items") or []
@@ -263,10 +263,10 @@ class SpotifyConnector(Connector):
                 return
             page = self._call("GET", page["next"])
 
-    # ---- sesión
+    # ---- session
 
     def _lacks_library_permission(self) -> bool:
-        """Sesión de antes de "Me gusta": se ve conectada, pero Spotify no da la lista hasta volver a autorizar."""
+        """A session from before liked songs: it looks connected, but Spotify won't give the list until it's authorized again."""
         tok = self._token or self._read_json(self.session_file)
         return bool(tok) and not LIBRARY_SCOPES <= set((tok.get("scope") or "").split())
 
@@ -284,7 +284,7 @@ class SpotifyConnector(Connector):
             return Status.CONNECTED
         except TokenExpired:
             return Status.EXPIRED
-        except ConnectorError as e:            # 403 (Premium vencido, fuera de la lista de usuarios)...
+        except ConnectorError as e:            # 403 (Premium expired, not on the user list)...
             log.info("Spotify no aceptó la sesión: %s", e)
             return Status.EXPIRED
 
@@ -295,7 +295,7 @@ class SpotifyConnector(Connector):
         verifier, state = loopback.make_verifier(), secrets.token_urlsafe(16)
         try:
             server = self._callback_server(port=CALLBACK_PORT)
-        except OSError as e:                 # otro programa usa el puerto
+        except OSError as e:                 # another program is using the port
             raise ConnectorError(tr("err.spotify_port_busy", port=CALLBACK_PORT)) from e
         with server as cb:
             self._open_browser(AUTHORIZE + "?" + urlencode({
@@ -314,13 +314,13 @@ class SpotifyConnector(Connector):
         try:
             self._me = str(self._call("GET", "/me").get("id") or "")
         except ConnectorError:
-            # Spotify dio el permiso pero no deja usar la API (sin Premium, fuera de la lista de
-            # usuarios...): no se guarda una sesión que no sirve (si no, diría "venció")
+            # Spotify gave permission but won't allow using the API (no Premium, not on the user
+            # list...): a session that doesn't work is not saved (otherwise it would say "expired")
             self.disconnect()
             raise
 
     def disconnect(self) -> None:
-        """Borra la sesión (los tokens). El Client ID queda: es la app del usuario, no un secreto."""
+        """Deletes the session (the tokens). The Client ID stays: it's the user's app, not a secret."""
         self.session_file.unlink(missing_ok=True)
         self._token, self._me = None, None
 
@@ -347,11 +347,11 @@ class SpotifyConnector(Connector):
             return "https://open.spotify.com/collection/tracks"
         return f"https://open.spotify.com/playlist/{playlist_id}"
 
-    # ---- lectura
+    # ---- reading
 
     @staticmethod
     def to_song(t: dict) -> Song:
-        """Un tema de la API. El id es su URI ("spotify:track:…"): es lo que piden agregar y quitar."""
+        """A song from the API. The id is its URI ("spotify:track:…"): that's what adding and removing ask for."""
         album = t.get("album") or {}
         dur = t.get("duration_ms")
         return Song(title=t.get("name") or "", artists=[a["name"] for a in t.get("artists") or [] if a.get("name")],
@@ -359,12 +359,12 @@ class SpotifyConnector(Connector):
                     isrc=((t.get("external_ids") or {}).get("isrc") or None), id=t.get("uri") or None)
 
     def list_playlists(self) -> list[PlaylistInfo]:
-        """Las propias y las colaborativas: de las demás, Spotify no deja leer ni cambiar los temas."""
+        """Your own and collaborative ones: for the rest, Spotify doesn't allow reading or changing the songs."""
         me = self._ready()
         out = []
-        try:                                       # las canciones que te gustan, primero
+        try:                                       # liked songs, first
             out.append(liked_info(self._call("GET", "/me/tracks", params={"limit": 1}).get("total")))
-        except Forbidden:                          # sesión de antes de pedir ese permiso: reconectar lo arregla
+        except Forbidden:                          # a session from before that permission was asked for: reconnecting fixes it
             log.info("Spotify: la sesión no tiene permiso para leer las canciones que te gustan")
         for p in self._pages("/me/playlists"):
             if not p or not ((p.get("owner") or {}).get("id") == me or p.get("collaborative")):
@@ -372,15 +372,15 @@ class SpotifyConnector(Connector):
             items = p.get("items") or p.get("tracks") or {}
             total = items.get("total") if isinstance(items, dict) else None
             if total is not None and total < 2:
-                # Comprobado el 2026-11-24: esta lista sigue diciendo 0 de una playlist recién creada aunque
-                # ya tenga temas, y Quitar repetidos la escondía. Con 0 o 1 se pregunta la cantidad real
+                # Seen on 2026-11-24: this list keeps saying 0 for a just-created playlist even when it
+                # already has songs, and Remove duplicates hid it. With 0 or 1 the real count is asked for
                 total = self._call("GET", f"/playlists/{p['id']}/items", params={"limit": 1}).get("total", total)
             out.append(PlaylistInfo(p["id"], p.get("name") or "", total))
         return out
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
         self._ready()
-        if playlist_id == LIKED:                   # de la más reciente a la más vieja, como en Spotify
+        if playlist_id == LIKED:                   # newest to oldest, as in Spotify
             songs = [self.to_song(e["track"]) for e in self._pages("/me/tracks")
                      if (e or {}).get("track") and not e["track"].get("is_local")]
             return tr("playlist.liked"), songs
@@ -389,7 +389,7 @@ class SpotifyConnector(Connector):
         for entry in self._pages(f"/playlists/{playlist_id}/items"):
             t = (entry or {}).get("item") or (entry or {}).get("track")
             if t and t.get("type", "track") == "track":
-                songs.append(self.to_song(t))       # los podcasts no se transfieren
+                songs.append(self.to_song(t))       # podcasts are not transferred
         return name, songs
 
     def search(self, song: Song) -> list[Song]:
@@ -402,7 +402,7 @@ class SpotifyConnector(Connector):
         return list(self.collect(song, queries, fetch, fatal=(TokenExpired, NotConnectedError, RateLimited, Forbidden, NoNetwork),
                                  recoverable=ConnectorError).values())
 
-    # ---- escritura
+    # ---- writing
 
     def create(self, name: str, description: str, public: bool = False) -> str:
         self._ready()
@@ -412,8 +412,8 @@ class SpotifyConnector(Connector):
         uris = [s.id for s in songs if s.id and s.id.startswith("spotify:track:")]
         self._ready()
         if playlist_id == LIKED:
-            # Cada pedido entra arriba; dentro de un pedido el orden lo decide Spotify (medido con la cuenta
-            # real el 2026-11-25). Se mandan al revés: la tanda de arriba es la de los primeros de la lista
+            # Each request goes in at the top; inside one request Spotify decides the order (measured with the
+            # real account on 2026-11-25). They are sent in reverse: the top batch holds the first songs of the list
             uris.reverse()
             for i in range(0, len(uris), LIBRARY_BATCH):
                 self._call("PUT", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
@@ -427,13 +427,13 @@ class SpotifyConnector(Connector):
             self.adding(min(i + ADD_BATCH, len(uris)), len(uris))
 
     def remove(self, playlist_id: str, items: list[Duplicate], *, confirmed: bool = False) -> None:
-        """Quita esas apariciones. Spotify quita por URI (todas las copias): si de una URI tiene que
-        quedar alguna copia, se quitan todas y se vuelven a agregar las que quedan, en su lugar.
-        Al final se relee la playlist; si no quedó como se esperaba, se arregla lo que falte y se avisa."""
+        """Removes those occurrences. Spotify removes by URI (every copy): if some copy of a URI has to
+        stay, all of them are removed and the ones that stay are added back, in their place.
+        At the end the playlist is read again; if it isn't as expected, what's missing is fixed and reported."""
         require_confirmation(confirmed)
         if not items:
             return
-        if playlist_id == LIKED:                   # en "Me gusta" cada tema está una vez: se quita por URI
+        if playlist_id == LIKED:                   # in liked songs each song is there once: removed by URI
             uris = sorted({d.song.id for d in items if d.song.id})
             for i in range(0, len(uris), LIBRARY_BATCH):
                 self._call("DELETE", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
@@ -445,11 +445,11 @@ class SpotifyConnector(Connector):
             raise ConnectorError(tr("err.playlist_changed"))
         final = [u for i, u in enumerate(current) if i not in drop]
         gone = {current[i] for i in drop}
-        readd = [(pos, u) for pos, u in enumerate(final) if u in gone]     # copias que tienen que quedar
+        readd = [(pos, u) for pos, u in enumerate(final) if u in gone]     # copies that have to stay
         uris = sorted(gone)
         for i in range(0, len(uris), ADD_BATCH):
             self._call("DELETE", f"/playlists/{playlist_id}/items", body={"items": [{"uri": u} for u in uris[i:i + ADD_BATCH]]})
-        for pos, u in readd:                     # de adelante para atrás: cada una cae en su lugar final
+        for pos, u in readd:                     # from the front to the back: each one lands in its final place
             self._call("POST", f"/playlists/{playlist_id}/items", body={"uris": [u], "position": pos})
         _, after = self.read(playlist_id)
         missing = Counter(final) - Counter(s.id for s in after)
@@ -461,7 +461,7 @@ class SpotifyConnector(Connector):
 
 
 def _retry_after(r) -> int:
-    """Los segundos que pide Spotify (1 si no lo dice o no se entiende)."""
+    """The seconds Spotify asks for (1 if it doesn't say or it can't be understood)."""
     try:
         return max(1, int(float(r.headers.get("Retry-After") or 1)))
     except (TypeError, ValueError):
