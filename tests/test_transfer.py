@@ -209,3 +209,13 @@ def test_already_there_does_not_count_songs_repeated_in_the_source():
     a, b = S("A", "X", id="a"), S("B", "X", id="b")
     t = TargetResult(Target("n", "i"), already=[a], versions=[(a, b, ALREADY_THERE), (b, a, REPEATED_IN_SOURCE)])
     assert already_there(t) == 2
+
+
+def test_the_same_video_is_never_sent_twice_in_one_add():
+    """Dos temas distintos del origen que encuentran el mismo video: se agrega una sola vez. Desde
+    ytmusicapi 1.12.4, un pedido con el mismo videoId dos veces falla entero (duplicates=False)."""
+    from app.core.transfer import plan_target
+    video = S("Take On Me", "a-ha", id="v1")
+    found = [video, S("Take On Me (Remastered)", "a-ha", id="v1"), S("Hunting High and Low", "a-ha", id="v2")]
+    to_add, already, versions = plan_target(found, [])
+    assert [s.id for s in to_add] == ["v1", "v2"] and len(versions) == 1
