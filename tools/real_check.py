@@ -14,7 +14,7 @@ the window) and your sessions:
   5. The result: other versions unticked, «Stays» when unticked, the bar always visible,
      «Untick all», and the screen aligned in the smallest window too
   6. The confirmation opens with what it would say, and is cancelled
-  7. Removing for real: creates «PlaylistTransfer · prueba (se borra sola)» with three of your songs
+  7. Removing for real: creates «PlaylistTransfer · test (deletes itself)» with three of your songs
      repeated on purpose (A, B, C, A, B), the screen finds the two duplicates, they're removed through
      the confirmation, A, B, C is left and the history records it. Then it deletes the playlist, even if
      something failed (and on start, it deletes one left by an interrupted run)
@@ -80,7 +80,7 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
             if name in ("add", "remove") and only_test_songs(args):
                 return real(*args, **kwargs)
             attempts.append(f"{c.key}.{name}")
-            raise RuntimeError(f"prueba real: {c.key}.{name} está bloqueado")
+            raise RuntimeError(f"real check: {c.key}.{name} is blocked")
         setattr(c, name, blocked)
 
     for c in api._connectors.values():
@@ -95,7 +95,7 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
             if name in ("remove_many", "remove_duplicates") and sandbox:
                 return real(*args, **kwargs)
             attempts.append(f"api.{name}")
-            return {"error": f"prueba real: {name} está bloqueado"}
+            return {"error": f"real check: {name} is blocked"}
         setattr(api, name, blocked)
 
     for name in BLOCKED_API:
@@ -105,8 +105,8 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
 
     def only_dry(source, target, source_id, targets, dry_run=False):
         if dry_run is not True:
-            attempts.append("api.start_transfer (de verdad)")
-            return {"error": "prueba real: solo se permite la prueba sin cambios"}
+            attempts.append("api.start_transfer (for real)")
+            return {"error": "real check: only the dry run is allowed"}
         return real_transfer(source, target, source_id, targets, True)
     api.start_transfer = only_dry
     return attempts
@@ -114,8 +114,10 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
 
 # ---------------------------------------------------------------- the test playlist
 
-SANDBOX_NAME = "PlaylistTransfer · prueba (se borra sola)"
-SANDBOX_TEXT = "La creó la prueba automática de PlaylistTransfer y la borra al terminar."
+SANDBOX_NAME = "PlaylistTransfer · test (deletes itself)"
+# Its name until 2026-11-25: one left over by an interrupted run is deleted too
+SANDBOX_NAMES = (SANDBOX_NAME, "PlaylistTransfer · prueba (se borra sola)")
+SANDBOX_TEXT = "Created by the PlaylistTransfer automated check; it deletes it when it finishes."
 SETTLE = 30             # seconds: a service can take a while to show what was just created or deleted
 
 
@@ -142,14 +144,14 @@ def delete_playlist(c, pid: str) -> None:
 
 def leftovers(c) -> list[str]:
     """Test playlists left over from an interrupted run."""
-    return [p.id for p in c.list_playlists() if p.name == SANDBOX_NAME]
+    return [p.id for p in c.list_playlists() if p.name in SANDBOX_NAMES]
 
 
 def three_songs(c):
     """Three different songs from your smallest playlist with at least three (only read)."""
     from app.connectors.base import LIKED
     from app.core.matching import same_song
-    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 3),
+    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name not in SANDBOX_NAMES and (p.count or 0) >= 3),
                    key=lambda p: p.count)
     for p in lists:
         picked = []
@@ -167,7 +169,7 @@ def two_unliked(c, liked_ids: set[str]):
     On YouTube Music, songs with an album: a liked video doesn't always show in liked songs."""
     from app.connectors.base import LIKED
     from app.core.matching import same_song
-    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 2),
+    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name not in SANDBOX_NAMES and (p.count or 0) >= 2),
                    key=lambda p: p.count)
     picked = []
     for p in lists:
@@ -185,7 +187,7 @@ def settle(check, what: str):
     """Waits for the service to show the change (YouTube Music can take a few seconds)."""
     until = time.monotonic() + SETTLE
     while not check():
-        assert time.monotonic() < until, f"después de {SETTLE} s, {what}"
+        assert time.monotonic() < until, f"after {SETTLE} s, {what}"
         time.sleep(2)
 
 
@@ -212,15 +214,15 @@ class Run:
         started = time.monotonic()
         try:
             detail = fn(*args)
-            state = "SALTEADO" if isinstance(detail, Skip) else "OK"
+            state = "SKIPPED" if isinstance(detail, Skip) else "OK"
         except AssertionError as e:
-            state, detail = "FALLA", str(e) or "no se cumplió lo esperado"
+            state, detail = "FAILED", str(e) or "an expectation was not met"
         except Exception as e:                    # a timeout, a selector that doesn't show up…
-            state, detail = "FALLA", f"{type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}"
+            state, detail = "FAILED", f"{type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}"
         took = time.monotonic() - started
-        if state == "FALLA" and self.page is not None:      # what was on screen when it failed
+        if state == "FAILED" and self.page is not None:      # what was on screen when it failed
             try:
-                self.shot(self.page, "FALLA", full=True)
+                self.shot(self.page, "FAILED", full=True)
             except Exception:
                 pass
         self.results.append((name, state, str(detail or ""), took))
@@ -238,7 +240,7 @@ class Skip(str):
 def smoke() -> str:
     env = dict(os.environ, PT_SMOKE="1")
     r = subprocess.run([sys.executable, "-m", "app"], cwd=ROOT, env=env, timeout=90, capture_output=True)
-    assert r.returncode == 0, f"la ventana salió con el código {r.returncode}: mirá app.log"
+    assert r.returncode == 0, f"the window exited with code {r.returncode}: see app.log"
     return ""
 
 
@@ -246,15 +248,15 @@ def home(run, page, design):
     page.click("nav [data-go=inicio]")
     text = page.inner_text("#home-lede")
     tail = page.evaluate("t('home.lede', { services: '\\u0000' }).split('\\u0000').pop()")
-    assert text.strip() and text.endswith(tail.strip()), f"el texto de Inicio no es el esperado: «{text}»"
+    assert text.strip() and text.endswith(tail.strip()), f"the Home text is not the expected one: «{text}»"
     assert design(page, "inicio") == [], design(page, "inicio")
-    run.shot(page, "inicio")
+    run.shot(page, "home")
     return ""
 
 
 def transfer(run, page, design, connected, names):
     if len(connected) < 2:
-        return Skip("hace falta tener dos servicios conectados")
+        return Skip("two connected services are needed")
     src, dst = connected[0], connected[1]
     page.click("nav [data-go=transferir]")
     page.select_option("#from", src)
@@ -264,20 +266,20 @@ def transfer(run, page, design, connected, names):
         .map(i => ({ value: i.value, n: Number(i.dataset.count), name: i.closest('li').querySelector('.name').textContent }))
         .filter(p => p.n > 0 && p.n <= small).sort((a, b) => a.n - b.n)""", SMALL)
     if not picks:
-        return Skip(f"ninguna playlist de {names[src]} tiene entre 1 y {SMALL} temas")
+        return Skip(f"no {names[src]} playlist has between 1 and {SMALL} songs")
     p = picks[0]
     page.check(f"#src-list input[name=src][value='{p['value']}']")
     page.check("#dst-new")
     page.click("#dry")
     page.wait_for_selector("#done.show", timeout=10 * 60 * 1000)
     route, done = page.inner_text("#run-route"), page.inner_text("#done")
-    assert names[src] in route and names[dst] in route and p["name"] in route, f"la ruta no dice de dónde a dónde: «{route}»"
+    assert names[src] in route and names[dst] in route and p["name"] in route, f"the route does not say from where to where: «{route}»"
     from_line = page.evaluate("([name, service]) => t('transfer.from_line', { name, service })", [p["name"], names[src]])
-    assert from_line in done, f"el resultado no dice desde dónde: «{done[:200]}»"
-    assert page.is_hidden("#open-dest"), "una prueba sin cambios ofrece abrir el destino"
+    assert from_line in done, f"the result does not say where from: «{done[:200]}»"
+    assert page.is_hidden("#open-dest"), "a dry run offers to open the destination"
     assert design(page, "transferir") == [], design(page, "transferir")
-    run.shot(page, "transferir-prueba", full=True)
-    return f"«{p['name']}» ({p['n']} temas) de {names[src]} a {names[dst]}: {page.inner_text('#done-title')}"
+    run.shot(page, "transfer-dry-run", full=True)
+    return f"«{p['name']}» ({p['n']} songs) from {names[src]} to {names[dst]}: {page.inner_text('#done-title')}"
 
 
 def to_dedupe(page, key) -> int:
@@ -294,13 +296,13 @@ def to_dedupe(page, key) -> int:
 def before_check(run, page, design, key):
     n = to_dedupe(page, key)
     if n == 0:
-        return Skip("ninguna playlist con 2 temas o más")
+        return Skip("no playlist with 2 or more songs")
     want = "__all__" if n > 1 else page.locator("#dup-playlist option").first.get_attribute("value")
-    assert page.input_value("#dup-playlist") == want, "la lista no arranca en «Todas las playlists»"
-    assert page.is_visible("#dup-how") and page.locator("#dup-how > div").count() == 3, "no se ven las tres tarjetas"
+    assert page.input_value("#dup-playlist") == want, "the list does not start at «All playlists»"
+    assert page.is_visible("#dup-how") and page.locator("#dup-how > div").count() == 3, "the three cards are not visible"
     assert design(page, "repetidos") == [], design(page, "repetidos")
-    run.shot(page, f"repetidos-antes-{key}")
-    return "" if n > 1 else "una sola playlist para revisar: no hace falta «Todas»"
+    run.shot(page, f"duplicates-before-{key}")
+    return "" if n > 1 else "only one playlist to check: no need for «All»"
 
 
 def cancel_midway(run, page, key):
@@ -308,34 +310,34 @@ def cancel_midway(run, page, key):
     page.click("#dup-scan")
     page.wait_for_selector("#dup-progress:not([hidden])")
     page.wait_for_timeout(1500)
-    run.shot(page, f"repetidos-revisando-{key}")
+    run.shot(page, f"duplicates-checking-{key}")
     page.click("#dup-cancel")
     page.wait_for_function("document.querySelector('#dup-progress').hidden", timeout=120000)
     said = page.evaluate("t('dedupe.cancelled')")
-    assert said in page.inner_text("#repetidos"), "al cancelar no dice que no se quitó nada"
+    assert said in page.inner_text("#repetidos"), "cancelling does not say nothing was removed"
     return said
 
 
 def scan_all(run, page, key):
     if to_dedupe(page, key) == 0:
-        return Skip("ninguna playlist con 2 temas o más")
+        return Skip("no playlist with 2 or more songs")
     page.click("#dup-scan")
     page.wait_for_selector("#dup-progress:not([hidden])")
     page.wait_for_function("document.querySelector('#dup-progress').hidden", timeout=SCAN_TIMEOUT * 1000)
     page.wait_for_timeout(300)
-    run.shot(page, f"repetidos-resultado-{key}", full=True)
+    run.shot(page, f"duplicates-result-{key}", full=True)
     cards = page.locator(".dup-group").count()
     failed = page.inner_text("#dup-failed") if page.is_visible("#dup-failed") else ""
-    return f"{page.inner_text('#dup-summary')} ({cards} con repetidos{'; ' + failed if failed else ''})"
+    return f"{page.inner_text('#dup-summary')} ({cards} with duplicates{'; ' + failed if failed else ''})"
 
 
 def result_checks(run, page, design):
     if not page.locator(".dup-group").count():
-        return Skip("no hay repetidos: nada para destildar")
+        return Skip("no duplicates: nothing to untick")
     rows = page.evaluate("""() => [...document.querySelectorAll('.dups li')].map(li => ({
         checked: li.querySelector('input').checked, version: !!li.querySelector('.tag.version'), why: !!li.querySelector('.why') }))""")
     wrong = [r for r in rows if (r["version"] or r["why"]) and r["checked"]]
-    assert not wrong, f"{len(wrong)} otras versiones vienen tildadas"
+    assert not wrong, f"{len(wrong)} other versions come ticked"
     original = page.evaluate("[...document.querySelectorAll('.dups input')].map(i => i.checked)")
     try:
         # Unticking a row: it says «Stays» instead of «Removed»
@@ -344,26 +346,26 @@ def result_checks(run, page, design):
         if k >= 0:
             row = page.locator(".dups li").nth(k)
             row.locator("input").click()
-            assert row.locator(".tag.off").is_visible() and not row.locator(".tag.on").is_visible(), "al destildar no cambia a «Se conserva»"
+            assert row.locator(".tag.off").is_visible() and not row.locator(".tag.on").is_visible(), "unticking does not switch to «Stays»"
         # «Untick all» and «Tick all» on the first card
         group, toggle = page.locator(".dup-group").first, page.locator(".dup-group .dup-toggle").first
         untick, tick = page.evaluate("[t('dedupe.untick_all'), t('dedupe.tick_all')]")
         if toggle.inner_text() == untick:
             toggle.click()
-            assert group.locator("input:checked").count() == 0 and toggle.inner_text() == tick, "«Destildar todos» no destildó"
+            assert group.locator("input:checked").count() == 0 and toggle.inner_text() == tick, "«Untick all» did not untick"
         toggle.click()
-        assert group.locator("input:not(:checked)").count() == 0 and toggle.inner_text() == untick, "«Tildar todos» no tildó"
+        assert group.locator("input:not(:checked)").count() == 0 and toggle.inner_text() == untick, "«Tick all» did not tick"
         # The decision bar, always visible while scrolling down
         for where in (0.5, 1):
             page.evaluate("(f) => { const m = document.querySelector('main'); m.scrollTop = m.scrollHeight * f; window.scrollTo(0, document.body.scrollHeight * f); }", where)
             page.wait_for_timeout(150)
             r = page.evaluate("(() => { const b = document.querySelector('#dup-actions').getBoundingClientRect(); return [b.top, b.bottom, innerHeight]; })()")
-            assert 0 <= r[0] and r[1] <= r[2] + 1, f"la barra de abajo no se ve al bajar ({r})"
+            assert 0 <= r[0] and r[1] <= r[2] + 1, f"the bottom bar is not visible when scrolling down ({r})"
         assert design(page, "repetidos") == [], design(page, "repetidos")
     finally:
         page.evaluate("""(orig) => [...document.querySelectorAll('.dups input')].forEach((i, k) => {
             if (i.checked !== orig[k]) i.click(); })""", original)
-    return f"{len(rows)} filas"
+    return f"{len(rows)} rows"
 
 
 def smallest_window(run, page, design):
@@ -372,7 +374,7 @@ def smallest_window(run, page, design):
     try:
         page.wait_for_timeout(300)
         bad = page.evaluate(ALIGN) + design(page, "repetidos")
-        run.shot(page, "repetidos-ventana-minima")
+        run.shot(page, "duplicates-smallest-window")
         assert bad == [], bad
     finally:
         page.set_viewport_size({"width": 1120, "height": 780})
@@ -381,17 +383,17 @@ def smallest_window(run, page, design):
 
 def confirm_dialog(run, page, attempts):
     if not page.locator(".dup-group").count():
-        return Skip("no hay repetidos: nada para confirmar")
+        return Skip("no duplicates: nothing to confirm")
     if not page.locator(".dups input:checked").count():
         page.locator(".dups input").first.click()
     page.click("#remove")
     page.wait_for_selector("#confirm[open]")
     said = page.inner_text("#c-title")
-    run.shot(page, "repetidos-confirmacion")
+    run.shot(page, "duplicates-confirmation")
     page.click("#confirm-no")
     page.wait_for_selector("#confirm:not([open])", state="attached")
-    assert not attempts, f"se intentó escribir: {attempts}"
-    return f"«{said}», cancelado"
+    assert not attempts, f"something tried to write: {attempts}"
+    return f"«{said}», cancelled"
 
 
 def sandbox_remove(run, page, api, c, sandbox, created):
@@ -402,27 +404,27 @@ def sandbox_remove(run, page, api, c, sandbox, created):
         delete_playlist(c, pid)
     source, songs = three_songs(c)
     if not songs:
-        return Skip("ninguna playlist con tres canciones distintas para copiar")
+        return Skip("no playlist with three different songs to copy")
     a, b, x = songs
     pid = type(c).create(c, SANDBOX_NAME, SANDBOX_TEXT, False)
     created.append(pid)
     sandbox.add(pid)
     add_with_repeats(c, pid, [a, b, x, a, b])
-    settle(lambda: len(c.read(pid)[1]) == 5, "la playlist de prueba no tiene los 5 temas")
+    settle(lambda: len(c.read(pid)[1]) == 5, "the test playlist does not have the 5 songs")
 
     def listed():
         page.evaluate("(k) => forgetPlaylists(k)", c.key)
         to_dedupe(page, c.key)
         return page.locator(f"#dup-playlist option[value='{pid}']").count() > 0
-    settle(listed, "la playlist de prueba no aparece en Quitar repetidos")
+    settle(listed, "the test playlist does not show in Remove duplicates")
     page.select_option("#dup-playlist", pid)
     page.click("#dup-scan")
     page.wait_for_selector(".dup-group", timeout=120000)
     rows = page.evaluate("""() => [...document.querySelectorAll('.dups li')].map(li => ({
         checked: li.querySelector('input').checked, title: li.querySelector('.side.remove .t').textContent }))""")
     assert [r["title"] for r in rows] == [a.title, b.title] and all(r["checked"] for r in rows), \
-        f"esperaba «{a.title}» y «{b.title}» tildados, y encontró {rows}"
-    run.shot(page, f"prueba-repetidos-{c.key}")
+        f"expected «{a.title}» and «{b.title}» ticked, and found {rows}"
+    run.shot(page, f"test-duplicates-{c.key}")
     page.click("#remove")
     page.wait_for_selector("#confirm[open]")
     page.click("#confirm-yes")
@@ -432,14 +434,14 @@ def sandbox_remove(run, page, api, c, sandbox, created):
         said = page.evaluate("""() => ['#dup-summary', '#toast', '#dup-progress-text', '#dup-decide-text']
             .map(s => document.querySelector(s)).filter(e => e && e.offsetParent !== null)
             .map(e => e.textContent.trim()).filter(Boolean).join(' | ')""")
-        raise AssertionError(f"quitar no terminó en 3 minutos (ocupada: {page.evaluate('state.busy')}); "
-                             f"la pantalla decía: «{said}»") from None
-    run.shot(page, f"prueba-quitados-{c.key}")
-    settle(lambda: [s.id for s in c.read(pid)[1]] == [a.id, b.id, x.id], "la playlist de prueba no quedó con A, B, C")
+        raise AssertionError(f"removing did not finish in 3 minutes (busy: {page.evaluate('state.busy')}); "
+                             f"the screen said: «{said}»") from None
+    run.shot(page, f"test-removed-{c.key}")
+    settle(lambda: [s.id for s in c.read(pid)[1]] == [a.id, b.id, x.id], "the test playlist did not end up as A, B, C")
     h = api.history(limit=1)[0]
-    assert h["kind"] == "dedupe" and h["removed"] == 2 and h["source_name"] == SANDBOX_NAME, f"el historial no lo anotó: {h}"
-    again = f"; antes borré {len(old)} que había quedado de otra prueba" if old else ""
-    return f"copié 3 de «{source}», agregué A, B, C, A, B y quedó A, B, C{again}"
+    assert h["kind"] == "dedupe" and h["removed"] == 2 and h["source_name"] == SANDBOX_NAME, f"the history did not record it: {h}"
+    again = f"; first deleted {len(old)} left over by another run" if old else ""
+    return f"copied 3 from «{source}», added A, B, C, A, B and A, B, C was left{again}"
 
 
 def liked_add_remove(c, liked):
@@ -455,7 +457,7 @@ def liked_add_remove(c, liked):
     before = liked_ids()
     songs = two_unliked(c, set(before))
     if len(songs) < 2:
-        return Skip("no encontré dos canciones tuyas sin «Me gusta»")
+        return Skip("could not find two of your songs that are not liked")
     liked.update(s.id for s in songs)
     p, q = songs
     # YouTube Music likes one at a time: the order is exact. Tidal and Spotify like in batches, and inside a
@@ -464,27 +466,27 @@ def liked_add_remove(c, liked):
     try:
         c.add(LIKED, [p, q])                       # what a transfer to liked songs does
         settle(lambda: liked_ids()[:2] == [p.id, q.id] if exact else set(liked_ids()[:2]) == {p.id, q.id},
-               f"«{p.title}» y «{q.title}» no quedaron arriba en «Me gusta»{', en ese orden' if exact else ''}")
+               f"«{p.title}» and «{q.title}» did not end up on top of liked songs{', in that order' if exact else ''}")
     finally:
         try:
             c.remove(LIKED, [Duplicate(0, s, s) for s in (p, q)], confirmed=True)
-            settle(lambda: not {p.id, q.id} & set(liked_ids()), "los temas de prueba siguen en «Me gusta»")
+            settle(lambda: not {p.id, q.id} & set(liked_ids()), "the test songs are still in liked songs")
         except Exception as e:
-            raise AssertionError(f"no pude desmarcar «{p.title}» y «{q.title}»: sacales el «Me gusta» a mano ({e})") from e
+            raise AssertionError(f"could not unlike «{p.title}» and «{q.title}»: unlike them by hand ({e})") from e
         finally:
             liked.difference_update({p.id, q.id})
-    assert liked_ids() == before, "«Me gusta» no quedó como estaba"
-    return (f"marqué «{p.title}» y «{q.title}», quedaron arriba{' en orden' if exact else ''}, los desmarqué "
-            f"y tu lista quedó igual ({len(before)} {'tema' if len(before) == 1 else 'temas'})")
+    assert liked_ids() == before, "liked songs did not stay as they were"
+    return (f"liked «{p.title}» and «{q.title}», they ended up on top{' in order' if exact else ''}, unliked them "
+            f"and your list stayed the same ({len(before)} {'song' if len(before) == 1 else 'songs'})")
 
 
 def sandbox_delete(c, sandbox, created):
     if not created:
-        return Skip("no se creó ninguna")
+        return Skip("none was created")
     for pid in created:
         delete_playlist(c, pid)
     settle(lambda: not any(p.id in created for p in c.list_playlists()),
-           f"«{SANDBOX_NAME}» sigue apareciendo en {c.name}: borrala a mano")
+           f"«{SANDBOX_NAME}» still shows in {c.name}: delete it by hand")
     sandbox.difference_update(created)
     return ""
 
@@ -492,27 +494,27 @@ def sandbox_delete(c, sandbox, created):
 def settings(run, page, design):
     page.click("nav [data-go=ajustes]")
     text = page.inner_text("[data-i18n='settings.data_text']")
-    assert text == page.evaluate("t('settings.data_text')"), f"Privacidad y datos dice otra cosa: «{text}»"
-    assert page.is_visible("#wipe"), "no se ve «Borrar todo»"
+    assert text == page.evaluate("t('settings.data_text')"), f"Privacy and data says something else: «{text}»"
+    assert page.is_visible("#wipe"), "«Erase everything» is not visible"
     assert design(page, "ajustes") == [], design(page, "ajustes")
-    run.shot(page, "ajustes")
+    run.shot(page, "settings")
     return ""
 
 
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--service", help="revisar repetidos solo en este servicio (tidal, ytmusic, spotify)")
-    ap.add_argument("--no-transfer", action="store_true", help="sin la prueba de transferencia")
+    ap.add_argument("--service", help="check duplicates only in this service (tidal, ytmusic, spotify)")
+    ap.add_argument("--no-transfer", action="store_true", help="without the transfer dry run")
     args = ap.parse_args()
 
     from playwright.sync_api import sync_playwright
     from tests.ui_helpers import check, open_page
 
-    out = Path(tempfile.gettempdir()) / "PlaylistTransfer-prueba" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = Path(tempfile.gettempdir()) / "PlaylistTransfer-check" / datetime.now().strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True)
     run = Run(out)
-    run.step("La ventana de verdad abre y cierra", smoke)
+    run.step("The real window opens and closes", smoke)
 
     api = real_api(out / "datos")
     sandbox: set[str] = set()
@@ -521,46 +523,46 @@ def main() -> int:
     status = {s["key"]: s["status"] for s in api.status()}
     connected = [k for k, st in status.items() if st == "connected"]
     names = {s["key"]: s["name"] for s in api.services()}
-    print(f"  conectados: {', '.join(names[k] for k in connected) or 'ninguno'}")
+    print(f"  connected: {', '.join(names[k] for k in connected) or 'none'}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         page, errors = open_page(browser, api)
         run.page = page
-        run.step("Inicio", home, run, page, check)
+        run.step("Home", home, run, page, check)
         if not args.no_transfer:
-            run.step("Transferir: prueba sin cambios", transfer, run, page, check, connected, names)
+            run.step("Transfer: dry run", transfer, run, page, check, connected, names)
         keys = [k for k in connected if not args.service or k == args.service]
         for i, key in enumerate(keys):
             n = names[key]
-            run.step(f"Repetidos en {n}: antes de revisar", before_check, run, page, check, key)
+            run.step(f"Duplicates in {n}: before checking", before_check, run, page, check, key)
             if i == 0:
-                run.step(f"Repetidos en {n}: cancelar a mitad", cancel_midway, run, page, key)
-            if run.step(f"Repetidos en {n}: revisar todas", scan_all, run, page, key):
-                run.step(f"Repetidos en {n}: el resultado", result_checks, run, page, check)
-                run.step(f"Repetidos en {n}: ventana mínima", smallest_window, run, page, check)
-                run.step(f"Repetidos en {n}: la confirmación", confirm_dialog, run, page, attempts)
+                run.step(f"Duplicates in {n}: cancel halfway", cancel_midway, run, page, key)
+            if run.step(f"Duplicates in {n}: check all", scan_all, run, page, key):
+                run.step(f"Duplicates in {n}: the result", result_checks, run, page, check)
+                run.step(f"Duplicates in {n}: smallest window", smallest_window, run, page, check)
+                run.step(f"Duplicates in {n}: the confirmation", confirm_dialog, run, page, attempts)
             # For real, in a playlist the check creates and deletes
             c, created = api._connectors[key], []
             try:
-                run.step(f"Repetidos en {n}: quitar de verdad en una playlist de prueba", sandbox_remove,
+                run.step(f"Duplicates in {n}: remove for real in a test playlist", sandbox_remove,
                          run, page, api, c, sandbox, created)
             finally:
-                run.step(f"Repetidos en {n}: borrar la playlist de prueba", sandbox_delete, c, sandbox, created)
-            run.step(f"«Me gusta» en {n}: marcar y desmarcar dos temas", liked_add_remove, c, liked)
+                run.step(f"Duplicates in {n}: delete the test playlist", sandbox_delete, c, sandbox, created)
+            run.step(f"Liked songs in {n}: like and unlike two songs", liked_add_remove, c, liked)
         if not keys:
-            run.results.append(("Quitar repetidos", "SALTEADO", "ningún servicio conectado", 0))
-        run.step("Ajustes: privacidad", settings, run, page, check)
+            run.results.append(("Remove duplicates", "SKIPPED", "no connected service", 0))
+        run.step("Settings: privacy", settings, run, page, check)
         browser.close()
 
-    run.results.append(("Nada se escribió fuera de las playlists de prueba", "FALLA" if attempts else "OK", ", ".join(attempts), 0))
-    run.results.append(("Sin errores de JavaScript", "FALLA" if errors else "OK", "; ".join(errors[:3]), 0))
+    run.results.append(("Nothing was written outside the test playlists", "FAILED" if attempts else "OK", ", ".join(attempts), 0))
+    run.results.append(("No JavaScript errors", "FAILED" if errors else "OK", "; ".join(errors[:3]), 0))
 
     print("\n" + "\n".join(f"{state:9} {name}{'  — ' + detail if detail and state != 'OK' else ''}"
                            for name, state, detail, _ in run.results))
-    print(f"\nCapturas (con tus datos, fuera del repo): {out}")
-    bad = [r for r in run.results if r[1] == "FALLA"]
-    print("OK: lista para publicar" if not bad else f"{len(bad)} con FALLA")
+    print(f"\nScreenshots (with your data, outside the repo): {out}")
+    bad = [r for r in run.results if r[1] == "FAILED"]
+    print("OK: ready to publish" if not bad else f"{len(bad)} FAILED")
     return 1 if bad else 0
 
 

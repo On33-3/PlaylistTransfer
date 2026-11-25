@@ -29,7 +29,7 @@ def main() -> int:
         stream.reconfigure(errors="replace")
     files = sys.argv[1:] or sorted(glob.glob(str(ROOT / "reporte_*.csv")))
     if not files:
-        print("No hay reportes (reporte_*.csv) en la raíz del repo: no hay con qué comparar.")
+        print("No reports (reporte_*.csv) in the repo root: nothing to compare against.")
         return 0
     total = changed = 0
     for f in files:
@@ -43,9 +43,9 @@ def main() -> int:
                 new = score(a, b)
                 if classify(old) != classify(new):
                     changed += 1
-                    print(f"CAMBIA  {r['origen']}  →  {r['destino']}:  {old:.2f} {classify(old)}  →  "
+                    print(f"CHANGES  {r['origen']}  →  {r['destino']}:  {old:.2f} {classify(old)}  →  "
                           f"{new:.2f} {classify(new)}")
-    print(f"{total} coincidencias reales revisadas, {changed} cambian de categoría.")
+    print(f"{total} real matches checked, {changed} change category.")
     return 1 if changed else 0
 
 

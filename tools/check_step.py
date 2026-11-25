@@ -36,7 +36,7 @@ def changed(path: str) -> bool:
 def main(args: list[str]) -> int:
     snapshot = [PY, str(ROOT / "tools" / "ui_style_snapshot.py")]
     if len(args) == 2 and args[0] == "--base":
-        ok, out = run("foto de estilos de partida", *snapshot, args[1])
+        ok, out = run("starting style snapshot", *snapshot, args[1])
         print(out.splitlines()[-1] if out else "")
         return 0 if ok else 1
     if len(args) != 1:
@@ -45,26 +45,26 @@ def main(args: list[str]) -> int:
     steps = [("pyflakes", [PY, "-m", "pyflakes", "app", "tests", "tools"]),
              ("tests", [PY, "-m", "pytest", "-q"])]
     if changed("app/core/matching.py"):
-        steps.append(("reportes reales", [PY, str(ROOT / "tools" / "check_reports.py")]))
+        steps.append(("real reports", [PY, str(ROOT / "tools" / "check_reports.py")]))
     for title, cmd in steps:
         ok, out = run(title, *cmd)
         last = out.splitlines()[-1] if out else ""
-        if not ok or (title == "reportes reales" and " 0 cambian" not in last):
-            print(f"FALLÓ: {title}\n{out[-3000:]}")
+        if not ok or (title == "real reports" and " 0 change category" not in last):
+            print(f"FAILED: {title}\n{out[-3000:]}")
             return 1
-        print(f"  {last or 'sin problemas'}")
-    after = Path(tempfile.mkdtemp()) / "despues.json"
-    ok, out = run("foto de estilos", *snapshot, str(after))
+        print(f"  {last or 'no problems'}")
+    after = Path(tempfile.mkdtemp()) / "after.json"
+    ok, out = run("style snapshot", *snapshot, str(after))
     if not ok:
-        print(f"FALLÓ: foto de estilos\n{out[-3000:]}")
+        print(f"FAILED: style snapshot\n{out[-3000:]}")
         return 1
-    ok, out = run("comparación con la foto de partida", *snapshot, "--diff", base, str(after))
+    ok, out = run("comparison with the starting snapshot", *snapshot, "--diff", base, str(after))
     first = out.splitlines()[0] if out else ""
     print(f"  {first}")
-    if first != "0 diferencias":
-        print(f"FALLÓ: cambió cómo se ve la app\n{out}")
+    if first != "0 differences":
+        print(f"FAILED: how the app looks changed\n{out}")
         return 1
-    print("OK: el paso no cambió lo que hace la app ni cómo se ve.")
+    print("OK: the step changed neither what the app does nor how it looks.")
     return 0
 
 

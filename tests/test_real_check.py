@@ -20,9 +20,9 @@ def test_nothing_that_writes_reaches_a_service(tmp_path):
             except RuntimeError:
                 pass
             else:
-                raise AssertionError(f"{c.key}.{name} no está bloqueado")
+                raise AssertionError(f"{c.key}.{name} is not blocked")
     assert yt.calls == [] and tidal.calls == [] and len(yt.songs("dups")) == 4
-    assert {"api.remove_many", "api.wipe_data", "api.disconnect", "api.start_transfer (de verdad)"} <= set(attempts)
+    assert {"api.remove_many", "api.wipe_data", "api.disconnect", "api.start_transfer (for real)"} <= set(attempts)
     assert all(hasattr(api, n) for n in BLOCKED_API)          # if one gets renamed, this test says so
 
 
@@ -55,7 +55,7 @@ def test_only_the_test_songs_can_be_liked_and_unliked(tmp_path):
         except RuntimeError:
             pass
         else:
-            raise AssertionError(f"se marcó {bad}")
+            raise AssertionError(f"liked {bad}")
     try:
         yt.remove(LIKED, [Duplicate(0, S("Mía", "X", id="mine"), test)], confirmed=True)   # your liked songs, never
     except RuntimeError:
