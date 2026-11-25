@@ -37,6 +37,23 @@ def test_js_comments_do_not_count_but_strings_do():
     assert js_code("t(`hola ${x}`); // c") != js_code("t(`chau ${x}`); // c")
 
 
+def test_js_a_quote_inside_a_regular_expression_is_not_a_string():
+    """It used to read /[&<>"']/ as the start of a string and lose track of everything after it."""
+    a = """const esc = s => s.replace(/[&<>"']/g, c => c); // escapa\nlet x = 1; // uno\n"""
+    b = """const esc = s => s.replace(/[&<>"']/g, c => c); // escapes\nlet x = 1; // one\n"""
+    assert js_code(a) == js_code(b)
+    assert js_code(a) != js_code(a.replace("x = 1", "x = 2"))
+    assert js_code("t = a / b; // half") == js_code("t = a / b; // mitad")
+
+
+def test_js_nested_template_literals_are_read_whole():
+    """A template literal inside ${...} of another one used to end the outer one too early."""
+    a = 'h = `<b>${xs.map(x => `<i>${x}</i>`).join("")}</b>`; // lista\nok = 1; // sí\n'
+    b = 'h = `<b>${xs.map(x => `<i>${x}</i>`).join("")}</b>`; // list\nok = 1; // yes\n'
+    assert js_code(a) == js_code(b)
+    assert js_code(a) != js_code(a.replace("<i>", "<u>"))
+
+
 def test_css_and_html_comments_do_not_count():
     assert css_code("/* botón */ .btn { height: 42px; }") == css_code("/* button */\n.btn {\n  height: 42px;\n}")
     assert css_code(".btn { height: 42px; }") != css_code(".btn { height: 36px; }")

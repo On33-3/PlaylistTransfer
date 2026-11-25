@@ -32,28 +32,61 @@ def python_code(text: str) -> str:
     return ast.dump(tree, include_attributes=False)
 
 
-def js_code(text: str) -> str:
-    """JavaScript without // and /* */ comments. Strings and template literals are kept as they are,
-    so a "//" inside a URL is not taken for a comment."""
-    out, i, n = [], 0, len(text)
+REGEX_AFTER = set("(,=:[!&|?{};+-*%<>~^") | {""}     # a "/" after these starts a regular expression
+
+
+def js_parts(text: str):
+    """Splits JavaScript into ("code" | "comment", text, line). Strings, template literals and regular
+    expressions are code, so a "//" in a URL or a quote in /[&<>"']/ is not misread."""
+    i, n, start, last = 0, len(text), 0, ""
+
+    def skip_quoted(j, quote):
+        """From an opening quote to just after its closing one. Inside a template literal, each ${...}
+        is code again, with its own strings and nested template literals."""
+        j += 1
+        while j < n and text[j] != quote:
+            if text[j] == "\\":
+                j += 2
+            elif quote == "`" and text.startswith("${", j):
+                j, depth = j + 2, 1
+                while j < n and depth:
+                    if text[j] in "'\"`":
+                        j = skip_quoted(j, text[j])
+                        continue
+                    depth += {"{": 1, "}": -1}.get(text[j], 0)
+                    j += 1
+            else:
+                j += 1
+        return j + 1
+
     while i < n:
         c = text[i]
         if c in "'\"`":
-            j = i + 1
-            while j < n and text[j] != c:
+            i, last = skip_quoted(i, c), c
+        elif text.startswith("//", i) or text.startswith("/*", i):
+            if start < i:
+                yield "code", text[start:i], text.count("\n", 0, start) + 1
+            end = text.find("\n", i) if text[i + 1] == "/" else text.find("*/", i + 2) + 2
+            end = n if end < (0 if text[i + 1] == "/" else 2) else end
+            yield "comment", text[i:end], text.count("\n", 0, i) + 1
+            i = start = end
+        elif c == "/" and last in REGEX_AFTER:              # a regular expression: up to its closing /
+            j, in_class = i + 1, False
+            while j < n and (text[j] != "/" or in_class) and text[j] != "\n":
+                in_class = (in_class or text[j] == "[") and text[j] != "]"
                 j += 2 if text[j] == "\\" else 1
-            out.append(text[i:j + 1])
-            i = j + 1
-        elif text.startswith("//", i):
-            i = text.find("\n", i)
-            i = n if i < 0 else i
-        elif text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            i = n if end < 0 else end + 2
+            i, last = j + 1, "/"
         else:
-            out.append(c)
+            if not c.isspace():
+                last = c
             i += 1
-    return collapse("".join(out))
+    if start < n:
+        yield "code", text[start:], text.count("\n", 0, start) + 1
+
+
+def js_code(text: str) -> str:
+    """JavaScript without // and /* */ comments."""
+    return collapse("".join(part for kind, part, _ in js_parts(text) if kind == "code"))
 
 
 def css_code(text: str) -> str:
