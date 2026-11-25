@@ -221,7 +221,7 @@
     "settings.th_reset": "Volver a los valores de fábrica",
     "settings.th_saved": "Guardado: sin dudar desde {ok}, con dudas desde {min}.",
     "settings.data": "Privacidad y datos",
-    "settings.data_text": "Tus sesiones, historial y preferencias se guardan solo en esta PC. La app se conecta únicamente con Tidal, YouTube Music y Spotify: no tiene servidores propios ni manda estadísticas.",
+    "settings.data_text": "Tus sesiones, historial y preferencias se guardan solo en esta PC. La app se conecta únicamente con Tidal, YouTube Music y Spotify: no tiene servidores propios ni manda estadísticas. El código es abierto: cualquiera puede revisarlo en GitHub.",
     "settings.wipe": "Borrar todo",
     "settings.wipe_title": "¿Borrar todos los datos de la app?",
     "settings.wipe_text": "Se borran de esta PC las sesiones de los servicios, el historial, las preferencias, las búsquedas guardadas y la carpeta del navegador que usa la app para iniciar sesión. La app queda como la primera vez: para usarla de nuevo, volvés a conectar. Tus playlists no se tocan.",

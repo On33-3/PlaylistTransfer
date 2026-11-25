@@ -77,8 +77,7 @@ def test_settings_explain_privacy_and_erase_everything(browser, tmp_path):
     page, errors = open_page(browser, api)
     page.click("nav [data-go=ajustes]")
     assert "solo en esta PC" in page.inner_text("#ajustes")
-    # "The code is open" comes back once the repo is public: until then, nobody can review it
-    assert "código es abierto" not in page.inner_text("#ajustes")
+    assert "El código es abierto" in page.inner_text("#ajustes")     # the repo is public: anyone can review it
     page.click("#wipe")
     assert page.is_visible("#wipe-confirm") and "Tus playlists no se tocan" in page.inner_text("#wipe-confirm")
     shot(page, "ajustes-borrar-todo")
