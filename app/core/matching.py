@@ -1,16 +1,16 @@
-"""Coincidencias entre servicios y detección de repetidos.
+"""Matching between services and duplicate detection.
 
-Base extraída de `legacy/transfer_playlist.py` (probada con cuentas reales). Lo que cambió a
-propósito, con un escenario de prueba por cada regla (`tests/test_scenarios.py`):
+Based on `legacy/transfer_playlist.py`, the original console script (tested with real accounts,
+since removed). What changed on purpose, with a test scenario for each rule (`tests/test_scenarios.py`):
 
-- El artista y el título son requisitos, no solo pesos: un tema homónimo de otro artista, un
-  cover o un karaoke no es "el mismo" aunque el título y la duración coincidan.
-- Una canción puede tener varios artistas, y cada servicio los escribe distinto ("Queen & David
-  Bowie" en un solo texto, o dos artistas, o "feat." en el título): alcanza con que coincida uno.
-- Partes y secuelas son temas distintos (Pt. 1 ≠ Pt. 2, "The Unforgiven" ≠ "The Unforgiven II",
-  "(Reprise)"), y los títulos genéricos ("Intro", "Interlude") solo coinciden en el mismo álbum.
-- Otra versión de la misma canción (en vivo, remix, acústica, sped up...) no se da por OK al
-  transferir (queda dudosa), y en los repetidos se marca como "otra versión".
+- Artist and title are requirements, not just weights: a song with the same name by another artist,
+  a cover or a karaoke version is not "the same" even if the title and the length match.
+- A song can have several artists, and each service writes them differently ("Queen & David
+  Bowie" as one text, or two artists, or "feat." in the title): one matching artist is enough.
+- Parts and sequels are different songs (Pt. 1 ≠ Pt. 2, "The Unforgiven" ≠ "The Unforgiven II",
+  "(Reprise)"), and generic titles ("Intro", "Interlude") only match on the same album.
+- Another version of the same song (live, remix, acoustic, sped up...) is not OK when
+  transferring (it stays doubtful), and among duplicates it is marked as "another version".
 """
 from __future__ import annotations
 
@@ -22,18 +22,18 @@ from functools import lru_cache
 
 from app.core.models import OTHER_VERSION, SAME, Duplicate, Song
 
-SCORE_OK = 0.75      # desde acá se agrega sin dudas
-SCORE_MIN = 0.60     # entre MIN y OK se agrega, pero queda marcado como dudoso
-ARTIST_MIN = 0.60    # parecido mínimo de artista: por debajo, es otro artista
-TITLE_MIN = 0.75     # parecido mínimo de título: por debajo, es otro tema
-SAME_TITLE = 0.92    # parecido de título desde el que dos temas pueden ser la misma canción (repetidos)
-NO_MATCH_CAP = 0.50  # tope cuando es otra canción (queda como no encontrado)
-VERSION_CAP = 0.70   # tope cuando es otra versión de la misma canción (queda como dudoso)
+SCORE_OK = 0.75      # from here on it is added without doubt
+SCORE_MIN = 0.60     # between MIN and OK it is added, but marked as doubtful
+ARTIST_MIN = 0.60    # minimum artist similarity: below it, it's another artist
+TITLE_MIN = 0.75     # minimum title similarity: below it, it's another song
+SAME_TITLE = 0.92    # title similarity from which two tracks can be the same song (duplicates)
+NO_MATCH_CAP = 0.50  # cap when it's another song (it ends up as not found)
+VERSION_CAP = 0.70   # cap when it's another version of the same song (it ends up as doubtful)
 
 OK, DOUBTFUL, NOT_FOUND = "ok", "dudoso", "no_encontrado"
 
 
-# ---------------------------------------------------------------- normalización
+# ---------------------------------------------------------------- normalization
 
 _NOISE_PAREN = re.compile(
     r"[\(\[][^\)\]]*\b(feat|ft|with|remaster(ed)?|official|video|audio|lyrics?|visualizer|hd|4k)\b[^\)\]]*[\)\]]",
@@ -43,14 +43,14 @@ _NOISE_DASH = re.compile(r"\s+-\s+[^-]*\b(remaster(ed)?|official|video|audio|lyr
 _FEAT = re.compile(r"\s+(feat\.?|ft\.?)\s+.*$", re.I)
 
 
-# Las funciones de texto son puras y se llaman muchísimas veces con los mismos títulos y artistas
-# (cada candidato se compara con cada tema): se guarda el resultado de cada texto ya visto.
+# The text functions are pure and get called a huge number of times with the same titles and artists
+# (each candidate is compared with each song): the result for every text already seen is cached.
 CACHE = 1 << 16
 
 
 @lru_cache(maxsize=CACHE)
 def clean(text: str) -> str:
-    """Saca ruido típico de títulos: (Official Video), - Remastered 2011, feat. X."""
+    """Removes typical title noise: (Official Video), - Remastered 2011, feat. X."""
     text = _NOISE_PAREN.sub(" ", text or "")
     text = _NOISE_DASH.sub(" ", text)
     text = _FEAT.sub(" ", text)
@@ -59,7 +59,7 @@ def clean(text: str) -> str:
 
 @lru_cache(maxsize=CACHE)
 def plain(text: str) -> str:
-    """Minúsculas, sin acentos ni puntuación, & → and. Sin sacar nada más."""
+    """Lowercase, no accents or punctuation, & → and. Nothing else removed."""
     text = unicodedata.normalize("NFKD", text or "")
     text = "".join(c for c in text if not unicodedata.combining(c)).lower()
     text = text.replace("&", " and ")
@@ -69,7 +69,7 @@ def plain(text: str) -> str:
 
 @lru_cache(maxsize=CACHE)
 def norm(text: str) -> str:
-    """Como `plain`, pero antes saca el ruido de los títulos (respeta alfabetos no latinos)."""
+    """Like `plain`, but first removes title noise (keeps non-Latin alphabets)."""
     return plain(clean(text))
 
 
@@ -82,7 +82,7 @@ def _ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio() if a and b else 0.0
 
 
-# ---------------------------------------------------------------- artistas
+# ---------------------------------------------------------------- artists
 
 _ARTIST_SEP = re.compile(r"\s*(?:,|&|\+|/|;|\bx\b|\band\b|\by\b|\bfeat\.?|\bft\.?|\bfeaturing\b|"
                          r"\bwith\b|\bcon\b|\bvs\.?)\s*", re.I)
@@ -91,7 +91,7 @@ _CHANNEL_SUFFIX = re.compile(r"(?:\s*-?\s*\b(?:topic|official|oficial)\b|vevo)$"
 
 @lru_cache(maxsize=CACHE)
 def _artist_key(name: str) -> str:
-    """Nombre de artista comparable: sin "VEVO", " - Topic", "Official" de los canales de YouTube."""
+    """A comparable artist name: without the "VEVO", " - Topic", "Official" of YouTube channels."""
     key = plain(name)
     for _ in range(2):
         key = _CHANNEL_SUFFIX.sub("", key).strip()
@@ -99,7 +99,7 @@ def _artist_key(name: str) -> str:
 
 
 def artist_names(song: Song) -> list[tuple[str, frozenset[str]]]:
-    """[(nombre completo, partes)] por artista. "Queen & David Bowie" → partes {queen, david bowie}."""
+    """[(full name, parts)] per artist. "Queen & David Bowie" → parts {queen, david bowie}."""
     return list(_artist_names(tuple(song.artists)))
 
 
@@ -120,9 +120,9 @@ def _all_artist_tokens(*songs: Song) -> set[str]:
 
 
 def _artist_in_title(artist_song: Song, title_song: Song) -> bool:
-    """Videos tipo "Artista - Tema": el artista de uno aparece como palabras en el título del otro.
-    No cuenta lo que viene con "feat.": en "Cheap Thrills (feat. Sean Paul)" subido por otro, Sean Paul
-    no dice quién la canta. Un remixer entre corchetes sí ("Red Lips [Skrillex Remix]")."""
+    """"Artist - Song" style videos: one's artist appears as words in the other's title.
+    What comes with "feat." doesn't count: in "Cheap Thrills (feat. Sean Paul)" uploaded by someone else,
+    Sean Paul doesn't say who sings it. A remixer in brackets does ("Red Lips [Skrillex Remix]")."""
     title = _title_without_feat(title_song.title or "")
     return any(_contains_words(n, title) for whole, parts in artist_names(artist_song)
                for n in {whole, *parts} if len(n) >= 3)
@@ -137,8 +137,8 @@ _FEAT_PAREN = re.compile(r"[\(\[][^\)\]]*\b(?:feat|ft|featuring|with)\b[^\)\]]*[
 
 
 def artist_sim(src: Song, cand: Song) -> float:
-    """0 a 1: el mejor parecido entre algún artista de uno y alguno del otro (una canción puede
-    tener varios, y cada servicio los lista distinto)."""
+    """0 to 1: the best similarity between any artist of one and any of the other (a song can
+    have several, and each service lists them differently)."""
     best = 0.0
     for wa, pa in artist_names(src):
         for wb, pb in artist_names(cand):
@@ -158,18 +158,18 @@ def _same_artist(a: Song, b: Song) -> bool:
         return True
     if _artist_in_title(a, b) or _artist_in_title(b, a):
         return True
-    if not artist_names(a) or not artist_names(b):      # sin artista: que la duración sea casi igual
+    if not artist_names(a) or not artist_names(b):      # no artist: the length has to be almost the same
         return bool(a.duration and b.duration and abs(a.duration - b.duration) <= 5)
     return False
 
 
-# ---------------------------------------------------------------- títulos
+# ---------------------------------------------------------------- titles
 
 _ANY_BRACKETS = re.compile(r"\s*[\(\[\{][^\)\]\}]*[\)\]\}]")
 _PROD = re.compile(r"\s+(prod\.?|produced by)\s+.*$", re.I)
 _DASH = re.compile(r"\s+[-–—]\s+")
 
-# Palabras que pueden sobrar en el título de un video sin que sea otro tema
+# Words that can be extra in a video title without it being another song
 _TITLE_NOISE = {"official", "oficial", "video", "videoclip", "clip", "audio", "lyric", "lyrics", "letra",
                 "mv", "m", "v", "hd", "hq", "4k", "visualizer", "music", "musica", "topic", "vevo", "ft",
                 "feat", "prod", "explicit", "clean", "radio", "edit", "full", "version", "remastered",
@@ -177,8 +177,8 @@ _TITLE_NOISE = {"official", "oficial", "video", "videoclip", "clip", "audio", "l
 
 
 def title_keys(song: Song) -> set[str]:
-    """Título base, sin lo que cambia entre versiones: (Official Video), [Remastered], (acoustic),
-    feat. X, prod. X, '- Remastered 2011'. En YouTube también prueba sin el 'Artista - ' del principio."""
+    """Base title, without what changes between versions: (Official Video), [Remastered], (acoustic),
+    feat. X, prod. X, '- Remastered 2011'. On YouTube it also tries without a leading 'Artist - '."""
     return set(_title_keys(song.title or ""))
 
 
@@ -190,13 +190,13 @@ def _title_keys(t: str) -> frozenset[str]:
 def _keys_of(*variants: str) -> frozenset[str]:
     keys = set()
     for v in variants:
-        # Sin lo que va entre paréntesis (casi siempre sobra: "(Remastered)", "(Live)") y también con lo de
-        # adentro, sin los signos: a veces es parte del título y otro servicio lo escribe sin paréntesis,
-        # "(I Can't Get No) Satisfaction" = "I Can't Get No Satisfaction". El ruido conocido ("Official
-        # Video") ya lo saca norm(); que sea otra versión (en vivo, remix) lo deciden version_tags()
+        # Without what is in parentheses (almost always extra: "(Remastered)", "(Live)") and also with what
+        # is inside, without the brackets: sometimes it is part of the title and another service writes it
+        # without them, "(I Can't Get No) Satisfaction" = "I Can't Get No Satisfaction". Known noise ("Official
+        # Video") is already removed by norm(); whether it's another version (live, remix) is up to version_tags()
         for w in (_ANY_BRACKETS.sub(" ", v), v):
             w = _PROD.sub(" ", _FEAT.sub(" ", w))
-            # Las partes ("Pt. 2", "II") se comparan aparte, en pieces(): acá no cuentan
+            # Parts ("Pt. 2", "II") are compared separately, in pieces(): they don't count here
             k = re.sub(r"\s+", " ", _TRAILING_ROMAN.sub("", _PART.sub(" ", norm(w)))).strip()
             if k:
                 keys.add(k)
@@ -204,16 +204,16 @@ def _keys_of(*variants: str) -> frozenset[str]:
 
 
 def title_sim(src: Song, cand: Song) -> float:
-    """0 a 1. Que un título contenga al otro solo cuenta si lo que sobra es ruido o el artista
-    ("BTS 'Dynamite' Official MV" sí; "One Tree Hill" no es "One")."""
+    """0 to 1. One title containing the other only counts if what is left over is noise or the artist
+    ("BTS 'Dynamite' Official MV" yes; "One Tree Hill" is not "One")."""
     return _title_match(src, cand)[0]
 
 
 def _title_match(src: Song, cand: Song) -> tuple[float, float]:
-    """(parecido, parecido que no alcanza para estar seguro). Lo segundo es cuando se parecen las letras
-    pero hay una palabra de verdad de más ("Gettin' Over" / "Gettin' Over You") o lo que no comparten no
-    se parece ("God Mission - Español Version" / "Alone (Español Version)"): puede ser otro tema, así que
-    queda para revisar en vez de agregarse solo."""
+    """(similarity, similar but not enough to be sure). The second is when the letters are alike but
+    there is a real extra word ("Gettin' Over" / "Gettin' Over You") or what they don't share isn't alike
+    ("God Mission - Español Version" / "Alone (Español Version)"): it may be another song, so it goes to
+    review instead of being added on its own."""
     ka, kb = title_keys(src), title_keys(cand)
     if ka & kb:
         return 1.0, 0.0
@@ -238,9 +238,9 @@ def _title_match(src: Song, cand: Song) -> tuple[float, float]:
 
 @lru_cache(maxsize=CACHE)
 def _rest_alike(x: str, y: str) -> bool:
-    """Lo que no comparten dos títulos se parece (una errata: "frend" / "friend"). Si no, lo común no
-    alcanza: "God Mission - Español Version" ≠ "Alone (Español Version)". Restos cortos ("you" / "u")
-    no se miran."""
+    """What two titles don't share is alike (a typo: "frend" / "friend"). If not, what they share is
+    not enough: "God Mission - Español Version" ≠ "Alone (Español Version)". Short leftovers ("you" / "u")
+    are not checked."""
     wx, wy = x.split(), y.split()
     rx, ry = " ".join(w for w in wx if w not in wy), " ".join(w for w in wy if w not in wx)
     return len(rx) < 4 or len(ry) < 4 or rx == x or _ratio(rx, ry) >= 0.5
@@ -248,11 +248,11 @@ def _rest_alike(x: str, y: str) -> bool:
 
 @lru_cache(maxsize=CACHE)
 def _is_version_word(word: str) -> bool:
-    """"remix", "live", "acoustic"...: si es otra versión lo decide version_tags(), no el título."""
+    """"remix", "live", "acoustic"...: whether it's another version is up to version_tags(), not the title."""
     return any(rx.search(word) for rx in _VERSION_RX.values())
 
 
-# ---------------------------------------------------------------- versiones, covers, partes
+# ---------------------------------------------------------------- versions, covers, parts
 
 _VERSION_TAGS = {
     "en vivo": r"live|en vivo|ao vivo|en directo|unplugged|the first take",
@@ -278,7 +278,7 @@ _GENERIC = {"intro", "outro", "interlude", "interludio", "skit", "prelude", "pre
 
 
 def _title_without_artists(song: Song, *others: Song) -> str:
-    """Título sin los nombres de los artistas (la banda "Live" no hace que sea una versión en vivo)."""
+    """The title without the artists' names (the band "Live" doesn't make it a live version)."""
     text = f" {plain(song.title)} "
     for whole, parts in artist_names(song) + [n for o in others for n in artist_names(o)]:
         for n in sorted({whole, *parts}, key=len, reverse=True):
@@ -287,7 +287,7 @@ def _title_without_artists(song: Song, *others: Song) -> str:
 
 
 def version_tags(song: Song, *others: Song) -> set[str]:
-    """{'en vivo', 'remix', ...}: lo que hace que sea otra grabación de la misma canción."""
+    """{'en vivo', 'remix', ...}: what makes it another recording of the same song."""
     text = _title_without_artists(song, *others)
     tags = {tag for tag, rx in _VERSION_RX.items() if rx.search(text)}
     if _someone_elses_edit(song, *others):
@@ -295,8 +295,8 @@ def version_tags(song: Song, *others: Song) -> set[str]:
     return tags
 
 
-# "(Coyote Paul Schranz Edit)", "- Clash U Edit": la versión de otro. "(Radio Edit)", "(Edit)" no,
-# y tampoco la de un artista del tema: "It's A Killa (Shermanology Edit)" de FISHER y Shermanology
+# "(Coyote Paul Schranz Edit)", "- Clash U Edit": someone else's version. "(Radio Edit)", "(Edit)" are not,
+# and neither is one by an artist of the song: "It's A Killa (Shermanology Edit)" by FISHER and Shermanology
 _EDIT = re.compile(r"(?:[\(\[]|\s[-–—]\s)([^\(\)\[\]]*?)\s*\bedit\s*(?:[\)\]]|$)", re.I)
 _PLAIN_EDITS = {"radio", "single", "album", "clean", "explicit", "dirty", "short", "original", "video",
                 "censored", "main", "lp", "ep", "mono", "stereo", "the", "a", "an", "new", "version"}
@@ -314,14 +314,14 @@ def _someone_elses_edit(song: Song, *others: Song) -> bool:
 
 
 def is_cover(song: Song, *others: Song) -> bool:
-    """Cover, karaoke o tributo: la canta otra persona aunque el título nombre al artista original."""
+    """Cover, karaoke or tribute: someone else sings it even if the title names the original artist."""
     if _COVER.search(_title_without_artists(song, *others)):
         return True
     return any(_COVER_ARTIST.search(plain(a)) for a in song.artists)
 
 
 def pieces(song: Song) -> frozenset[str]:
-    """Partes y secuelas: {'parte 2'}, {'reprise'}. Si no coinciden, son temas distintos."""
+    """Parts and sequels: {'parte 2'}, {'reprise'}. If they don't match, they are different songs."""
     text = plain(song.title)
     out = {f"parte {_ROMAN.get(n, n)}" for n in _PART.findall(text)}
     base = plain(_ANY_BRACKETS.sub(" ", _DASH.split(song.title or "")[-1]))
@@ -338,14 +338,14 @@ _MOVEMENT = re.compile(r"[:\-–—]\s*([IVX]{1,4})\.\s")     # "Spring: I. Alle
 
 
 def numbers(song: Song) -> frozenset[int]:
-    """Los números del título que identifican la obra ("No. 1", "Op. 9", "Track 2"), sin años
-    (1900-2099) ni lo que va entre paréntesis o después de "- Remastered" (eso es otra versión)."""
+    """The numbers in the title that identify the work ("No. 1", "Op. 9", "Track 2"), without years
+    (1900-2099) or what is in parentheses or after "- Remastered" (that is another version)."""
     base = plain(clean(_ANY_BRACKETS.sub(" ", song.title or "")))
     return frozenset(n for n in map(int, _DIGITS.findall(base)) if not 1900 <= n <= 2099)
 
 
 def movements(song: Song) -> frozenset[str]:
-    """Movimientos de una obra clásica: "I.", "II."... después de ":" o "-"."""
+    """Movements of a classical work: "I.", "II."... after ":" or "-"."""
     return frozenset(_MOVEMENT.findall(song.title or ""))
 
 
@@ -354,7 +354,7 @@ def is_generic(song: Song) -> bool:
 
 
 def _same_context(a: Song, b: Song) -> bool:
-    """Para títulos genéricos: mismo álbum (si los dos lo tienen) o, si no, duración casi igual."""
+    """For generic titles: the same album (if both have one) or, if not, almost the same length."""
     if a.album and b.album:
         ka, kb = norm(_ANY_BRACKETS.sub(" ", a.album)), norm(_ANY_BRACKETS.sub(" ", b.album))
         return ka == kb or _ratio(ka, kb) >= 0.9
@@ -362,13 +362,13 @@ def _same_context(a: Song, b: Song) -> bool:
 
 
 def _different_song(a: Song, b: Song) -> bool:
-    """Reglas que separan canciones aunque título y artista se parezcan."""
+    """Rules that tell songs apart even when title and artist are alike."""
     if is_cover(a, b) != is_cover(b, a):
         return True
     if pieces(a) != pieces(b):
         return True
-    # Música clásica y temas numerados: "Gymnopédie No. 1" ≠ "No. 3", "I. Allegro" ≠ "II. Largo".
-    # Solo si los dos tienen números (o movimientos): "Live at Wembley '86" sigue siendo el mismo tema.
+    # Classical music and numbered pieces: "Gymnopédie No. 1" ≠ "No. 3", "I. Allegro" ≠ "II. Largo".
+    # Only if both have numbers (or movements): "Live at Wembley '86" is still the same song.
     na, nb = numbers(a), numbers(b)
     if na and nb and na != nb:
         return True
@@ -380,13 +380,13 @@ def _different_song(a: Song, b: Song) -> bool:
     return False
 
 
-# ---------------------------------------------------------------- coincidencias entre servicios
+# ---------------------------------------------------------------- matching between services
 
 def score(src: Song, cand: Song) -> float:
-    """0 a 1. Pondera título, artista y duración. ISRC idéntico = 1.
+    """0 to 1. Weighs title, artist and length. The same ISRC = 1.
 
-    Topes: si es otra canción (otro artista, otro título, cover, otra parte, intro de otro álbum),
-    NO_MATCH_CAP → no encontrado. Si es otra versión (en vivo, remix...), VERSION_CAP → dudoso."""
+    Caps: if it's another song (another artist, another title, a cover, another part, an intro from
+    another album), NO_MATCH_CAP → not found. If it's another version (live, remix...), VERSION_CAP → doubtful."""
     if src.isrc and cand.isrc and src.isrc.upper() == cand.isrc.upper():
         return 1.0
 
@@ -402,7 +402,7 @@ def score(src: Song, cand: Song) -> float:
     total = round(0.5 * t + 0.35 * a + 0.15 * d, 3)
     other_artist = bool(artist_names(src) and artist_names(cand)) and a < ARTIST_MIN
     if t < TITLE_MIN <= unsure and not other_artist and not _different_song(src, cand):
-        return min(round(0.5 * unsure + 0.35 * a + 0.15 * d, 3), VERSION_CAP)   # para revisar
+        return min(round(0.5 * unsure + 0.35 * a + 0.15 * d, 3), VERSION_CAP)   # to review
     if t < TITLE_MIN or other_artist or _different_song(src, cand):
         return min(total, NO_MATCH_CAP)
     if version_tags(src, cand) != version_tags(cand, src):
@@ -420,17 +420,17 @@ def best_match(src: Song, candidates: list[Song]) -> tuple[Song | None, float]:
 
 
 def alternatives(src: Song, candidates: list[Song], limit: int = 3) -> list[Song]:
-    """La misma canción cantada por otros artistas (no covers caseros ni karaoke), para que la UI
-    la ofrezca cuando no está la versión del artista buscado. Nunca se agregan solas.
+    """The same song sung by other artists (not home-made covers or karaoke), so the UI can offer it
+    when the searched artist's version isn't there. They are never added on their own.
 
-    Más exigente que al comparar: se ofrece a alguien que no es el artista buscado, así que el título
-    entero del candidato tiene que ser el buscado. Con sus pedazos, "Bad Bunny - Otro Tema" pasaba por
-    "Bad Bunny", y "Intro - Sore Mix" por "Tema - Remix" (comprobado con una transferencia real)."""
+    Stricter than when comparing: it is offered by someone who isn't the searched artist, so the
+    candidate's whole title has to be the searched one. With its pieces, "Bad Bunny - Otro Tema" passed
+    for "Bad Bunny", and "Intro - Sore Mix" for "Tema - Remix" (seen in a real transfer)."""
     def closeness(c: Song) -> float:
         return abs(src.duration - c.duration) if src.duration and c.duration else float("inf")
 
     out: dict[tuple, Song] = {}
-    for c in sorted(candidates, key=closeness):          # primero las de duración más parecida
+    for c in sorted(candidates, key=closeness):          # closest length first
         if (_is_the_named_title(src, c) and artist_sim(src, c) < ARTIST_MIN and not is_cover(c, src)
                 and not any(_LYRICS_CHANNEL.search(plain(a)) for a in c.artists)
                 and pieces(c) == pieces(src) and version_tags(c, src) <= version_tags(src, c)):
@@ -442,13 +442,13 @@ _LYRICS_CHANNEL = re.compile(r"\b(?:lyrics?|letra|letras)\b")
 
 
 def _is_the_named_title(src: Song, cand: Song) -> bool:
-    """¿El título completo del candidato es el buscado? (Del buscado sí valen las partes: "Sade - Smooth Operator".)"""
+    """Is the candidate's whole title the searched one? (For the searched one, parts do count: "Sade - Smooth Operator".)"""
     whole = _keys_of(cand.title or "")
     return any(x == y or _ratio(x, y) >= SAME_TITLE for x in title_keys(src) for y in whole)
 
 
 def classify(sc: float, ok: float = SCORE_OK, minimum: float = SCORE_MIN) -> str:
-    """'ok', 'dudoso' o 'no_encontrado' según el puntaje."""
+    """'ok', 'dudoso' or 'no_encontrado' from the score."""
     if sc >= ok:
         return OK
     if sc >= minimum:
@@ -459,14 +459,14 @@ def classify(sc: float, ok: float = SCORE_OK, minimum: float = SCORE_MIN) -> str
 def queries_for(src: Song) -> list[str]:
     title = clean(src.title)
     qs = [f"{src.artist} {title}".strip(), title]
-    return list(dict.fromkeys(q for q in qs if q))   # sin repetidos, en orden
+    return list(dict.fromkeys(q for q in qs if q))   # no repeats, in order
 
 
-# ---------------------------------------------------------------- misma canción, otra versión
+# ---------------------------------------------------------------- same song, another version
 
 def same_song(a: Song, b: Song) -> bool:
-    """¿Es la misma canción aunque sea otra versión (otro video, portada, remaster, en vivo)?
-    No lo es si la canta otro artista, si es un cover o karaoke, otra parte, o un "Intro" de otro álbum."""
+    """Is it the same song, even if it's another version (another video, cover art, remaster, live)?
+    It isn't if another artist sings it, if it's a cover or karaoke, another part, or an "Intro" from another album."""
     if a.id and b.id and a.id == b.id:
         return True
     if a.isrc and b.isrc and a.isrc.upper() == b.isrc.upper():
@@ -478,20 +478,20 @@ def same_song(a: Song, b: Song) -> bool:
 
 
 class SongIndex:
-    """Busca "¿ya está esta canción?" sin comparar contra toda la lista (con 5000 temas eran 11 minutos).
+    """Answers "is this song already here?" without comparing against the whole list (with 5000 songs that took 11 minutes).
 
-    Es exacto: da lo mismo que recorrer la lista con `same_song`. Para ser la misma canción hay que compartir
-    id, ISRC o un título casi igual (`SAME_TITLE`), así que solo se descartan los pares que no pueden
-    llegar: `SAME_TITLE` limita cuántos caracteres pueden quedar sin pareja entre los dos títulos, y eso
-    limita cuánto pueden diferir su largo y las letras que usan. A los que quedan se les aplica `same_song`,
-    en el orden de la lista: gana el primero, como siempre."""
+    It is exact: the same result as going through the list with `same_song`. To be the same song, two tracks
+    have to share an id, an ISRC or an almost equal title (`SAME_TITLE`), so only pairs that cannot get there
+    are skipped: `SAME_TITLE` limits how many characters can be left unpaired between the two titles, and that
+    limits how much their length and the letters they use can differ. `same_song` is applied to the rest,
+    in list order: the first one wins, as always."""
 
     def __init__(self, songs: Iterable[Song] = ()):
         self._songs: list[Song] = []
         self._ids: dict[str, list[int]] = {}
         self._isrcs: dict[str, list[int]] = {}
         self._keys: dict[str, list[int]] = {}
-        self._by_length: dict[int, dict[str, int]] = {}      # largo → {título base: letras que usa}
+        self._by_length: dict[int, dict[str, int]] = {}      # length → {base title: letters it uses}
         for s in songs:
             self.add(s)
 
@@ -508,11 +508,11 @@ class SongIndex:
             self._keys.setdefault(key, []).append(at)
 
     def _similar_keys(self, key: str) -> Iterator[str]:
-        """Los títulos base guardados que pueden llegar a `SAME_TITLE` con `key`, y lo llegan."""
+        """The stored base titles that can reach `SAME_TITLE` with `key`, and do."""
         letters, size = _letters(key), len(key)
         for other_size, bucket in self._by_length.items():
             total = size + other_size
-            # Lo que sobra de largo y las letras que tiene uno solo se quedan sin pareja: ratio = 1 - sin pareja / total
+            # The extra length and the letters only one of them has stay unpaired: ratio = 1 - unpaired / total
             unmatched = int((1 - SAME_TITLE) * total + 1e-9)
             if abs(size - other_size) > unmatched:
                 continue
@@ -521,7 +521,7 @@ class SongIndex:
                     yield other
 
     def first_match(self, song: Song) -> Song | None:
-        """La primera canción de la lista que es la misma que `song`, o None."""
+        """The first song in the list that is the same as `song`, or None."""
         spots = set(self._ids.get(song.id or "", ())) | set(self._isrcs.get((song.isrc or "").upper(), ()))
         for key in _title_keys(song.title or ""):
             for other in self._similar_keys(key):
@@ -530,29 +530,29 @@ class SongIndex:
 
 
 def _letters(key: str) -> int:
-    """Qué letras usa un texto, como bits (dos letras pueden compartir bit: solo acerca, nunca aleja)."""
+    """Which letters a text uses, as bits (two letters can share a bit: it only brings closer, never apart)."""
     bits = 0
     for c in set(key):
         bits |= 1 << (ord(c) % 61)
     return bits
 
 
-OTHER_LENGTH = 30   # segundos: dos copias que difieren más que esto son grabaciones distintas
+OTHER_LENGTH = 30   # seconds: two copies that differ by more than this are different recordings
 
 
 def _other_recording(a: Song, b: Song) -> bool:
-    """Duran muy distinto: otra grabación aunque el título no lo diga (el remix de Majestic de "Rasputin" dura
-    3:07 y el original de Boney M. 4:27). Un video con intro difiere unos segundos (Virtual Insanity: 17 s).
-    El mismo id o ISRC es la misma grabación siempre."""
+    """Very different lengths: another recording even if the title doesn't say so (Majestic's remix of
+    "Rasputin" is 3:07 and Boney M.'s original 4:27). A video with an intro differs by a few seconds
+    (Virtual Insanity: 17 s). The same id or ISRC is always the same recording."""
     if (a.id and a.id == b.id) or (a.isrc and b.isrc and a.isrc.upper() == b.isrc.upper()):
         return False
     return bool(a.duration and b.duration and abs(a.duration - b.duration) > OTHER_LENGTH)
 
 
 def find_duplicates(songs: list[Song]) -> list[Duplicate]:
-    """Copias repetidas de una playlist. Queda siempre la que está primero. Cada copia dice si es
-    la misma grabación (SAME) u otra versión (OTHER_VERSION: en vivo, remix...), para que la UI
-    deje sin tildar estas últimas."""
+    """Repeated copies in a playlist. The first one always stays. Each copy says whether it is
+    the same recording (SAME) or another version (OTHER_VERSION: live, remix...), so the UI
+    leaves the latter unticked."""
     kept = SongIndex()
     dups: list[Duplicate] = []
     for i, s in enumerate(songs):

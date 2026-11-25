@@ -1,8 +1,8 @@
-"""Orquesta una transferencia: leer el origen → buscar cada tema → ver qué ya está → agregar.
+"""Runs a transfer: read the source → search for each song → see what is already there → add.
 
-Misma lógica que `run()` del script de consola, pero sin imprimir: cada paso sale como un
-evento (`emit`) para que la UI lo muestre en vivo. Nada se modifica hasta que terminaron todas
-las búsquedas, así que cancelar durante la búsqueda nunca deja una playlist a medias.
+The same logic as `run()` in the original console script, but without printing: each step is an
+event (`emit`) so the UI can show it live. Nothing is changed until every search has finished,
+so cancelling while searching never leaves a playlist half-done.
 """
 from __future__ import annotations
 
@@ -15,26 +15,26 @@ from app.connectors.base import Connector, ConnectorError
 from app.core.matching import (DOUBTFUL, NOT_FOUND, OK, SCORE_MIN, SCORE_OK, SongIndex, alternatives, best_match,
                                classify)
 from app.core.models import Song
-from app.core.models import Cancelled  # noqa: F401  (se importa también desde acá)
+from app.core.models import Cancelled  # noqa: F401  (also imported from here)
 from app.storage.progress import SearchProgress
 from app.i18n import t as tr
 
-ALREADY = "ya_estaba"   # estado de un tema que ya estaba en el destino
-# Estaba repetido en la playlist de origen (el mismo tema más arriba, o otra versión): se agrega una sola vez
+ALREADY = "ya_estaba"   # status of a song that was already in the destination
+# Repeated in the source playlist (the same song higher up, or another version): added only once
 REPEATED = "repetido"
-# "?" (puede ser otra versión): no se agregan solos. Quedan con su coincidencia para que el
-# usuario decida al final ("+ Agregar igual" / "Agregar los N…").
+# "?" (may be another version): never added on their own. They keep their match so the user
+# decides at the end ("+ Add anyway" / "Add the N…").
 DOUBTFUL_SKIPPED = "dudoso_omitido"
 ADDABLE = (OK, DOUBTFUL)
-# Por qué no se agrega una versión (códigos internos, no se muestran): otra del mismo tema ya
-# estaba en el destino, o el origen la tenía repetida
+# Why a version is not added (internal codes, never shown): another one of the same song was
+# already in the destination, or the source had it repeated
 ALREADY_THERE, REPEATED_IN_SOURCE = "already_there", "repeated_in_source"
 
 Emit = Callable[[dict], None]
 
 
 class PartialTransfer(Exception):
-    """Falló un destino después de que otros ya se completaron: `result` tiene lo que sí se hizo."""
+    """A destination failed after others were already done: `result` has what did get done."""
 
     def __init__(self, result: "TransferResult", failed: str):
         super().__init__(failed)
@@ -44,7 +44,7 @@ class PartialTransfer(Exception):
 @dataclass
 class Target:
     name: str
-    id: str | None = None      # None = playlist nueva (se crea solo si hay algo para agregar)
+    id: str | None = None      # None = new playlist (created only if there is something to add)
 
 
 @dataclass
@@ -53,7 +53,7 @@ class TrackResult:
     source: Song
     match: Song | None
     score: float
-    status: str                                  # ok / dudoso / dudoso_omitido / no_encontrado
+    status: str                                  # ok / doubtful / doubtful skipped / not found
     alternatives: list[Song] = field(default_factory=list)
 
 
@@ -61,11 +61,11 @@ class TrackResult:
 class TargetResult:
     target: Target
     added: list[Song] = field(default_factory=list)
-    already: list[Song] = field(default_factory=list)            # el mismo tema ya estaba
-    versions: list[tuple[Song, Song, str]] = field(default_factory=list)   # (match, el que estaba, por qué)
+    already: list[Song] = field(default_factory=list)            # the same song was already there
+    versions: list[tuple[Song, Song, str]] = field(default_factory=list)   # (match, the one that was there, why)
     created: bool = False
     url: str | None = None
-    history_id: int | None = None     # su operación en el historial: lo que se agrega después va ahí
+    history_id: int | None = None     # its operation in the history: what is added later goes there
 
 
 @dataclass
@@ -87,9 +87,9 @@ def song_dict(s: Song | None) -> dict | None:
 def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.Event | None = None,
               score_ok: float = SCORE_OK, score_min: float = SCORE_MIN,
               include_doubtful: bool = False, progress: SearchProgress | None = None) -> list[TrackResult]:
-    """Busca cada tema en el destino. Con `progress`, lo que ya se buscó en una transferencia que no
-    terminó no se vuelve a buscar, y si esta se corta (pausa larga, cancelar, sin internet) lo buscado
-    queda guardado: se avisa en los dos casos."""
+    """Searches for each song in the destination. With `progress`, what was already searched in a
+    transfer that didn't finish is not searched again, and if this one stops (a long pause, cancel, no
+    internet) what was searched is kept: both cases are announced."""
     results = []
     dest.reset_search_failures()
     if progress is not None and (before := progress.done(songs)):
@@ -129,7 +129,7 @@ def match_all(songs: list[Song], dest: Connector, emit: Emit, cancel: threading.
 
 
 def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], list[Song], list[tuple[Song, Song, str]]]:
-    """(para agregar, ya estaban, otra versión ya estaba). Igual que el script de consola."""
+    """(to add, already there, another version was already there). The same as the console script."""
     to_add: list[Song] = []
     already: list[Song] = []
     versions: list[tuple[Song, Song, str]] = []
@@ -153,7 +153,7 @@ def plan_target(found: list[Song], current: list[Song]) -> tuple[list[Song], lis
 
 
 def ensure_playlist(dest: Connector, target: Target, source_service: str, public: bool = False) -> bool:
-    """Una playlist nueva se crea recién cuando hay algo para agregar. True si la creó."""
+    """A new playlist is created only once there is something to add. True if it created it."""
     if target.id is not None:
         return False
     desc = tr("playlist.description", service=source_service, date=f"{datetime.now():%Y-%m-%d}")
@@ -167,20 +167,20 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
                  include_doubtful: bool = False, progress: SearchProgress | None = None) -> TransferResult:
     if not targets:
         raise ValueError(tr("err.choose_target"))
-    for c in (source, dest):            # las esperas de los servicios se ven en pantalla y se pueden cancelar
+    for c in (source, dest):            # the services' waits show on screen and can be cancelled
         c.listen(emit, cancel)
     try:
         result = _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok, score_min, public,
                            include_doubtful, progress)
     except BaseException:
-        if progress is not None:        # también si falló al agregar: la próxima vez no se busca de nuevo
+        if progress is not None:        # also if adding failed: next time it isn't searched again
             progress.save()
         raise
     finally:
         for c in (source, dest):
             c.listen(None, None)
     if progress is not None:
-        # Una prueba deja lo buscado para la transferencia de verdad; la de verdad, terminada, no lo necesita
+        # A dry run keeps the searches for the real transfer; a finished real one doesn't need them
         if dry_run:
             progress.save()
         else:
@@ -191,27 +191,27 @@ def run_transfer(source: Connector, dest: Connector, source_id: str, targets: li
 def _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok, score_min, public,
               include_doubtful, progress) -> TransferResult:
     src_name, songs = source.read(source_id)
-    if not songs:      # nada para pasar: no es "transferido" (antes daba un resultado positivo vacío)
+    if not songs:      # nothing to move: that is not "transferred" (it used to give an empty positive result)
         raise ConnectorError(tr("err.source_empty", name=src_name))
     emit({"type": "source", "name": src_name, "total": len(songs), "service": source.name})
 
     tracks = match_all(songs, dest, emit, cancel, score_ok, score_min, include_doubtful, progress)
 
-    found: list[Song] = []                       # sin repetir el mismo id; los "?" omitidos no
-    first: dict[str, int] = {}                   # id encontrado → el primer tema del origen que lo usa
+    found: list[Song] = []                       # without repeating the same id; skipped "?" are left out
+    first: dict[str, int] = {}                   # found id → the first source song that uses it
     for t in tracks:
         if t.status in ADDABLE and t.match and t.match.id:
-            if t.match.id in first:              # el mismo tema, otra vez en el origen: va una sola vez
+            if t.match.id in first:              # the same song, again in the source: it goes only once
                 t.status = REPEATED
                 emit({"type": "repeated", "n": t.n, "of": first[t.match.id]})
             else:
                 first[t.match.id] = t.n
                 found.append(t.match)
 
-    if cancel is not None and cancel.is_set():   # última oportunidad antes de modificar algo
+    if cancel is not None and cancel.is_set():   # last chance before changing anything
         raise Cancelled()
-    # Desde acá se escribe: una espera del servicio se sigue avisando, pero Cancelar ya no la corta (la
-    # playlist quedaría a medias y la pantalla diría "no se modificó ninguna")
+    # From here on it writes: a service's wait is still announced, but Cancel no longer stops it (the
+    # playlist would be left half-done and the screen would say "none was changed")
     dest.listen(emit, None)
     emit({"type": "writing"})
 
@@ -228,7 +228,7 @@ def _transfer(source, dest, source_id, targets, dry_run, emit, cancel, score_ok,
 
 def _write_target(source: Connector, dest: Connector, target: Target, tracks: list[TrackResult], found: list[Song],
                   dry_run: bool, public: bool, emit: Emit) -> TargetResult:
-    """Un destino: ver qué ya está y agregar lo que falta."""
+    """One destination: see what is already there and add what is missing."""
     current: list[Song] = []
     if target.id is not None:
         target.name, current = dest.read(target.id)
@@ -244,7 +244,7 @@ def _write_target(source: Connector, dest: Connector, target: Target, tracks: li
     for t in tracks:
         if t.match is not None and id(t.match) in present:
             twin, why = next(((w, y) for m, w, y in versions if m is t.match), (None, ALREADY_THERE))
-            # otra versión del mismo tema más arriba en el origen: repetido, no "ya estaba"
+            # another version of the same song higher up in the source: repeated, not "already there"
             emit({"type": "repeated" if why == REPEATED_IN_SOURCE else "already", "n": t.n, "target": target.name,
                   "as": song_dict(twin) if twin is not None else None})
     emit({"type": "target", "name": target.name, "url": res.url, "created": res.created, "dry_run": dry_run,
@@ -253,11 +253,11 @@ def _write_target(source: Connector, dest: Connector, target: Target, tracks: li
 
 
 def summary(result: TransferResult) -> dict:
-    """Cantidades para la UI y el historial."""
+    """Counts for the UI and the history."""
     by = {OK: 0, DOUBTFUL: 0, DOUBTFUL_SKIPPED: 0, NOT_FOUND: 0, REPEATED: 0}
     for t in result.tracks:
         by[t.status] += 1
-    # Repetidos en el origen: el mismo tema (REPEATED) y otra versión del mismo (en el primer destino)
+    # Repeated in the source: the same song (REPEATED) and another version of it (in the first destination)
     versions = result.targets[0].versions if result.targets else []
     repeated = by[REPEATED] + sum(1 for _, _, why in versions if why == REPEATED_IN_SOURCE)
     return {"ok": by[OK], "doubtful": by[DOUBTFUL], "skipped": by[DOUBTFUL_SKIPPED],
@@ -265,5 +265,5 @@ def summary(result: TransferResult) -> dict:
 
 
 def already_there(t: TargetResult) -> int:
-    """Los que ya estaban en ese destino (el mismo tema u otra versión): no cuenta los repetidos del origen."""
+    """Those already in that destination (the same song or another version): source repeats don't count."""
     return len(t.already) + sum(1 for _, _, why in t.versions if why == ALREADY_THERE)
