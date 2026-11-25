@@ -3,6 +3,9 @@ name = "playlisttransfer"
 version = "0.3.14"
 description = "Windows desktop app to move playlists between Tidal, YouTube Music and Spotify, and remove duplicates."
 requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Emmanuel Gaitan" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

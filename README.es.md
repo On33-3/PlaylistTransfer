@@ -82,6 +82,6 @@ py tools/real_check.py          # antes de publicar: la UI real con tus cuentas 
 
 ## Licencia
 
-Copyright © 2026 Emmanuel Gaitan. Software libre con licencia [GNU GPL v3 o posterior](LICENSE).
+Copyright © 2026 Emmanuel Gaitan. PlaylistTransfer es software libre con licencia [GNU GPL v3 o posterior](LICENSE): se puede usar, estudiar, compartir y modificar, y quien lo distribuya, con cambios o sin ellos, tiene que hacerlo con la misma licencia, su código fuente y este aviso de copyright.
 
 Las librerías incluidas tienen sus propias licencias (ver `THIRD-PARTY-NOTICES.txt` dentro del zip). tidalapi es LGPL-3.0: en la app va como archivos `.py` sueltos en `_internal\tidalapi`, así se puede reemplazar por otra versión.

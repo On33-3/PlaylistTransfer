@@ -51,7 +51,8 @@ Para borrar todo, cerrá la app y borrá esa carpeta.
 
 Licencias
 ---------
-PlaylistTransfer es software libre (licencia GPL-3.0 o posterior, ver LICENSE.txt).
+PlaylistTransfer es software libre: © 2026 Emmanuel Gaitan, licencia GPL-3.0 o posterior (ver LICENSE.txt).
+El código fuente está en https://github.com/On33-3/PlaylistTransfer
 Usa librerías de terceros con sus propias licencias: ver THIRD-PARTY-NOTICES.txt.
 tidalapi (LGPL-3.0) está en _internal\\tidalapi como archivos .py: podés reemplazarla por otra versión.
 
@@ -80,7 +81,8 @@ To delete everything, close the app and delete that folder.
 
 Licenses
 --------
-PlaylistTransfer is free software (GPL-3.0 or later, see LICENSE.txt).
+PlaylistTransfer is free software: © 2026 Emmanuel Gaitan, GPL-3.0 or later (see LICENSE.txt).
+The source code is at https://github.com/On33-3/PlaylistTransfer
 It uses third-party libraries with their own licenses: see THIRD-PARTY-NOTICES.txt.
 tidalapi (LGPL-3.0) is in _internal\\tidalapi as .py files: you can replace it with another version.
 
@@ -104,7 +106,7 @@ def version_info() -> None:
       StringStruct('FileDescription', 'PlaylistTransfer: pasar playlists entre servicios de música'),
       StringStruct('FileVersion', '{__version__}'),
       StringStruct('InternalName', 'PlaylistTransfer'),
-      StringStruct('LegalCopyright', 'GPL-3.0-or-later'),
+      StringStruct('LegalCopyright', '© 2026 Emmanuel Gaitan · GPL-3.0-or-later'),
       StringStruct('OriginalFilename', 'PlaylistTransfer.exe'),
       StringStruct('ProductName', 'PlaylistTransfer'),
       StringStruct('ProductVersion', '{__version__}')])]),

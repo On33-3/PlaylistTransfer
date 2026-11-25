@@ -231,7 +231,7 @@
     "settings.wiped_left": "Done: the app's data was erased. The window's folder finishes being erased when you close the app.",
     "settings.open_data": "Open data folder",
     "settings.about": "About",
-    "settings.about_version": "PlaylistTransfer {v}, free software under the GPL-3.0 license.",
+    "settings.about_version": "PlaylistTransfer {v} · © 2026 Emmanuel Gaitan. Free software under the GPL‑3.0 license.",
     "settings.not_affiliated": "Not affiliated with Tidal, Google or Spotify.",
     "settings.libraries": "Built with these open source libraries:",
     "legend.aria": "What each color means",
