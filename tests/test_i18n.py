@@ -1,4 +1,4 @@
-"""Idiomas: los dos diccionarios completos, sin texto suelto en la UI, y el cambio de idioma."""
+"""Languages: both dictionaries complete, no loose text in the UI, and switching language."""
 from __future__ import annotations
 
 import json
@@ -17,7 +17,7 @@ UI = ROOT / "app" / "ui"
 
 
 def ui_scripts() -> str:
-    """Todo el JavaScript de la UI (app/ui/js/*.js), junto."""
+    """All of the UI's JavaScript (app/ui/js/*.js), together."""
     return "\n".join(f.read_text(encoding="utf-8") for f in sorted((UI / "js").glob("*.js")))
 
 
@@ -25,7 +25,7 @@ def load(lang):
     return json.loads((LOCALES / f"{lang}.json").read_text(encoding="utf-8"))
 
 
-# ---------------------------------------------------------------- diccionarios
+# ---------------------------------------------------------------- dictionaries
 
 @pytest.mark.parametrize("section", ["ui", "py"])
 def test_both_languages_have_exactly_the_same_keys(section):
@@ -54,7 +54,7 @@ def test_no_empty_texts_and_english_has_no_spanish_marks():
 def test_every_key_used_in_the_ui_exists():
     used = set()
     for src in (ui_scripts(), (UI / "index.html").read_text(encoding="utf-8")):
-        src = re.sub(r"/\*.*?\*/|<!--.*?-->", "", src, flags=re.S)        # sin comentarios
+        src = re.sub(r"/\*.*?\*/|<!--.*?-->", "", src, flags=re.S)        # without comments
         used |= set(re.findall(r'data-i18n(?:-aria)?="([\w.]+)"', src))
         used |= set(re.findall(r'\bt\("([\w.]+)"', src))
     ui = load("es")["ui"]
@@ -70,7 +70,7 @@ def test_every_key_used_in_python_exists():
     used = {k for k in used if "{" not in k}
     missing = [k for k in used if k not in py and f"{k}_one" not in py]
     assert missing == [], missing
-    # claves armadas con f-strings: job.<tipo>, csv.status.<estado>, csv.kind.<tipo>, csv.<columna>
+    # keys built with f-strings: job.<type>, csv.status.<status>, csv.kind.<type>, csv.<column>
     for kind in ("transfer", "login", "scan", "remove", "alternative"):
         assert f"job.{kind}" in py
     for status in ("ok", "dudoso", "dudoso_omitido", "no_encontrado", "ya_estaba", "quitado"):
@@ -78,8 +78,8 @@ def test_every_key_used_in_python_exists():
 
 
 def test_services_that_need_setup_say_so():
-    """Lo que hay que configurar antes (Spotify) tiene su línea settings.hint.<servicio>_setup; el resto
-    muestra sus pasos (login_steps), que el test de abajo exige para cada servicio del registro."""
+    """What needs setting up first (Spotify) has its settings.hint.<service>_setup line; the rest
+    show their steps (login_steps), which the test below requires for every service in the registry."""
     from app.connectors import registry
     for lang in ("es", "en"):
         ui = load(lang)["ui"]
@@ -89,9 +89,9 @@ def test_services_that_need_setup_say_so():
 
 
 def test_setup_steps_name_their_buttons_exactly(tmp_path):
-    """Los pasos de configuración (Spotify) son "como un caso de prueba": cada texto existe en los dos
-    idiomas, y si un paso habla de un botón, lo nombra con {button}, que sale de la misma clave que el
-    botón. Así el texto nunca dice "abrí el formulario" con un botón que se llama distinto."""
+    """The setup steps (Spotify) are "like a test case": every text exists in both languages,
+    and if a step mentions a button, it names it with {button}, which comes from the same key as the
+    button. That way the text never says "open the form" next to a button called something else."""
     from app.connectors.spotify import SpotifyConnector
     info = SpotifyConnector(tmp_path / "s.json", tmp_path / "a.json").setup_info()
     for lang in ("es", "en"):
@@ -106,7 +106,7 @@ def test_setup_steps_name_their_buttons_exactly(tmp_path):
 
 
 def test_every_login_step_exists_in_both_languages(tmp_path):
-    """Los pasos que se ven mientras se conecta (los da cada conector, también según el navegador)."""
+    """The steps shown while connecting (each connector gives them, also depending on the browser)."""
     from pathlib import Path as P
     from app.auth.browsers import Browser
     from app.connectors import registry
@@ -120,7 +120,7 @@ def test_every_login_step_exists_in_both_languages(tmp_path):
 
 
 def test_no_hardcoded_spanish_left_in_the_ui_scripts():
-    """Fuera de los comentarios, el JavaScript de la UI no tiene texto en castellano: todo pasa por t()."""
+    """Outside comments, the UI's JavaScript has no Spanish text: everything goes through t()."""
     src = ui_scripts()
     src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
     src = re.sub(r"(^|\s)//.*$", "", src, flags=re.M)
@@ -128,14 +128,14 @@ def test_no_hardcoded_spanish_left_in_the_ui_scripts():
     words = re.compile(r"\b(tema|temas|playlist de|conect|quitar|historial|Listo|Algo salió|ya estaba|"
                        r"agregaste|Cancel(a|ó)|transferencia|navegador|repetido)\b", re.I)
     texts = [a or b for a, b in strings]
-    # los ids internos (pantallas como "historial", estados como "ya_estaba") no son texto visible
+    # internal ids (screens like "historial", statuses like "ya_estaba") aren't visible text
     texts = [x for x in texts if not re.fullmatch(r"[a-z_#.-]+", x)]
     offenders = [x for x in texts if words.search(x) and "t(" not in x]
     assert offenders == []
 
 
 def test_index_html_texts_all_have_keys():
-    """Todo texto visible del HTML tiene su data-i18n (el castellano que queda es solo respaldo)."""
+    """Every visible HTML text has its data-i18n (the Spanish left there is only a fallback)."""
     html = (UI / "index.html").read_text(encoding="utf-8")
     body = html.split("<body>", 1)[1]
     body = re.sub(r"<!--.*?-->|<script.*?</script>", "", body, flags=re.S)
@@ -175,10 +175,10 @@ def test_connector_errors_follow_the_language():
     i18n.set_language("en")
     with pytest.raises(Exception, match="Couldn't find a Tidal playlist ID"):
         TidalConnector.parse_id("https://tidal.com/album/1")
-    assert svc  # (el falso usa sus propios mensajes; el real, los del diccionario)
+    assert svc  # (the fake uses its own messages; the real one, the dictionary's)
 
 
-# ---------------------------------------------------------------- api: qué idioma usa y cómo se cambia
+# ---------------------------------------------------------------- api: which language it uses and how it changes
 
 def make(tmp_path, system="en", prefs_text=None):
     p = tmp_path / "prefs.json"
@@ -194,11 +194,11 @@ def make(tmp_path, system="en", prefs_text=None):
 def test_new_install_follows_windows(tmp_path):
     assert make(tmp_path / "a", system="en").languages()["current"] == "en"
     assert make(tmp_path / "b", system="es").languages()["current"] == "es"
-    assert make(tmp_path / "c", system="de").languages()["current"] == "en"     # otro idioma: inglés
+    assert make(tmp_path / "c", system="de").languages()["current"] == "en"     # another language: English
 
 
 def test_existing_users_keep_spanish(tmp_path):
-    """Quien ya usaba la app (que antes solo existía en castellano) no ve un cambio de idioma solo."""
+    """Someone who already used the app (which used to exist only in Spanish) doesn't see the language change on its own."""
     api = make(tmp_path, system="en", prefs_text='{"browser": null, "score_ok": 0.8, "score_min": 0.6}')
     assert api.languages()["current"] == "es"
 
@@ -207,14 +207,14 @@ def test_choice_is_saved_and_wins(tmp_path):
     api = make(tmp_path, system="es")
     assert api.set_language("en") == {"ok": True, "language": "en"}
     assert api.ui_strings()["strings"]["nav.home"] == "Home"
-    again = make(tmp_path, system="es")                        # reabrir la app
+    again = make(tmp_path, system="es")                        # reopen the app
     assert again.languages()["current"] == "en"
     assert "error" in again.set_language("fr")
 
 
 def test_a_new_english_install_stays_english_after_saving_prefs(tmp_path):
     api = make(tmp_path, system="en")
-    api.save_thresholds(0.8, 0.6)                              # crea el archivo de preferencias
+    api.save_thresholds(0.8, 0.6)                              # creates the preferences file
     assert make(tmp_path, system="en").languages()["current"] == "en"
 
 

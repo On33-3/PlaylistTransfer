@@ -1,5 +1,5 @@
-"""Arranque: si algo falla antes de abrir la ventana, el .exe (sin consola) avisa en vez de cerrarse
-callado, y el log tiene tope."""
+"""Startup: if something fails before the window opens, the .exe (no console) says so instead of closing
+silently, and the log has a cap."""
 from __future__ import annotations
 
 import ctypes
@@ -61,7 +61,7 @@ def test_the_log_has_a_size_limit(data_dir):
 
 
 def test_the_smoke_test_notices_a_module_missing_from_the_package(monkeypatch):
-    """La ventana abre aunque falte tidalapi: recién fallaría al tocar Conectar."""
+    """The window opens even without tidalapi: it would only fail on clicking Connect."""
     import importlib
     real = importlib.import_module
 
@@ -74,7 +74,7 @@ def test_the_smoke_test_notices_a_module_missing_from_the_package(monkeypatch):
 
 
 def test_the_smoke_test_never_waits_for_a_click(data_dir, monkeypatch):
-    """El cuadro de error esperaría un clic para siempre: la prueba automática colgaría sin decir por qué."""
+    """The error box would wait for a click forever: the automated test would hang without saying why."""
     shown = []
     monkeypatch.setattr(ctypes, "windll", NS(user32=NS(MessageBoxW=lambda *a: shown.append(a))), raising=False)
     monkeypatch.setenv("PT_SMOKE", "1")
@@ -83,7 +83,7 @@ def test_the_smoke_test_never_waits_for_a_click(data_dir, monkeypatch):
 
 
 def test_the_window_never_reuses_old_copies_of_the_ui(tmp_path):
-    """Al actualizar, la ventana mezclaba un index.html viejo (de su caché) con el JavaScript nuevo."""
+    """After an update, the window mixed an old index.html (from its cache) with the new JavaScript."""
     from app.main import forget_page_cache
     default = tmp_path / "EBWebView" / "Default"
     for name in ("Cache/Cache_Data", "Code Cache/js", "Local Storage"):
@@ -91,5 +91,5 @@ def test_the_window_never_reuses_old_copies_of_the_ui(tmp_path):
         (default / name / "f").write_text("x")
     forget_page_cache(tmp_path)
     assert not (default / "Cache").exists() and not (default / "Code Cache").exists()
-    assert (default / "Local Storage" / "f").exists()          # lo demás de la ventana queda
-    forget_page_cache(tmp_path / "no-existe")                   # la primera vez no hay nada: no falla
+    assert (default / "Local Storage" / "f").exists()          # the rest of the window's data stays
+    forget_page_cache(tmp_path / "no-existe")                   # the first time there's nothing: it doesn't fail

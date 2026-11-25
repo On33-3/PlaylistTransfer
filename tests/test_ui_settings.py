@@ -1,4 +1,4 @@
-"""Ajustes e idioma: umbrales, cambio de idioma y nada en castellano en inglés."""
+"""Settings and language: thresholds, switching language and no Spanish in English."""
 from __future__ import annotations
 
 from tests.ui_helpers import make_api, open_page, shot, transfer, english_api, visible_spanish
@@ -62,7 +62,7 @@ def test_switch_language_from_settings(browser, tmp_path):
     assert page.is_checked("#language-list input[value=es]")
     page.check("#language-list input[value=en]")
     page.wait_for_selector("nav [data-go=ajustes]:text-is('Settings')")
-    # La página se recarga: el menú cambia antes de que Ajustes termine de dibujarse (se espera, no se supone)
+    # The page reloads: the menu changes before Settings finishes drawing (it is waited for, not assumed)
     page.wait_for_selector("#ajustes.active #language-list input[value=en]:checked")
     assert page.inner_text("#ajustes h1") == "Settings"
     page.check("#language-list input[value=es]")

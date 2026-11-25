@@ -1,5 +1,5 @@
-"""Sistema de diseño: cada pantalla cumple las normas de tests/ui_helpers.py (tamaños de botones y
-campos, botones de ícono centrados, ningún texto cortado)."""
+"""Design system: every screen meets the rules in tests/ui_helpers.py (button and field sizes,
+centered icon buttons, no cut-off text)."""
 from __future__ import annotations
 
 from tests.ui_helpers import check, make_api, open_page
@@ -42,10 +42,10 @@ def test_every_control_uses_the_design_sizes(browser, tmp_path):
     assert bad == []
 
 
-# ---------------------------------------------------------------- números centrados en sus círculos
+# ---------------------------------------------------------------- numbers centered in their circles
 
 def _ink_offset(png: bytes, scale: int) -> tuple[float, float] | None:
-    """(dx, dy) en píxeles CSS entre el centro de la "tinta" (texto oscuro) y el centro de la imagen."""
+    """(dx, dy) in CSS pixels between the center of the "ink" (dark text) and the center of the image."""
     import struct
     import zlib
     w, h = struct.unpack(">II", png[16:24])
@@ -79,7 +79,7 @@ def _ink_offset(png: bytes, scale: int) -> tuple[float, float] | None:
 
 
 def test_numbers_and_symbols_are_centered_in_their_circles(browser, tmp_path):
-    """Con Segoe UI un dígito queda ~1,5 px bajo del centro si no se corrige (lo vio el usuario)."""
+    """With Segoe UI a digit sits ~1.5 px below center unless corrected (the user noticed it)."""
     import json
     from tests.ui_helpers import BRIDGE, UI
     api, *_ = make_api(tmp_path)
@@ -117,9 +117,9 @@ def _contrast(fg, bg):
 
 
 def test_a_main_button_never_looks_like_something_already_chosen(browser, tmp_path):
-    """Norma (pedido del usuario): "Ir a Conexiones" en violeta claro parecía ya elegido, porque ese es el
-    color de lo seleccionado (segmento, filtro, paso actual). Una acción principal tiene su propio color,
-    distinto del de lo elegido, y su letra se lee bien (contraste de 4,5:1 o más)."""
+    """Rule (the user's request): "Go to Connections" in light violet looked already chosen, because that's
+    the color of what is selected (segment, filter, current step). A main action has its own color,
+    different from the chosen one, and its text reads well (contrast of 4.5:1 or more)."""
     import re
     api, *_ = make_api(tmp_path, connected=False)
     page, errors = open_page(browser, api)

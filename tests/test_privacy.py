@@ -1,5 +1,5 @@
-"""Privacidad: todo queda en esta PC y se puede borrar entero desde Ajustes (pedido del usuario, 2026-11-24:
-"que el usuario, cuando termine de usarla, pueda dejar todo limpio y quedarse tranquilo")."""
+"""Privacy: everything stays on this PC and can be erased entirely from Settings (the user's request, 2026-11-24:
+when people are done using it, they can leave everything clean and rest easy)."""
 from __future__ import annotations
 
 import re
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def fill(data: Path) -> None:
-    """Lo que la app guarda de verdad en %LOCALAPPDATA%\\PlaylistTransfer."""
+    """What the app really saves in %LOCALAPPDATA%\\PlaylistTransfer."""
     for name in ("browser.json", "tidal_session.json", "spotify_session.json", "spotify_app.json",
                  "preferencias.json", "app.log"):
         (data / name).write_text("{}", encoding="utf-8")
@@ -26,26 +26,26 @@ def test_erasing_needs_the_dialog_and_leaves_nothing(tmp_path):
     api._jobs.wait(api.start_transfer("tidal", "ytmusic", "src", [{"name": "x", "id": "dst"}])["job"])
     fill(tmp_path)
     assert (tmp_path / "historial.sqlite").exists()
-    assert "error" in api.wipe_data() and "error" in api.wipe_data("yes")     # sin el diálogo, nada
+    assert "error" in api.wipe_data() and "error" in api.wipe_data("yes")     # without the dialog, nothing
     assert (tmp_path / "browser.json").exists()
     r = api.wipe_data(True)
     assert r == {"ok": True, "left": []}
-    assert list(tmp_path.iterdir()) == []                                    # como la primera vez
-    assert not tidal.connected and not yt.connected                         # también lo que estaba en memoria
+    assert list(tmp_path.iterdir()) == []                                    # as the first time
+    assert not tidal.connected and not yt.connected                         # also what was in memory
     assert api.history() == []
 
 
 def test_what_is_in_use_is_reported_not_hidden(tmp_path):
-    """La carpeta de la ventana está en uso mientras la app sigue abierta: se dice, no se da por borrada."""
+    """The window's folder is in use while the app is still open: that's said, not reported as deleted."""
     api, *_ = make_api(tmp_path)
     fill(tmp_path)
     locked = tmp_path / "webview" / "EBWebView" / "lock"
     locked.parent.mkdir(parents=True)
-    with open(locked, "w") as f:                         # Windows no deja borrar un archivo abierto
+    with open(locked, "w") as f:                         # Windows won't delete an open file
         f.write("x")
         r = api.wipe_data(True)
     assert r["left"] == ["webview"] and not (tmp_path / "browser.json").exists()
-    assert api._wiped                                    # al cerrar la app se vuelve a intentar
+    assert api._wiped                                    # it's tried again when the app closes
 
 
 def test_cannot_erase_while_something_is_running(tmp_path):
@@ -57,8 +57,8 @@ def test_cannot_erase_while_something_is_running(tmp_path):
 
 
 def test_the_app_only_talks_to_the_music_services():
-    """Lo que dice Ajustes ("se conecta únicamente con Tidal, YouTube Music y Spotify") tiene que ser cierto:
-    ninguna otra dirección en el código de la app (los links de licencias a GitHub solo se muestran)."""
+    """What Settings says ("it only connects to Tidal, YouTube Music and Spotify") has to be true:
+    no other address in the app's code (the license links to GitHub are only shown)."""
     allowed = {"127.0.0.1", "tidal.com", "listen.tidal.com", "music.youtube.com", "accounts.google.com",
                "open.spotify.com", "www.spotify.com", "developer.spotify.com", "accounts.spotify.com",
                "api.spotify.com", "github.com"}
@@ -77,18 +77,18 @@ def test_settings_explain_privacy_and_erase_everything(browser, tmp_path):
     page, errors = open_page(browser, api)
     page.click("nav [data-go=ajustes]")
     assert "solo en esta PC" in page.inner_text("#ajustes")
-    # "El código es abierto" vuelve cuando el repo sea público: antes, nadie lo puede revisar
+    # "The code is open" comes back once the repo is public: until then, nobody can review it
     assert "código es abierto" not in page.inner_text("#ajustes")
     page.click("#wipe")
     assert page.is_visible("#wipe-confirm") and "Tus playlists no se tocan" in page.inner_text("#wipe-confirm")
     shot(page, "ajustes-borrar-todo")
-    page.click("#wipe-no")                                       # cancelar: no pasa nada
+    page.click("#wipe-no")                                       # cancel: nothing happens
     assert (tmp_path / "browser.json").exists()
     page.click("#wipe")
     page.click("#wipe-yes")
     page.wait_for_selector("text=se borraron todos los datos")
     assert not (tmp_path / "browser.json").exists()
-    page.wait_for_function("!document.querySelector('#chips .chip.ok')")          # los servicios quedan desconectados
+    page.wait_for_function("!document.querySelector('#chips .chip.ok')")          # the services end up disconnected
     page.click("nav [data-go=ajustes]")
     shot(page, "ajustes-privacidad")
     assert check(page, "ajustes") == [] and errors == []

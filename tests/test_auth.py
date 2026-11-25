@@ -1,4 +1,4 @@
-"""Navegadores, cliente CDP (contra un socket local) y cookies de Firefox."""
+"""Browsers, the CDP client (against a local socket) and Firefox cookies."""
 from __future__ import annotations
 
 import json
@@ -17,7 +17,7 @@ from app.storage import paths
 from tests.conftest import ROOT
 
 
-# ---------------------------------------------------------------- navegadores
+# ---------------------------------------------------------------- browsers
 
 def test_exe_from_command():
     assert exe_from_command(r'"C:\Program Files\Vivaldi\vivaldi.exe" --single-argument %1') == \
@@ -27,7 +27,7 @@ def test_exe_from_command():
 
 
 def test_the_suggestion_is_each_persons_default_browser():
-    """Se propone el predeterminado de Windows de cada persona, sea cual sea (ninguno queda afuera)."""
+    """Each person's Windows default is suggested, whichever it is (none is left out)."""
     chrome = Browser("Google Chrome", "chrome", Path(r"C:\chrome.exe"))
     vivaldi = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"))
     brave = Browser("Brave", "brave", Path(r"C:\brave.exe"))
@@ -37,7 +37,7 @@ def test_the_suggestion_is_each_persons_default_browser():
     assert suggested_browser(ordered) is vivaldi
     assert suggested_browser(sort_browsers([edge, chrome, brave], Path(r"C:\chrome.exe"))) is chrome
     assert suggested_browser([chrome]) is chrome
-    # Predeterminado desconocido (uno que la app no reconoce): el primero instalado, nunca nada
+    # Unknown default (one the app doesn't recognize): the first installed one, never nothing
     assert suggested_browser(sort_browsers([edge, brave], Path(r"C:\raro.exe"))) is brave
     assert suggested_browser([]) is None
 
@@ -49,7 +49,7 @@ def test_profile_dir_per_browser(tmp_path):
 # ---------------------------------------------------------------- CDP
 
 def _server_frame(obj: dict, opcode: int = 0x1) -> bytes:
-    return encode_frame(json.dumps(obj).encode(), opcode)          # el servidor no enmascara
+    return encode_frame(json.dumps(obj).encode(), opcode)          # the server doesn't mask
 
 
 def _read_client_frame(sock: socket.socket) -> tuple[int, bytes]:
@@ -70,7 +70,7 @@ def test_cdp_get_cookies_answers_ping_and_ignores_events():
     try:
         server.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n")
         server.sendall(encode_frame(b"hola", 0x9))                                   # ping
-        server.sendall(_server_frame({"method": "Target.targetCreated", "params": {}}))  # evento suelto
+        server.sendall(_server_frame({"method": "Target.targetCreated", "params": {}}))  # a loose event
         big = [{"name": f"c{i}", "value": "x" * 50, "domain": ".youtube.com"} for i in range(30)]
         server.sendall(_server_frame({"id": 1, "result": {"cookies": big}}))     # > 125 bytes
         cdp = CDP("ws://127.0.0.1:9222/devtools/browser/abc", sock=client)
@@ -114,7 +114,7 @@ def test_firefox_reads_profile_cookies(tmp_path):
     assert firefox.read_cookies("youtube.com", {"__Secure-3PAPISID"}, dbs=[db]) == {}
 
 
-# ---------------------------------------------------------------- datos y script de consola
+# ---------------------------------------------------------------- data and console script
 
 def test_data_dir_is_outside_the_repo(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
@@ -124,15 +124,15 @@ def test_data_dir_is_outside_the_repo(tmp_path, monkeypatch):
 
 
 def test_no_shebang_in_python_files():
-    """El launcher `py` respeta el shebang y abre otro Python sin las librerías (ver CLAUDE.md)."""
+    """The `py` launcher honors the shebang and opens another Python without the libraries (see CLAUDE.md)."""
     for f in [*(ROOT / "app").rglob("*.py"), *(ROOT / "tools").glob("*.py"), *(ROOT / "packaging").glob("*.py")]:
         assert not f.read_text(encoding="utf-8").startswith("#!"), f
 
 
-# ---------------------------------------------------------------- se cerró la ventana del login
+# ---------------------------------------------------------------- the sign-in window was closed
 
 class FakeBrowserCDP:
-    """El navegador visto por DevTools: `pages` dice qué páginas tiene abiertas en cada consulta."""
+    """The browser as DevTools sees it: `pages` says which pages it has open at each check."""
 
     def __init__(self, pages):
         self.pages = list(pages)
@@ -176,8 +176,8 @@ def run_login(monkeypatch, tmp_path, pages, cancel_after=None):
 
 
 def test_vivaldi_closed_window_stops_the_login(monkeypatch, tmp_path):
-    """Vivaldi sigue abierto sin ninguna página cuando se cierra la ventana (comprobado con el real):
-    la app se da cuenta y corta, en vez de esperar 10 minutos con Conectar deshabilitado."""
+    """Vivaldi stays open with no page when the window is closed (seen with the real one):
+    the app notices and stops, instead of waiting 10 minutes with Connect disabled."""
     from app.auth.cdp_login import LoginError
     google = ["https://accounts.google.com/"]
     with pytest.raises(LoginError, match="Se cerró la ventana de Vivaldi"):
@@ -185,7 +185,7 @@ def test_vivaldi_closed_window_stops_the_login(monkeypatch, tmp_path):
 
 
 def test_each_login_starts_without_the_tabs_of_the_last_one(monkeypatch, tmp_path):
-    """Vivaldi reabría las pestañas anteriores: al tercer inicio de sesión había 3 (comprobado con el real)."""
+    """Vivaldi reopened the earlier tabs: by the third sign-in there were 3 (seen with the real one)."""
     from app.auth.cdp_login import LoginError
     default = tmp_path / "vivaldi" / "Default"
     (default / "Sessions").mkdir(parents=True)
@@ -205,10 +205,10 @@ def test_brave_and_edge_close_entirely_and_say_the_same(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("pages", [
-    [["https://accounts.google.com/"], [], ["https://accounts.google.com/signin"]],   # un instante sin página: cambiaba
-    ["error"],                                                                         # no deja consultar: se espera igual
+    [["https://accounts.google.com/"], [], ["https://accounts.google.com/signin"]],   # a moment with no page: it was changing
+    ["error"],                                                                         # it doesn't allow checking: it waits anyway
 ])
 def test_no_false_alarm_while_the_window_is_open(monkeypatch, tmp_path, pages):
     from app.core.models import Cancelled
-    with pytest.raises(Cancelled):                     # siguió esperando hasta que la persona canceló
+    with pytest.raises(Cancelled):                     # it kept waiting until the person cancelled
         run_login(monkeypatch, tmp_path, pages, cancel_after=8)

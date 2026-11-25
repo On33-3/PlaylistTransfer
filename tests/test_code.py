@@ -1,4 +1,4 @@
-"""El código en sí: sin imports que sobran ni nombres sin definir (pyflakes), en la app, los tests y las herramientas."""
+"""The code itself: no unused imports or undefined names (pyflakes), in the app, the tests and the tools."""
 from __future__ import annotations
 
 import subprocess

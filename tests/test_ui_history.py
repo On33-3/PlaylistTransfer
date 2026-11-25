@@ -1,4 +1,4 @@
-"""Historial: filtros, mosaicos que informan, detalle y descarga."""
+"""History: filters, informative mosaics, detail and download."""
 from __future__ import annotations
 
 from tests.ui_helpers import make_api, open_page, shot, transfer, english_api
@@ -33,7 +33,7 @@ def test_history_filter_mosaic_and_export(browser, tmp_path):
     assert text.startswith("# PlaylistTransfer — historial") and "- Quitado (repetido):" in text
     shot(page, "8-historial-exportado")
     page.click("nav [data-go=inicio]")
-    assert page.locator("#home-history").count() == 0                # el historial vive solo en Historial
+    assert page.locator("#home-history").count() == 0                # the history lives only in History
     shot(page, "9-inicio-con-historial")
     assert errors == []
 

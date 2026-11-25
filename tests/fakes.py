@@ -1,4 +1,4 @@
-"""Un servicio de música en memoria que cumple la interfaz Connector, para probar sin cuentas."""
+"""An in-memory music service that implements the Connector interface, for testing without accounts."""
 from __future__ import annotations
 
 import itertools
@@ -16,16 +16,16 @@ from app.core.models import Cancelled, Duplicate, PlaylistInfo, Song
 class FakeService(Connector):
     def __init__(self, key: str, name: str, catalog: list[Song] | None = None, connected: bool = True):
         self.key, self.name = key, name
-        self.catalog = catalog or []            # lo que devuelve la búsqueda
+        self.catalog = catalog or []            # what the search returns
         self.playlists: dict[str, tuple[str, list[Song]]] = {}
         self.connected = connected
-        self.calls: list[tuple] = []            # registro de lo que modificó algo
+        self.calls: list[tuple] = []            # record of what changed something
         self._ids = itertools.count(1)
         self._set_ids = itertools.count(1)
         self.search_pause = 0
-        self.login_hangs = False                # True: el login espera hasta que se cancele
+        self.login_hangs = False                # True: the sign-in waits until cancelled
 
-    # ---- armado de datos para los tests
+    # ---- building data for the tests
     def add_playlist(self, pid: str, name: str, songs: list[Song]) -> None:
         self.playlists[pid] = (name, [replace(s, set_id=s.set_id or f"set{next(self._set_ids)}") for s in songs])
 
@@ -101,9 +101,9 @@ def S(title, *artists, dur=200, id=None, album=None) -> Song:
 
 
 def build_api(tmp_path, connectors: dict, browsers=(), system_language: str = "es", prefs: Path | None = None):
-    """La API real con servicios falsos y todo lo de afuera (navegadores, abrir links, guardar archivos)
-    reemplazado. Lo que haga la app queda anotado: api._open_url_calls (links), api._asked (nombres que
-    propuso el diálogo "Guardar como")."""
+    """The real API with fake services and everything external (browsers, opening links, saving files)
+    replaced. What the app does is recorded: api._open_url_calls (links), api._asked (names the
+    "Save as" dialog suggested)."""
     from app.api import Api
     from app.storage.history import History
     api = Api(connectors, History(tmp_path / "historial.sqlite"), prefs or tmp_path / "prefs.json", tmp_path,
@@ -115,7 +115,7 @@ def build_api(tmp_path, connectors: dict, browsers=(), system_language: str = "e
     api._open_file = lambda p: None
     return api
 
-# ---------------------------------------------------------------- la API de Spotify, en memoria
+# ---------------------------------------------------------------- Spotify's API, in memory
 
 def track(n, name, artist, isrc=None, dur=200, album="Album"):
     return {"type": "track", "uri": f"spotify:track:{n:0>22}", "name": name, "artists": [{"name": artist}],
@@ -134,26 +134,26 @@ class Resp:
 
 
 class FakeSpotify:
-    """Lo justo de la Web API para probar el conector, con las reglas de 2026."""
+    """Just enough of the Web API to test the connector, with the 2026 rules."""
 
     def __init__(self):
         self.me = "yo"
         self.catalog: dict[str, dict] = {}
         self.playlists: dict[str, dict] = {}
         self.calls: list[tuple] = []
-        self.forced: list[Resp] = []          # respuestas que se devuelven antes que las normales
+        self.forced: list[Resp] = []          # answers returned before the normal ones
         self.refresh_ok = True
-        self.ignore_adds = False              # simula que Spotify no guardó lo agregado
+        self.ignore_adds = False              # pretends Spotify didn't keep what was added
         self.tokens = 0
-        self.liked: list[str] = []            # canciones que te gustan, la más reciente primero
-        self.library_scope = True             # False: sesión de antes de pedir permiso para "Me gusta"
+        self.liked: list[str] = []            # liked songs, newest first
+        self.library_scope = True             # False: a session from before liked songs permission was asked for
 
     def add_tracks(self, *tracks):
         for t in tracks:
             self.catalog[t["uri"]] = t
 
     def add_playlist(self, pid, name, uris, owner="yo", collaborative=False, listed=None):
-        """`listed`: la cantidad que dice /me/playlists, si no es la real (pasa con una recién creada)."""
+        """`listed`: the count /me/playlists reports, if it isn't the real one (happens with a just-created playlist)."""
         self.playlists[pid] = {"name": name, "owner": owner, "collaborative": collaborative, "items": list(uris),
                                "listed": listed}
 
@@ -191,8 +191,8 @@ class FakeSpotify:
             pid = f"{len(self.playlists) + 1:0>22}"
             self.add_playlist(pid, json["name"], [])
             return Resp(201, {"id": pid})
-        # Canciones que te gustan: se leen con /me/tracks (lo último guardado primero, como "track") y desde
-        # 2026 se guardan y quitan con /me/library (URIs separadas por coma en la dirección, hasta 40)
+        # Liked songs: read with /me/tracks (last saved first, as "track") and since
+        # 2026 saved and removed with /me/library (comma-separated URIs in the address, up to 40)
         if path in ("/me/tracks", "/me/library") and not self.library_scope:
             return Resp(403, {"error": {"status": 403, "message": "Insufficient client scope"}})
         if (method, path) == ("GET", "/me/tracks"):
@@ -201,9 +201,9 @@ class FakeSpotify:
             uris = params["uris"].split(",")
             assert len(uris) <= 40 and json is None
             if method == "PUT":
-                # Medido con una cuenta real (2026-11-25, tools/real_check.py): el pedido entra arriba, pero
-                # el orden dentro del pedido lo decide Spotify, no el orden en que se mandan. Acá: por URI, al
-                # revés (a propósito distinto del de la lista, para que ningún test dependa de él)
+                # Measured with a real account (2026-11-25, tools/real_check.py): the request goes in at the top, but
+                # the order inside the request is Spotify's, not the order they're sent in. Here: by URI, reversed
+                # (different from the list's on purpose, so no test depends on it)
                 self.liked[0:0] = sorted((x for x in dict.fromkeys(uris) if x not in self.liked), reverse=True)
             else:
                 self.liked = [x for x in self.liked if x not in uris]
@@ -237,8 +237,8 @@ class FakeSpotify:
                     pl["items"][pos:pos] = json["uris"]
                 return Resp(201, {"snapshot_id": "s"})
             if method == "DELETE":
-                assert "positions" not in str(json)              # ya no existe: siempre por URI
+                assert "positions" not in str(json)              # no longer exists: always by URI
                 gone = {x["uri"] for x in json["items"]}
-                pl["items"] = [x for x in pl["items"] if x not in gone]     # todas las copias
+                pl["items"] = [x for x in pl["items"] if x not in gone]     # every copy
                 return Resp(200, {"snapshot_id": "s"})
         raise AssertionError(f"pedido inesperado: {method} {path}")

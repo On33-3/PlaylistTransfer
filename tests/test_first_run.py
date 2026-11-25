@@ -1,6 +1,6 @@
-"""Primer uso: quien descarga el repo o la app arranca de cero, sin datos de nadie.
+"""First run: whoever downloads the repo or the app starts from zero, with nobody's data.
 
-Cada test simula una PC nueva apuntando %LOCALAPPDATA% a una carpeta vacía.
+Each test simulates a new PC by pointing %LOCALAPPDATA% at an empty folder.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def sample_transfer() -> tuple[Operation, list[TrackRecord]]:
     return op, tracks
 
 
-# ---------------------------------------------------------------- todo vacío
+# ---------------------------------------------------------------- everything empty
 
 def test_history_starts_empty_and_reading_does_not_create_it(new_pc):
     h = History(paths.history_file())
@@ -57,7 +57,7 @@ def test_services_start_disconnected(new_pc):
 
 
 def test_the_app_starts_with_spotify_waiting_for_setup(new_pc):
-    """Sin Client ID no se consulta a nadie: Spotify queda "sin configurar" y el resto funciona."""
+    """Without a Client ID nobody is asked: Spotify stays "not set up" and the rest works."""
     from app.api import Api
     api = Api.create()
     assert {s["key"]: s["status"] for s in api.status()}["spotify"] == "setup"
@@ -68,26 +68,26 @@ def test_the_app_starts_with_spotify_waiting_for_setup(new_pc):
 
 
 def test_nothing_is_read_from_the_repo_folder(new_pc):
-    """Aunque el repo tenga archivos tuyos ignorados (browser.json, reportes...), la app no los usa."""
+    """Even if the repo has ignored files of yours (browser.json, reports...), the app doesn't use them."""
     for f in (paths.tidal_session_file(), paths.yt_browser_file(), paths.prefs_file(),
               paths.history_file(), paths.browser_profiles_dir(), paths.spotify_session_file(),
               paths.spotify_app_file()):
         assert new_pc in f.parents and ROOT not in f.parents
 
 
-# ---------------------------------------------------------------- la primera transferencia lo alimenta
+# ---------------------------------------------------------------- the first transfer fills it
 
 def test_first_transfer_creates_and_feeds_the_history(new_pc):
     op, tracks = sample_transfer()
     op_id = History(paths.history_file()).record(op, tracks)
     assert paths.history_file().exists()
 
-    again = History(paths.history_file())          # como si se reabriera la app
+    again = History(paths.history_file())          # as if the app were reopened
     [saved] = again.list()
     assert saved.id == op_id and saved.source_name == "Favoritas" and saved.added == 2
     detail = again.tracks(op_id)
     assert [(t.title, t.artist, t.status) for t in detail] == [(t.title, t.artist, t.status) for t in tracks]
-    assert all(t.artist for t in detail)              # el artista queda siempre como referencia
+    assert all(t.artist for t in detail)              # the artist always stays as a reference
 
 
 def test_history_is_newest_first(new_pc):
@@ -109,7 +109,7 @@ def test_preferences_are_saved_after_choosing_a_browser(new_pc):
     assert prefs.load(paths.prefs_file())["browser"]["name"] == "Vivaldi"
 
 
-# ---------------------------------------------------------------- archivos dañados
+# ---------------------------------------------------------------- damaged files
 
 def test_broken_preferences_fall_back_to_defaults_without_overwriting(new_pc):
     paths.prefs_file().write_text("{roto", encoding="utf-8")
@@ -126,7 +126,7 @@ def test_broken_history_is_set_aside_not_deleted(new_pc):
     assert len(list(new_pc.glob("historial.dañado-*.sqlite"))) == 1
 
 
-# ---------------------------------------------------------------- el repo no trae datos de nadie
+# ---------------------------------------------------------------- the repo carries nobody's data
 
 PERSONAL = ("browser.json", "oauth.json", "tidal_session", "preferencias.json", "reporte_",
             ".yt-login", "browser-profiles", ".sqlite", ".db", ".env")

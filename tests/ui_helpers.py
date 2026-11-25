@@ -1,8 +1,8 @@
-"""Lo común a los tests de la UI: la app de prueba, abrir la página en Edge, capturas y las normas
-de diseño (tamaños, íconos centrados, nada de texto cortado), que se chequean en cada pantalla.
+"""What the UI tests share: the test app, opening the page in Edge, screenshots and the design
+rules (sizes, centered icons, no cut-off text), which are checked on every screen.
 
-Usa Playwright con el Edge instalado (el mismo motor que WebView2). Si no está, los tests se saltean.
-Con PT_SCREENSHOTS=<carpeta> guarda capturas de cada pantalla.
+Uses Playwright with the installed Edge (the same engine as WebView2). If it isn't there, the tests are skipped.
+With PT_SCREENSHOTS=<folder> it saves screenshots of each screen.
 """
 from __future__ import annotations
 
@@ -15,18 +15,18 @@ from app.auth.browsers import Browser
 from tests.conftest import ROOT
 from tests.fakes import FakeService, S, build_api
 
-# ---------------------------------------------------------------- constantes
+# ---------------------------------------------------------------- constants
 
 UI = (ROOT / "app" / "ui" / "index.html").as_uri()
 SHOTS = os.environ.get("PT_SCREENSHOTS")
 
-# La página habla con Python como en pywebview: cada llamada a la API pasa por __pt_call
+# The page talks to Python as in pywebview: every API call goes through __pt_call
 BRIDGE = """
 window.pywebview = { api: new Proxy({}, { get: (_, m) => (...args) =>
   window.__pt_call(String(m), JSON.stringify(args)).then(r => JSON.parse(r)) }) };
 """
 
-# Palabras en castellano que no deberían verse con la app en inglés
+# Spanish words that shouldn't show with the app in English
 SPANISH = re.compile(r"\b(Inicio|Transferir|Quitar|Historial|Ajustes|temas?|Todavía|conectá|Elegí|Listo|"
                      r"Buscar|repetidos?|Encontrado|Revisar|ya estaba|Coincidencias|Navegador|Idioma|"
                      r"Datos|Acerca|predeterminado|Cancelar|agregaste|Probar|Origen|Destino|sin conectar)\b")
@@ -35,7 +35,7 @@ VIVALDI = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
 BRAVE = Browser("Brave", "brave", Path(r"C:\brave.exe"))
 
 
-# ---------------------------------------------------------------- normas de diseño
+# ---------------------------------------------------------------- design rules
 
 BUTTONS = {28, 36, 42}
 SEGMENT = 34
@@ -54,8 +54,8 @@ MEASURE = """(screen) => {
 }"""
 
 
-# Norma de los botones de ícono (los que no tienen texto, como ⇅): usan .icon-btn, son cuadrados
-# y el ícono queda centrado, medido en pantalla. Un carácter de texto como ícono se ve corrido.
+# Rule for icon buttons (the ones with no text, like ⇅): they use .icon-btn, they're square
+# and the icon is centered, measured on screen. A text character as an icon looks off-center.
 ICONS = """(screen) => {
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const out = [];
@@ -96,7 +96,7 @@ def check(page, screen):
     return bad
 
 
-# ---------------------------------------------------------------- la app de prueba
+# ---------------------------------------------------------------- the test app
 
 def make_api(tmp_path, connected=True):
     tidal = FakeService("tidal", "Tidal", connected=connected)
@@ -138,7 +138,7 @@ def shot(page, name):
 
 
 def with_spotify(api, tmp_path):
-    """Suma Spotify con su API falsa (tests/fakes.py). El "navegador" aprueba el login solo."""
+    """Adds Spotify with its fake API (tests/fakes.py). The "browser" approves the sign-in by itself."""
     import threading
     import urllib.request
     from urllib.parse import parse_qs, urlparse
@@ -172,7 +172,7 @@ def transfer(page, dry=False):
 def english_api(tmp_path):
     api, tidal, yt = make_api(tmp_path)
     api.set_language("en")
-    for svc in (tidal, yt):                                   # nombres de playlists en inglés para el test
+    for svc in (tidal, yt):                                   # English playlist names for the test
         svc.playlists = {k: ({"Favoritas": "Favorites", "Para correr": "Running", "Clásicos": "Classics"}.get(n, n), s)
                          for k, (n, s) in svc.playlists.items()}
     return api, tidal, yt

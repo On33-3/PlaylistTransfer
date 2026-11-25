@@ -1,5 +1,5 @@
-"""Casos negativos y de borde (revisión del 2026-11-24): acciones a destiempo, datos rotos, nombres raros.
-Cada uno es algo que una persona puede hacer sin querer, o que un servicio puede devolver."""
+"""Negative and edge cases (review of 2026-11-24): actions at the wrong time, broken data, odd names.
+Each one is something a person can do by accident, or that a service can return."""
 from __future__ import annotations
 
 import json
@@ -12,7 +12,7 @@ from tests.ui_helpers import check, make_api, open_page
 
 
 def slow_reads(yt):
-    """Las lecturas esperan hasta que el test las suelta: para actuar mientras la app revisa."""
+    """Reads wait until the test releases them: to act while the app is checking."""
     real, gate = yt.read, threading.Event()
 
     def read(pid):
@@ -28,10 +28,10 @@ def to_dedupe(page, value="dups"):
     page.wait_for_selector(f"#dup-playlist option[value={value}]", state="attached")
 
 
-# ---------------------------------------------------------------- a destiempo
+# ---------------------------------------------------------------- at the wrong time
 
 def test_service_and_playlist_cannot_change_while_checking(browser, tmp_path):
-    """Si se cambiaba de servicio a mitad, el resultado de uno aparecía bajo el nombre del otro."""
+    """Switching service halfway made one's result show up under the other's name."""
     api, tidal, yt = make_api(tmp_path)
     gate = slow_reads(yt)
     page, errors = open_page(browser, api)
@@ -62,7 +62,7 @@ def test_after_erasing_everything_no_old_result_is_left_on_screen(browser, tmp_p
     assert errors == []
 
 
-# ---------------------------------------------------------------- pedidos mal formados
+# ---------------------------------------------------------------- malformed requests
 
 def test_removing_with_a_malformed_request_answers_an_error_and_never_crashes(tmp_path):
     api, tidal, yt = make_api(tmp_path)
@@ -90,7 +90,7 @@ def test_a_check_cannot_be_used_twice(tmp_path):
     assert len(yt.songs("dups")) == 3
 
 
-# ---------------------------------------------------------------- archivos rotos
+# ---------------------------------------------------------------- broken files
 
 def test_a_half_broken_progress_file_does_not_stop_a_transfer(tmp_path):
     p = SearchProgress(tmp_path, "tidal", "src", "ytmusic")
@@ -102,10 +102,10 @@ def test_a_half_broken_progress_file_does_not_stop_a_transfer(tmp_path):
     p.path.write_text(json.dumps(data), encoding="utf-8")
     again = SearchProgress(tmp_path, "tidal", "src", "ytmusic")
     assert again.get(good)[0].id == "y1"
-    assert again.get(bad) is None                    # lo roto se busca de nuevo, sin romper nada
+    assert again.get(bad) is None                    # the broken entry is searched again, breaking nothing
 
 
-# ---------------------------------------------------------------- nombres raros
+# ---------------------------------------------------------------- odd names
 
 def test_a_playlist_named_like_html_is_shown_as_text(browser, tmp_path):
     api, tidal, yt = make_api(tmp_path)
@@ -113,7 +113,7 @@ def test_a_playlist_named_like_html_is_shown_as_text(browser, tmp_path):
     yt.add_playlist("evil", evil, [S("Uno", "X", id="e1"), S("Uno", "X", id="e2")])
     page, errors = open_page(browser, api)
     to_dedupe(page, "evil")
-    page.click("#dup-scan")                                       # todas las playlists
+    page.click("#dup-scan")                                       # all playlists
     page.wait_for_selector(".dup-group")
     page.click("#remove")
     assert page.evaluate("window.hacked") is None
@@ -136,8 +136,8 @@ def test_a_very_long_playlist_name_fits_in_the_smallest_window(browser, tmp_path
 
 
 def test_a_long_playlist_name_stays_in_one_line_in_the_closed_list(browser, tmp_path):
-    """Comprobado el 2026-11-24 con la playlist de tools/real_check.py: «… (se borra sola) (5 temas)»
-    se partía en dos renglones dentro de la lista cerrada. Ahora termina en «…» y se lee entero al pasar el mouse."""
+    """Seen on 2026-11-24 with tools/real_check.py's playlist: «… (se borra sola) (5 temas)»
+    wrapped onto two lines inside the closed list. Now it ends in «…» and reads in full on hover."""
     api, tidal, yt = make_api(tmp_path)
     name = "PlaylistTransfer · prueba (se borra sola)"
     yt.add_playlist("larga", name, [S("Uno", "X", id="l1"), S("Uno", "X", id="l2")])
@@ -153,10 +153,10 @@ def test_a_long_playlist_name_stays_in_one_line_in_the_closed_list(browser, tmp_
     assert check(page, "repetidos") == [] and errors == []
 
 
-# ---------------------------------------------------------------- otras pantallas
+# ---------------------------------------------------------------- other screens
 
 def test_disconnecting_a_service_drops_its_duplicates_result(browser, tmp_path):
-    """Con el resultado a la vista, desconectar el servicio dejaba un botón que ya no podía quitar nada."""
+    """With the result on screen, disconnecting the service left a button that could no longer remove anything."""
     api, tidal, yt = make_api(tmp_path)
     page, errors = open_page(browser, api)
     to_dedupe(page)
@@ -192,7 +192,7 @@ def test_after_erasing_everything_the_history_is_empty_and_works(tmp_path):
     assert api.history()
     api.wipe_data(True)
     assert api.history() == [] and api.history_detail(1) == []
-    tidal.connected = yt.connected = True                       # vuelve a conectar y transfiere
+    tidal.connected = yt.connected = True                       # connects again and transfers
     api._jobs.wait(api.start_transfer("tidal", "ytmusic", "src", [{"name": "x", "id": "dst"}])["job"])
     assert len(api.history()) == 1
 

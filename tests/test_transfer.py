@@ -1,4 +1,4 @@
-"""Motor de transferencia con servicios falsos: lo mismo que hacía el script, con eventos."""
+"""Transfer engine with fake services: what the script did, with events."""
 from __future__ import annotations
 
 import threading
@@ -17,7 +17,7 @@ def services():
         S("Mr. Blue Sky", "Electric Light Orchestra", dur=303, id="t2"),
         S("Hallelujah", "Jeff Buckley", dur=414, id="t3"),
         S("Bohemian Rhapsody", "Queen", dur=354, id="t4"),
-        S("Take On Me", "a-ha", dur=225, id="t1b"),          # repetida en el origen
+        S("Take On Me", "a-ha", dur=225, id="t1b"),          # repeated in the source
     ])
     yt = FakeService("ytmusic", "YouTube Music", catalog=[
         S("Take On Me (Official Video)", "a-ha", dur=244, id="y-tom"),
@@ -53,11 +53,11 @@ def test_statuses_and_alternatives(services):
     by_n = {t.n: t for t in res.tracks}
     assert by_n[1].status == "ok" and by_n[1].match.id == "y-tom"
     assert by_n[3].status == "no_encontrado" and by_n[3].match is None          # Cohen ≠ Buckley
-    assert [a.id for a in by_n[3].alternatives] == ["y-cohen"]                  # pero se ofrece
-    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # solo hay en vivo: no se agrega solo
+    assert [a.id for a in by_n[3].alternatives] == ["y-cohen"]                  # but it is offered
+    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # there's only a live one: not added on its own
     track3 = next(e for e in events if e["type"] == "track" and e["n"] == 3)
     assert track3["alternatives"][0]["artist"] == "Leonard Cohen"
-    # el 5 es "Take On Me" otra vez en el origen: antes contaba como ✓ agregado (y se agregaba una sola vez)
+    # number 5 is "Take On Me" again in the source: it used to count as ✓ added (and was added only once)
     assert by_n[5].status == "repetido"
     assert {"type": "repeated", "n": 5, "of": 1} in events
     assert summary(res) == {"ok": 2, "doubtful": 0, "skipped": 1, "not_found": 1, "repeated": 1, "total": 5}
@@ -77,8 +77,8 @@ def test_real_transfer_adds_only_what_is_missing(services):
     events, emit = collect()
     res = run_transfer(tidal, yt, "src", [Target("?", "dst")], emit=emit)
     t = res.targets[0]
-    assert t.target.name == "Favoritas"                                          # nombre real del destino
-    assert [s.id for s in t.added] == ["y-tom"]                                  # ni Cohen ni el en vivo (?)
+    assert t.target.name == "Favoritas"                                          # the destination's real name
+    assert [s.id for s in t.added] == ["y-tom"]                                  # neither Cohen nor the live one (?)
     assert [(m.id, w.id, why) for m, w, why in t.versions] == [("y-blue", "y-blue-old", ALREADY_THERE)]
     assert yt.calls == [("add", "dst", ["y-tom"])]
     already = [e for e in events if e["type"] == "already"]
@@ -141,31 +141,31 @@ def test_already_constant():
     assert ALREADY == "ya_estaba"
 
 
-# ---------------------------------------------------------------- los "?" los decide el usuario
+# ---------------------------------------------------------------- the user decides the "?"
 
 def test_doubtful_are_not_added_when_the_user_says_so(services):
     tidal, yt = services
     events, emit = collect()
     res = run_transfer(tidal, yt, "src", [Target("x", "dst")], emit=emit, include_doubtful=False)
     by_n = {t.n: t for t in res.tracks}
-    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # queda para "+ Agregar igual"
-    assert yt.calls == [("add", "dst", ["y-tom"])]                                   # el en vivo no se agregó
+    assert by_n[4].status == "dudoso_omitido" and by_n[4].match.id == "y-boh-live"   # left for "+ Add anyway"
+    assert yt.calls == [("add", "dst", ["y-tom"])]                                   # the live one wasn't added
     assert next(e for e in events if e["type"] == "track" and e["n"] == 4)["status"] == "dudoso_omitido"
     assert summary(res)["skipped"] == 1 and summary(res)["doubtful"] == 0
 
 
 def test_by_default_doubtful_wait_for_the_user(services):
-    """Los "?" nunca se agregan solos: el usuario decide al final ("+ Agregar igual")."""
+    """The "?" are never added on their own: the user decides at the end ("+ Add anyway")."""
     tidal, yt = services
     run_transfer(tidal, yt, "src", [Target("x", "dst")])
     assert yt.calls == [("add", "dst", ["y-tom"])]
     yt.calls.clear()
-    run_transfer(tidal, yt, "src", [Target("x", "dst")], include_doubtful=True)     # el motor todavía lo permite
+    run_transfer(tidal, yt, "src", [Target("x", "dst")], include_doubtful=True)     # the engine still allows it
     assert yt.calls == [("add", "dst", ["y-boh-live"])]
 
 
 def test_an_empty_source_is_not_a_successful_transfer(services):
-    """Una playlist de origen vacía daba "transferido" (sin crear nada): ahora es un aviso, y nada cambia."""
+    """An empty source playlist gave "transferred" (without creating anything): now it's a notice, and nothing changes."""
     from app.connectors.base import ConnectorError
     tidal, yt = services
     tidal.add_playlist("vacia", "Para después", [])
@@ -176,8 +176,8 @@ def test_an_empty_source_is_not_a_successful_transfer(services):
 
 
 def test_another_version_repeated_in_the_source_is_repeated_not_already_there(services):
-    """Otra versión del mismo tema más arriba en el origen: "repetido en el origen", no "ya estaba"
-    (no estaba en el destino). Va una sola vez y el historial lo dice igual."""
+    """Another version of the same song higher up in the source: "repeated in the source", not "already
+    there" (it wasn't in the destination). It goes only once and the history says the same."""
     tidal, yt = services
     tidal.add_playlist("v", "Con versiones", [S("Take On Me", "a-ha", dur=225, id="a1"),
                                               S("Take On Me (2017 Remaster)", "a-ha", dur=226, id="a2")])
@@ -212,8 +212,8 @@ def test_already_there_does_not_count_songs_repeated_in_the_source():
 
 
 def test_the_same_video_is_never_sent_twice_in_one_add():
-    """Dos temas distintos del origen que encuentran el mismo video: se agrega una sola vez. Desde
-    ytmusicapi 1.12.4, un pedido con el mismo videoId dos veces falla entero (duplicates=False)."""
+    """Two different source songs that find the same video: it is added only once. Since
+    ytmusicapi 1.12.4, a request with the same videoId twice fails entirely (duplicates=False)."""
     from app.core.transfer import plan_target
     video = S("Take On Me", "a-ha", id="v1")
     found = [video, S("Take On Me (Remastered)", "a-ha", id="v1"), S("Hunting High and Low", "a-ha", id="v2")]

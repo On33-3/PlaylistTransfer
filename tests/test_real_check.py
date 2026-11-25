@@ -1,4 +1,4 @@
-"""La prueba con cuentas reales (tools/real_check.py) nunca escribe: lo comprueba con los servicios falsos."""
+"""The real-account check (tools/real_check.py) never writes: this proves it with the fake services."""
 from __future__ import annotations
 
 from tests.fakes import S
@@ -23,7 +23,7 @@ def test_nothing_that_writes_reaches_a_service(tmp_path):
                 raise AssertionError(f"{c.key}.{name} no está bloqueado")
     assert yt.calls == [] and tidal.calls == [] and len(yt.songs("dups")) == 4
     assert {"api.remove_many", "api.wipe_data", "api.disconnect", "api.start_transfer (de verdad)"} <= set(attempts)
-    assert all(hasattr(api, n) for n in BLOCKED_API)          # si se renombra uno, este test lo dice
+    assert all(hasattr(api, n) for n in BLOCKED_API)          # if one gets renamed, this test says so
 
 
 def test_removing_is_only_possible_in_the_test_playlist(tmp_path):
@@ -32,7 +32,7 @@ def test_removing_is_only_possible_in_the_test_playlist(tmp_path):
     sandbox: set[str] = set()
     attempts = guard(api, sandbox)
     scans = {g["name"]: g["scan"] for g in api._jobs.wait(api.scan_duplicates("ytmusic", "__all__")["job"])["result"]["groups"]}
-    assert "error" in api.remove_many([{"scan": scans["Clásicos"], "selected": [0]}], True)   # sin playlist de prueba
+    assert "error" in api.remove_many([{"scan": scans["Clásicos"], "selected": [0]}], True)   # without a test playlist
     sandbox.add("dups")
     r = api._jobs.wait(api.remove_many([{"scan": scans["Clásicos"], "selected": [0]}], True)["job"])
     assert r["state"] == "done" and len(yt.songs("dups")) == 3
@@ -48,8 +48,8 @@ def test_only_the_test_songs_can_be_liked_and_unliked(tmp_path):
     test, other = S("Prueba", "X", id="t1"), S("Otra", "X", id="o1")
     liked: set[str] = {"t1"}
     attempts = guard(api, set(), liked)
-    yt.add(LIKED, [test])                                                   # la de prueba, sí
-    for bad in ([other], [test, other]):                                    # cualquier otra, nunca
+    yt.add(LIKED, [test])                                                   # the test one, yes
+    for bad in ([other], [test, other]):                                    # any other, never
         try:
             yt.add(LIKED, bad)
         except RuntimeError:
@@ -57,7 +57,7 @@ def test_only_the_test_songs_can_be_liked_and_unliked(tmp_path):
         else:
             raise AssertionError(f"se marcó {bad}")
     try:
-        yt.remove(LIKED, [Duplicate(0, S("Mía", "X", id="mine"), test)], confirmed=True)   # tu «Me gusta», nunca
+        yt.remove(LIKED, [Duplicate(0, S("Mía", "X", id="mine"), test)], confirmed=True)   # your liked songs, never
     except RuntimeError:
         pass
     yt.remove(LIKED, [Duplicate(1, test, test)], confirmed=True)

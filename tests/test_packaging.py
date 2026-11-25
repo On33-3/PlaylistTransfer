@@ -1,4 +1,4 @@
-"""Empaquetado: lo que se verificó a mano en la F4, para que un cambio no lo rompa sin avisar."""
+"""Packaging: what was checked by hand in F4, so a change can't break it silently."""
 from __future__ import annotations
 
 import importlib.util
@@ -29,7 +29,7 @@ def test_icon_is_a_valid_ico_with_all_sizes():
 
 
 def test_the_window_and_the_exe_use_the_same_icon():
-    """El ícono va con la UI: lo usan la ventana (también con `py -m app`) y el .exe, y está al día."""
+    """The icon ships with the UI: the window (also with `py -m app`) and the .exe use it, and it's up to date."""
     ico = ROOT / "app" / "ui" / "icon.ico"
     assert ico.read_bytes() == load("make_icon").ico()
     assert 'icon=str(ui_dir() / "icon.ico")' in (ROOT / "app" / "main.py").read_text(encoding="utf-8")
@@ -57,13 +57,13 @@ def test_personal_files_stop_the_build(tmp_path):
         build.check_no_personal_data(tmp_path)
     (tmp_path / "_internal" / "browser.json").unlink()
     (tmp_path / "PlaylistTransfer.exe").write_bytes(b"MZ")
-    build.check_no_personal_data(tmp_path)          # sin datos personales: sigue
+    build.check_no_personal_data(tmp_path)          # no personal data: it goes on
 
 
 def test_spec_keeps_tidalapi_replaceable_and_no_upx():
     spec = (ROOT / "packaging" / "PlaylistTransfer.spec").read_text(encoding="utf-8")
     assert 'module_collection_mode={"tidalapi": "py"}' in spec        # LGPL-3.0
-    assert "upx=False" in spec and "console=False" in spec and "COLLECT(" in spec   # carpeta, no un solo archivo
+    assert "upx=False" in spec and "console=False" in spec and "COLLECT(" in spec   # a folder, not a single file
 
 
 def test_workflow_only_uses_github_actions_and_checks_the_version():
@@ -72,7 +72,7 @@ def test_workflow_only_uses_github_actions_and_checks_the_version():
     assert uses and all(u.startswith("actions/") for u in uses), uses
     assert "does not match version" in wf and "PT_SMOKE" in wf
     assert re.search(r"release:\n\s+if: startsWith\(github.ref, 'refs/tags/v'\)", wf)
-    assert "permissions:\n  contents: read" in wf                     # por defecto, solo lectura
+    assert "permissions:\n  contents: read" in wf                     # read-only by default
 
 
 def test_build_requirements_are_pinned():
@@ -85,8 +85,8 @@ def test_build_requirements_are_pinned():
 
 @pytest.mark.parametrize("readme, lang", [("README.md", "en"), ("README.es.md", "es")])
 def test_readme_screenshots_exist_in_its_language(readme, lang):
-    """README.md (inglés, lo que ve GitHub) y README.es.md: cada uno con sus capturas
-    (tools/readme_screenshots.py) y un enlace al otro."""
+    """README.md (English, what GitHub shows) and README.es.md: each with its screenshots
+    (tools/readme_screenshots.py) and a link to the other."""
     text = (ROOT / readme).read_text(encoding="utf-8")
     imgs = re.findall(r"\((docs/img/[\w/-]+\.png)\)", text)
     assert imgs
@@ -113,16 +113,16 @@ def test_files_in_the_zip_root_have_ascii_names():
 @pytest.mark.parametrize("name", ["README_USER", "README_USER_EN"])
 def test_user_readmes_have_clean_windows_paths(name):
     text = getattr(load("build"), name).format(version="9.9.9")
-    assert "\t" not in text and "\\\\" not in text                    # ni tabs (por un "\t" suelto) ni barras dobles
+    assert "\t" not in text and "\\\\" not in text                    # no tabs (from a stray "\t") and no double backslashes
     assert r"%LOCALAPPDATA%\PlaylistTransfer" in text and r"_internal\tidalapi" in text
 
 
 def test_what_the_window_needs_is_never_excluded_from_the_package():
-    """clr_loader (la ventana de pywebview) usa cffi y este a pycparser: excluirlos parece inofensivo."""
+    """clr_loader (pywebview's window) uses cffi, and cffi uses pycparser: excluding them looks harmless."""
     spec = (ROOT / "packaging" / "PlaylistTransfer.spec").read_text(encoding="utf-8")
     unused = re.search(r"UNUSED = \[(.*?)\]", spec, re.S).group(1)
     assert not {"cffi", "pycparser", "ssl", "sqlite3"} & set(re.findall(r'"(\w+)"', unused))
-    assert "a.binaries =" not in spec and "a.datas =" not in spec         # pywebview busca las DLL de cada arquitectura
+    assert "a.binaries =" not in spec and "a.datas =" not in spec         # pywebview looks for each architecture's DLLs
 
 
 def test_the_build_stops_if_the_package_grows(tmp_path):

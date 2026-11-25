@@ -1,4 +1,4 @@
-"""Inicio: qué cuenta la app y cuándo pide conectar."""
+"""Home: what the app explains and when it asks to connect."""
 from __future__ import annotations
 
 from tests.ui_helpers import make_api, open_page, shot, with_spotify
@@ -7,8 +7,8 @@ from tests.ui_helpers import make_api, open_page, shot, with_spotify
 def test_first_run_everything_empty(browser, tmp_path):
     api, *_ = make_api(tmp_path, connected=False)
     page, errors = open_page(browser, api)
-    # Sin conectar, el botón principal es "Ir a Conexiones" (en la fila de botones, no un recuadro aparte
-    # encima del título, que se veía encimado); "Transferir música" pasa a secundario: uno solo principal
+    # Not connected, the main button is "Go to Connections" (in the button row, not a separate box
+    # above the title, which looked overlapped); "Transfer music" becomes secondary: a single main one
     assert page.inner_text("#home-connect") == "Ir a Conexiones"
     assert page.locator("#inicio .btn.primary:visible").count() == 1
     assert "ghost" in page.get_attribute("#home-transfer", "class")
@@ -30,7 +30,7 @@ def test_first_run_everything_empty(browser, tmp_path):
 
 
 def test_home_only_asks_to_connect_when_fewer_than_two(browser, tmp_path):
-    """Quien usa YouTube Music y Spotify no ve "falta Tidal" para siempre."""
+    """Someone who uses YouTube Music and Spotify doesn't see "Tidal missing" forever."""
     api, tidal, yt = make_api(tmp_path)
     tidal.connected = False
     sp, _ = with_spotify(api, tmp_path)
@@ -50,7 +50,7 @@ def test_home_explains_the_app_and_the_route_is_chosen_in_transfer(browser, tmp_
     api, tidal, yt = make_api(tmp_path)
     with_spotify(api, tmp_path)
     page, errors = open_page(browser, api)
-    # Inicio: un texto sobre la app (con los servicios del registro), sin desplegables
+    # Home: a text about the app (with the registry's services), no dropdowns
     assert page.inner_text("#home-lede").startswith("PlaylistTransfer pasa tu música entre Tidal, YouTube Music y Spotify")
     assert page.locator("#inicio select").count() == 0
     assert page.locator("#inicio .features li").count() == 4
@@ -59,22 +59,22 @@ def test_home_explains_the_app_and_the_route_is_chosen_in_transfer(browser, tmp_
         "inicio", "conexiones", "transferir", "repetidos", "historial", "ajustes"]
     shot(page, "inicio-texto")
     page.click("#inicio .actions >> text=Transferir música")
-    # Transferir, paso 1: de dónde y a dónde
+    # Transfer, step 1: from where and to where
     page.wait_for_selector("#src-list >> text=Favoritas")
     assert page.eval_on_selector_all("#to option", "os => os.map(o => o.textContent)") == ["Tidal", "YouTube Music", "Spotify"]
     assert page.get_attribute("#swap", "title") == "Dar vuelta: de YouTube Music a Tidal"
     page.click("#swap")
     assert (page.input_value("#from"), page.input_value("#to")) == ("ytmusic", "tidal")
-    assert page.inner_text("#src-title") == "Origen en YouTube Music"          # las listas se recargan
+    assert page.inner_text("#src-title") == "Origen en YouTube Music"          # the lists reload
     page.select_option("#to", "spotify")
     assert page.get_attribute("#swap", "title") == "Dar vuelta: de Spotify a YouTube Music"
-    page.select_option("#from", "spotify")                             # iguales: el otro toma el anterior
+    page.select_option("#from", "spotify")                             # the same: the other takes the previous one
     assert (page.input_value("#from"), page.input_value("#to")) == ("spotify", "ytmusic")
     assert round(page.locator("#swap").bounding_box()["height"]) == 36
     assert round(page.locator("#from").bounding_box()["height"]) == 36
     assert "Spotify" in page.inner_text("#src-title")
     shot(page, "transferir-ruta")
-    # La lista desplegada usa el estilo de la app (no la de Windows) y se elige con el mouse
+    # The open list uses the app's style (not Windows') and is picked with the mouse
     assert page.evaluate("getComputedStyle(document.querySelector('#to')).appearance") == "base-select"
     page.click("#to")
     page.wait_for_timeout(250)

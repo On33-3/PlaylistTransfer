@@ -1,7 +1,7 @@
-"""La UI con datos extremos: que el diseño no se rompa por exceso.
+"""The UI with extreme data: the design must not break from excess.
 
-Muchas playlists, nombres larguísimos (con y sin espacios), japonés y emojis, transferencias de
-cientos de temas, mucho historial, y la ventana en su tamaño mínimo (860×620) y en el normal.
+Many playlists, very long names (with and without spaces), Japanese and emoji, transfers of
+hundreds of songs, a lot of history, and the window at its minimum size (860×620) and at the normal one.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def stress_api(tmp_path):
 
 
 def overflow(page):
-    """Elementos visibles que se salen de su caja por los costados (o la página entera)."""
+    """Visible elements that stick out of their box sideways (or the whole page)."""
     return page.evaluate("""() => {
       const out = [];
       const main = document.querySelector('main');
@@ -52,7 +52,7 @@ def overflow(page):
 
 
 def test_extreme_data_does_not_break_the_layout(browser, tmp_path):
-    """Un solo recorrido; cada pantalla se mide en los dos tamaños de ventana (y no el recorrido dos veces)."""
+    """A single walk-through; each screen is measured at both window sizes (instead of walking through twice)."""
     api, tidal, yt = stress_api(tmp_path)
     page, errors = open_page(browser, api)
     problems = {}
@@ -82,7 +82,7 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path):
     page.wait_for_selector("#dups li")
     measure("repetidos", "3-repetidos")
 
-    for i in range(3):                                               # varias operaciones en el historial
+    for i in range(3):                                               # several operations in the history
         page.click("nav [data-go=transferir]")
         page.click("#again") if page.is_visible("#again") else None
         page.wait_for_selector(f"input[name=src][value=t{i}]")
@@ -114,12 +114,12 @@ def test_extreme_data_does_not_break_the_layout(browser, tmp_path):
 
 @pytest.mark.parametrize("size", SIZES)
 def test_the_toast_never_covers_the_end_of_a_screen(browser, tmp_path, size):
-    """El aviso negro sale abajo al centro. Bajando del todo, lo último de cada pantalla (en Conexiones,
-    el último navegador) queda por encima del aviso: nunca tapado, ni en la ventana mínima."""
+    """The black toast shows at the bottom center. Scrolled all the way down, the last thing on each screen
+    (in Connections, the last browser) stays above the toast: never covered, not even in the smallest window."""
     from tests.ui_helpers import BRAVE, VIVALDI, with_spotify
     api, tidal, yt = make_api(tmp_path, connected=False)
     with_spotify(api, tmp_path)
-    api._list_browsers = lambda: [VIVALDI, BRAVE] * 2               # una lista larga de navegadores
+    api._list_browsers = lambda: [VIVALDI, BRAVE] * 2               # a long list of browsers
     page, errors = open_page(browser, api)
     page.set_viewport_size(dict(zip(("width", "height"), SIZES[size])))
     page.add_style_tag(content=".toast { transition: none !important; }")

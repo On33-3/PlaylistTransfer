@@ -1,4 +1,4 @@
-"""El historial en texto liviano: legible para una persona y para una IA."""
+"""The history as light text: readable for a person and for an AI."""
 from __future__ import annotations
 
 import pytest
@@ -56,7 +56,7 @@ def test_file_is_light_utf8_text(history, tmp_path):
     out = tmp_path / "historial.txt"
     assert write_report(out, from_history(history), NAMES) == 2
     raw = out.read_bytes()
-    assert not raw.startswith(b"\xef\xbb\xbf")                      # UTF-8 simple, sin BOM
+    assert not raw.startswith(b"\xef\xbb\xbf")                      # plain UTF-8, no BOM
     assert "Corazón" in raw.decode("utf-8") and len(raw) < 2000
 
 
@@ -67,7 +67,7 @@ def test_a_big_history_stays_small(tmp_path):
                  [TrackRecord(k, "ok", f"Tema {k}", "Artista", f"Tema {k}", "Artista", 1.0) for k in range(50)])
     out = tmp_path / "h.txt"
     write_report(out, from_history(h), NAMES)
-    assert out.stat().st_size < 40_000                                 # 1000 temas: unos 30 KB
+    assert out.stat().st_size < 40_000                                 # 1000 songs: about 30 KB
 
 
 def test_an_error_does_not_leave_a_half_written_file(history, tmp_path, monkeypatch):

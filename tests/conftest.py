@@ -1,4 +1,4 @@
-"""Datos reales del usuario (de los reportes y del video de "Quitar repetidos") y utilidades."""
+"""The user's real data (from the reports and the "Remove duplicates" video) and utilities."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,8 +20,8 @@ def yt(title: str, artist: str, dur: str, album: str | None, vid: str, set_id: s
                 album=album, duration=mmss(dur), id=vid, set_id=set_id)
 
 
-# Playlist de YouTube Music del video: primero la versión que queda, después las copias.
-# (título, artista, duración, álbum) — copias tomadas de prototype/index.html
+# The video's YouTube Music playlist: first the version that stays, then the copies.
+# (title, artist, length, album) — copies taken from prototype/index.html
 KEPT = [
     ("Virtual Insanity", "Jamiroquai", "3:48", "Pop Music: The Modern Era"),
     ("Stuck In The Middle With You", "Stealers Wheel", "3:29", "Stealers Wheel"),
@@ -30,7 +30,7 @@ KEPT = [
     ("Take On Me", "a-ha", "3:46", "Hunting High and Low"),
     ("(I Can't Get No) Satisfaction (Mono)", "The Rolling Stones", "3:43", "Singles 1965-1967"),
 ]
-COPIES = [   # (título, artista, duración, álbum, título de la que queda)
+COPIES = [   # (title, artist, length, album, title of the one that stays)
     ("Virtual Insanity", "Jamiroquai", "4:24", "Travelling Without Moving", "Virtual Insanity"),
     ("Stuck In The Middle With You", "Stealers Wheel", "3:24", "Reservoir Dogs (soundtrack)",
      "Stuck In The Middle With You"),
@@ -43,7 +43,7 @@ COPIES = [   # (título, artista, duración, álbum, título de la que queda)
     ("Virtual Insanity (Official Video)", "Jamiroquai", "4:05", None, "Virtual Insanity"),
 ]
 
-# Temas de las mismas playlists que NO son repetidos, incluidos los pares que se parecen.
+# Songs from the same playlists that are NOT duplicates, including the look-alike pairs.
 OTHERS = [
     ("Spirit In The Sky", "Norman Greenbaum", "4:02", "Spirit In The Sky"),
     ("Marcy (Deluxe Edition)", "Norman Greenbaum", "3:17", "Spirit In The Sky (Deluxe Edition)"),
@@ -55,7 +55,7 @@ OTHERS = [
     ("Dancing Queen", "ABBA", "3:51", "Arrival"),
 ]
 
-# Pares negativos: se parecen, pero son canciones distintas
+# Negative pairs: they look alike, but they are different songs
 NEGATIVE_PAIRS = [
     (Song("Spirit In The Sky", ["Norman Greenbaum"], duration=242),
      Song("Marcy (Deluxe Edition)", ["Norman Greenbaum"], duration=197)),
@@ -68,7 +68,7 @@ NEGATIVE_PAIRS = [
 
 @pytest.fixture
 def video_playlist() -> list[Song]:
-    """Como la playlist real: las originales mezcladas con otros temas y las copias al final."""
+    """Like the real playlist: the originals mixed with other songs and the copies at the end."""
     songs: list[Song] = []
     n = 0
 
@@ -90,7 +90,7 @@ def video_playlist() -> list[Song]:
 
 @pytest.fixture(autouse=True)
 def spanish_by_default():
-    """Los tests están escritos en castellano. El idioma es global: se repone después de cada test."""
+    """The tests check the Spanish texts. The language is global: it's restored after each test."""
     from app import i18n
     i18n.set_language("es")
     yield
@@ -99,7 +99,7 @@ def spanish_by_default():
 
 @pytest.fixture(scope="module")
 def browser():
-    """Edge sin ventana (el mismo motor que WebView2), para los tests de la UI. Si no está, se saltean."""
+    """Headless Edge (the same engine as WebView2), for the UI tests. If it isn't there, they're skipped."""
     sync_api = pytest.importorskip("playwright.sync_api")
     with sync_api.sync_playwright() as pw:
         try:
