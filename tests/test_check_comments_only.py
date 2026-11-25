@@ -1,7 +1,7 @@
 """tools/check_comments_only.py: a comment or docstring change passes; any code change, however small, is caught."""
 from __future__ import annotations
 
-from tools.check_comments_only import css_code, html_code, js_code, python_code
+from tools.check_comments_only import css_code, html_code, js_code, python_code, yaml_code
 
 PY = '''"""Módulo."""
 def f(x):
@@ -52,6 +52,13 @@ def test_js_nested_template_literals_are_read_whole():
     b = 'h = `<b>${xs.map(x => `<i>${x}</i>`).join("")}</b>`; // list\nok = 1; // yes\n'
     assert js_code(a) == js_code(b)
     assert js_code(a) != js_code(a.replace("<i>", "<u>"))
+
+
+def test_yaml_comments_do_not_count_but_a_hash_inside_a_value_does():
+    a = 'on:\n  push:  # cada push\n    tags: ["v*"]\nrun: echo "${REF#v}"  # sin la v\n'
+    assert yaml_code(a) == yaml_code(a.replace("# cada push", "# every push").replace("# sin la v", "# without the v"))
+    assert yaml_code(a) != yaml_code(a.replace("${REF#v}", "${REF#x}"))
+    assert yaml_code(a) != yaml_code(a.replace('"v*"', '"x*"'))
 
 
 def test_css_and_html_comments_do_not_count():

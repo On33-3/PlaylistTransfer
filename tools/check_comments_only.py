@@ -4,8 +4,8 @@
     py tools/check_comments_only.py HEAD~3     (against another commit)
 
 For each changed file:
-  - Python: the syntax tree without docstrings has to be identical (comments are not in it);
-  - JavaScript, CSS and HTML: the text without comments, with whitespace collapsed, has to be identical.
+  - Python (also PyInstaller's .spec): the syntax tree without docstrings has to be identical;
+  - JavaScript, CSS, HTML and YAML: the text without comments, with whitespace collapsed, has to be identical.
 Any other changed file counts as a code change. Exit code 0 only if nothing but comments changed.
 Used when translating the code comments, so a slip in the code cannot hide among hundreds of edits.
 """
@@ -97,11 +97,30 @@ def html_code(text: str) -> str:
     return collapse(re.sub(r"<!--.*?-->", "", text, flags=re.S))
 
 
+def yaml_code(text: str) -> str:
+    """YAML without # comments: a # starts one at the start of a line or after a space, outside quotes
+    (so "${NAME#v}" in a value stays)."""
+    lines = []
+    for line in text.splitlines():
+        quote, cut = None, len(line)
+        for i, c in enumerate(line):
+            if quote:
+                quote = None if c == quote else quote
+            elif c in "'\"":
+                quote = c
+            elif c == "#" and (i == 0 or line[i - 1].isspace()):
+                cut = i
+                break
+        lines.append(line[:cut])
+    return collapse("\n".join(lines))
+
+
 def collapse(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-CODE = {".py": python_code, ".js": js_code, ".css": css_code, ".html": html_code}
+CODE = {".py": python_code, ".spec": python_code, ".js": js_code, ".css": css_code, ".html": html_code,
+        ".yml": yaml_code, ".yaml": yaml_code}
 
 
 def git(*args: str) -> str:
@@ -116,7 +135,7 @@ def main() -> int:
         path = ROOT / rel
         code = CODE.get(path.suffix)
         if code is None:
-            problems.append(f"{rel}: not a file this check understands (only .py, .js, .css, .html)")
+            problems.append(f"{rel}: not a file this check understands ({', '.join(sorted(CODE))})")
             continue
         try:
             before = git("show", f"{base}:{rel}")
