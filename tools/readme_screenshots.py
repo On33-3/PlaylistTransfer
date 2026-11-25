@@ -1,7 +1,7 @@
-"""Capturas para los README (docs/img/<idioma>/), con los servicios falsos de los tests: nunca datos reales.
-README.md (inglés) usa docs/img/en/ y README.es.md, docs/img/es/.
+"""Screenshots for the READMEs (docs/img/<language>/), with the tests' fake services: never real data.
+README.md (English) uses docs/img/en/ and README.es.md, docs/img/es/.
 
-Uso (desde la raíz del repo, con playwright instalado):  py tools/readme_screenshots.py
+Usage (from the repo root, with playwright installed):  py tools/readme_screenshots.py
 """
 import sys
 import tempfile
@@ -16,7 +16,7 @@ from tests.fakes import FakeService  # noqa: E402
 from tests.ui_helpers import english_api, make_api, open_page  # noqa: E402
 
 OUT = ROOT / "docs" / "img"
-# cómo empieza el aviso de "quitaste un tema" en cada idioma (para esperar a que termine)
+# how the "you removed a song" toast starts in each language (to wait for it to finish)
 REMOVED = {"es": "Quitaste 1 tema", "en": "Removed 1 song"}
 
 
@@ -24,10 +24,10 @@ def capture(browser, lang: str, tmp: Path) -> None:
     out = OUT / lang
     out.mkdir(parents=True, exist_ok=True)
     api, tidal, yt = (english_api if lang == "en" else make_api)(tmp)
-    # Spotify sin conectar: se ve como en una instalación nueva, no "próximamente"
+    # Spotify not connected: it looks like a new install, not "coming soon"
     api._connectors["spotify"] = FakeService("spotify", "Spotify", connected=False)
     page, errors = open_page(browser, api)
-    page.add_style_tag(content="#toast { display: none !important; }")   # los avisos no van en las capturas
+    page.add_style_tag(content="#toast { display: none !important; }")   # toasts don't go in the screenshots
 
     page.click("nav [data-go=transferir]")
     page.check("input[name=src][value=src]")

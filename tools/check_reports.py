@@ -1,11 +1,11 @@
-"""Compara el matching nuevo con el del script de consola sobre tus reportes reales.
+"""Compares the new matching with the console script's on your real reports.
 
-Uso (desde la raíz del repo):  py tools/check_reports.py [reporte_*.csv ...]
+Usage (from the repo root):  py tools/check_reports.py [reporte_*.csv ...]
 
-Los reportes (reporte_*.csv) los generó el script de consola original (ya borrado), son tuyos y no
-se suben al repo. Su columna "puntaje" es lo que decidió ese script: se compara contra eso.
-Correlo cada vez que cambies app/core/matching.py: ninguna coincidencia real debería empeorar de
-categoría sin que lo sepas.
+The reports (reporte_*.csv) were made by the original console script (since removed); they are yours and
+are never uploaded to the repo. Their "puntaje" column is what that script decided: it's compared against that.
+Run it every time you change app/core/matching.py: no real match should drop a category
+without you knowing.
 """
 import csv
 import glob
@@ -39,7 +39,7 @@ def main() -> int:
                     continue
                 total += 1
                 a, b = song(r["origen"], r["origen_duracion"]), song(r["destino"], r["destino_duracion"])
-                old = float(r["puntaje"])           # lo que decidió el script de consola
+                old = float(r["puntaje"])           # what the console script decided
                 new = score(a, b)
                 if classify(old) != classify(new):
                     changed += 1

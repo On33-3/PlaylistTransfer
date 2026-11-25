@@ -1,14 +1,14 @@
-"""El control de cada paso de un refactor: que nada cambie de golpe, ni lo que hace la app ni cómo se ve.
+"""The check for each step of a refactor: nothing changes all of a sudden, neither what the app does nor how it looks.
 
-    py tools/check_step.py --base base.json     (una vez, antes de tocar nada: la foto de estilos de partida)
-    py tools/check_step.py base.json            (después de cada paso)
+    py tools/check_step.py --base base.json     (once, before touching anything: the starting style snapshot)
+    py tools/check_step.py base.json            (after each step)
 
-Corre, en orden y cortando en el primero que falla:
-  1. pyflakes (código sin usar, nombres mal escritos)
-  2. todos los tests
-  3. la comparación con tus reportes reales, si el paso tocó app/core/matching.py
-  4. la foto de estilos de cada pantalla, que tiene que dar 0 diferencias con la de partida
-Si dice OK, el paso se puede guardar en su propio commit; si no, se deshace ese paso solo.
+Runs, in order and stopping at the first failure:
+  1. pyflakes (unused code, misspelled names)
+  2. every test
+  3. the comparison with your real reports, if the step touched app/core/matching.py
+  4. the style snapshot of every screen, which has to show 0 differences from the starting one
+If it says OK, the step can go in its own commit; if not, only that step is undone.
 """
 from __future__ import annotations
 

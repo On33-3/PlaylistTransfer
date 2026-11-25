@@ -1,33 +1,33 @@
-"""La prueba antes de publicar, con tus cuentas reales y sin cambiar nada en ellas.
+"""The pre-release check, with your real accounts and without changing anything in them.
 
-    py tools/real_check.py                    (todos los servicios conectados)
-    py tools/real_check.py --service ytmusic  (la revisión de repetidos solo en ese)
-    py tools/real_check.py --no-transfer      (sin la prueba de transferencia, que hace búsquedas)
+    py tools/real_check.py                    (every connected service)
+    py tools/real_check.py --service ytmusic  (the duplicates check only in that one)
+    py tools/real_check.py --no-transfer      (without the transfer dry run, which runs searches)
 
-Recorre la lista que antes se hacía a mano, con la interfaz real (Edge, el mismo motor que la ventana)
-y tus sesiones:
-  0. la ventana de verdad abre y cierra sola (PT_SMOKE)
-  1. Inicio: dice que todo funciona de forma local, en tu PC
-  2. Transferir: una prueba sin cambios con tu playlist más chica; la ruta dice servicio · playlist
-  3. Quitar repetidos, antes de revisar: las tres tarjetas y «Todas las playlists»
-  4. Revisar todas: el avance, Cancelar a mitad y después la revisión entera
-  5. El resultado: otras versiones sin tildar, «Se conserva» al destildar, la barra siempre a la vista,
-     «Destildar todos», y la pantalla alineada también en la ventana mínima
-  6. La confirmación se abre con lo que diría, y se cancela
-  7. Quitar de verdad: crea «PlaylistTransfer · prueba (se borra sola)» con tres canciones tuyas
-     repetidas a propósito (A, B, C, A, B), la pantalla encuentra los dos repetidos, se quitan con la
-     confirmación, queda A, B, C y el historial lo anota. Después la borra, aunque algo haya fallado
-     (y al empezar, borra la de una corrida cortada)
-  8. «Me gusta» de verdad: marca dos temas tuyos que no estaban marcados, como una transferencia a
-     «Canciones que te gustan», comprueba que quedan arriba, los desmarca y comprueba que tu lista quedó
-     igual (si algo falla en el medio, igual los desmarca)
-  9. Ajustes: «Privacidad y datos» se lee (nunca toca «Borrar todo»)
+Walks through the list that used to be done by hand, with the real interface (Edge, the same engine as
+the window) and your sessions:
+  0. the real window opens and closes by itself (PT_SMOKE)
+  1. Home: it says everything runs locally, on your PC
+  2. Transfer: a dry run with your smallest playlist; the route says service · playlist
+  3. Remove duplicates, before checking: the three cards and «All playlists»
+  4. Check all: the progress, Cancel halfway and then the whole check
+  5. The result: other versions unticked, «Stays» when unticked, the bar always visible,
+     «Untick all», and the screen aligned in the smallest window too
+  6. The confirmation opens with what it would say, and is cancelled
+  7. Removing for real: creates «PlaylistTransfer · prueba (se borra sola)» with three of your songs
+     repeated on purpose (A, B, C, A, B), the screen finds the two duplicates, they're removed through
+     the confirmation, A, B, C is left and the history records it. Then it deletes the playlist, even if
+     something failed (and on start, it deletes one left by an interrupted run)
+  8. Liked songs for real: likes two of your songs that weren't liked, like a transfer to liked songs
+     does, checks they end up on top, unlikes them and checks your list is the same as before (if
+     something fails halfway, it still unlikes them)
+  9. Settings: «Privacy and data» reads correctly (it never touches «Erase everything»)
 
-Fuera de esa playlist de prueba nunca escribe en tus cuentas: antes de abrir la página, agregar, crear,
-quitar, desconectar, borrar todo y transferir de verdad quedan bloqueados (`guard`), y al final se
-comprueba que nadie lo intentó. Las tres canciones se copian; tus playlists solo se leen.
-El historial, las búsquedas guardadas y las preferencias de esta prueba van a una carpeta temporal: tu
-historial no cambia. Las capturas tienen tus datos reales: quedan en esa carpeta, nunca en el repo.
+Outside that test playlist it never writes to your accounts: before the page opens, adding, creating,
+removing, disconnecting, erasing everything and real transfers are blocked (`guard`), and at the end it
+checks nobody tried. The three songs are copied; your playlists are only read.
+This check's history, saved searches and preferences go to a temporary folder: your history doesn't
+change. The screenshots contain your real data: they stay in that folder, never in the repo.
 """
 from __future__ import annotations
 
@@ -44,22 +44,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-SMALL = 25              # temas: la prueba de transferencia usa una playlist de hasta este tamaño
-SCAN_TIMEOUT = 20 * 60  # segundos por servicio para revisar todas las playlists
+SMALL = 25              # songs: the transfer dry run uses a playlist of up to this size
+SCAN_TIMEOUT = 20 * 60  # seconds per service to check every playlist
 WRITES = ("add", "remove", "create")
 BLOCKED_API = ("remove_many", "remove_duplicates", "wipe_data", "disconnect", "connect", "set_client_id",
                "add_doubtful", "add_alternative")
 
 
-# ---------------------------------------------------------------- nada se escribe
+# ---------------------------------------------------------------- nothing gets written
 
 def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -> list[str]:
-    """Bloquea todo lo que cambia algo en las cuentas o en la app. Devuelve la lista de intentos
-    (tiene que quedar vacía): cada uno también falla, así que nunca llega al servicio.
-    Las únicas excepciones:
-      - quitar de una playlist de prueba (`sandbox`, los ids que creó este script): la UI puede quitar
-        de verdad ahí y en ningún otro lado;
-      - marcar y desmarcar «Me gusta» de los temas de prueba (`liked`, ids de temas que no estaban marcados)."""
+    """Blocks everything that changes something in the accounts or the app. Returns the list of attempts
+    (it has to stay empty): each one also fails, so it never reaches the service.
+    The only exceptions:
+      - removing from a test playlist (`sandbox`, the ids this script created): the UI can really
+        remove there and nowhere else;
+      - liking and unliking the test songs (`liked`, ids of songs that weren't liked)."""
     from app.connectors.base import LIKED
     attempts: list[str] = []
     sandbox = sandbox if sandbox is not None else set()
@@ -91,7 +91,7 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
         real = getattr(api, name)
 
         def blocked(*args, **kwargs):
-            # Quitar pasa solo con una playlist de prueba creada: el conector igual deja quitar solo de ella
+            # Removing only goes through once a test playlist exists: the connector still only allows removing from it
             if name in ("remove_many", "remove_duplicates") and sandbox:
                 return real(*args, **kwargs)
             attempts.append(f"api.{name}")
@@ -112,41 +112,41 @@ def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -
     return attempts
 
 
-# ---------------------------------------------------------------- la playlist de prueba
+# ---------------------------------------------------------------- the test playlist
 
 SANDBOX_NAME = "PlaylistTransfer · prueba (se borra sola)"
 SANDBOX_TEXT = "La creó la prueba automática de PlaylistTransfer y la borra al terminar."
-SETTLE = 30             # segundos: un servicio puede tardar en mostrar lo recién creado o borrado
+SETTLE = 30             # seconds: a service can take a while to show what was just created or deleted
 
 
 def add_with_repeats(c, pid: str, songs) -> None:
-    """Agrega aunque ya estén: la app nunca lo hace (Tidal y YouTube Music los saltean), la prueba sí."""
+    """Adds even if they're already there: the app never does (Tidal and YouTube Music skip them), the check does."""
     ids = [s.id for s in songs]
     if c.key == "tidal":
         c._editable(pid).add(ids, allow_duplicates=True)
     elif c.key == "ytmusic":
         c._ready().add_playlist_items(pid, ids, duplicates=True)
-    else:                                       # Spotify acepta repetidos
+    else:                                       # Spotify accepts duplicates
         type(c).add(c, pid, songs)
 
 
 def delete_playlist(c, pid: str) -> None:
-    """Borra la playlist de prueba. Solo existe acá: la app no puede borrar playlists."""
+    """Deletes the test playlist. This only exists here: the app can't delete playlists."""
     if c.key == "tidal":
         c._editable(pid).delete()
     elif c.key == "ytmusic":
         c._ready().delete_playlist(pid)
-    else:                                       # en Spotify, borrar es dejar de seguirla (como su app)
+    else:                                       # on Spotify, deleting is unfollowing it (like its app does)
         c._call("DELETE", f"/playlists/{pid}/followers")
 
 
 def leftovers(c) -> list[str]:
-    """Playlists de prueba que quedaron de una corrida cortada."""
+    """Test playlists left over from an interrupted run."""
     return [p.id for p in c.list_playlists() if p.name == SANDBOX_NAME]
 
 
 def three_songs(c):
-    """Tres canciones distintas de tu playlist más chica que tenga al menos tres (solo se leen)."""
+    """Three different songs from your smallest playlist with at least three (only read)."""
     from app.connectors.base import LIKED
     from app.core.matching import same_song
     lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 3),
@@ -163,8 +163,8 @@ def three_songs(c):
 
 
 def two_unliked(c, liked_ids: set[str]):
-    """Dos canciones distintas de tus playlists que no tenés en «Me gusta» (solo se leen).
-    En YouTube Music, canciones con álbum: un video marcado no siempre aparece en «Me gusta»."""
+    """Two different songs from your playlists that you haven't liked (only read).
+    On YouTube Music, songs with an album: a liked video doesn't always show in liked songs."""
     from app.connectors.base import LIKED
     from app.core.matching import same_song
     lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 2),
@@ -182,7 +182,7 @@ def two_unliked(c, liked_ids: set[str]):
 
 
 def settle(check, what: str):
-    """Espera a que el servicio muestre el cambio (YouTube Music puede tardar unos segundos)."""
+    """Waits for the service to show the change (YouTube Music can take a few seconds)."""
     until = time.monotonic() + SETTLE
     while not check():
         assert time.monotonic() < until, f"después de {SETTLE} s, {what}"
@@ -190,7 +190,7 @@ def settle(check, what: str):
 
 
 def real_api(work: Path):
-    """La API con tus sesiones, pero con el historial, las búsquedas y las preferencias en `work`."""
+    """The API with your sessions, but with the history, searches and preferences in `work`."""
     from app.api import Api
     from app.connectors import registry
     from app.storage import paths
@@ -201,11 +201,11 @@ def real_api(work: Path):
     return Api(registry.build_connectors(), History(work / "historial.json"), work / "preferencias.json", work)
 
 
-# ---------------------------------------------------------------- el recorrido
+# ---------------------------------------------------------------- the walk-through
 
 class Run:
     def __init__(self, out: Path):
-        self.out, self.results, self.page = out, [], None     # page: para la captura de un paso que falla
+        self.out, self.results, self.page = out, [], None     # page: for the screenshot of a failing step
 
     def step(self, name, fn, *args):
         print(f"· {name}…", flush=True)
@@ -215,10 +215,10 @@ class Run:
             state = "SALTEADO" if isinstance(detail, Skip) else "OK"
         except AssertionError as e:
             state, detail = "FALLA", str(e) or "no se cumplió lo esperado"
-        except Exception as e:                    # un timeout, un selector que no aparece…
+        except Exception as e:                    # a timeout, a selector that doesn't show up…
             state, detail = "FALLA", f"{type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}"
         took = time.monotonic() - started
-        if state == "FALLA" and self.page is not None:      # qué había en pantalla cuando falló
+        if state == "FALLA" and self.page is not None:      # what was on screen when it failed
             try:
                 self.shot(self.page, "FALLA", full=True)
             except Exception:
@@ -232,7 +232,7 @@ class Run:
 
 
 class Skip(str):
-    """Un paso que no aplica (por ejemplo, ningún servicio conectado)."""
+    """A step that doesn't apply (for example, no connected service)."""
 
 
 def smoke() -> str:
@@ -281,11 +281,11 @@ def transfer(run, page, design, connected, names):
 
 
 def to_dedupe(page, key) -> int:
-    """Abre Quitar repetidos en ese servicio y espera sus playlists. Devuelve cuántas se pueden revisar
-    («Todas» aparece solo si hay más de una con 2 temas o más)."""
+    """Opens Remove duplicates on that service and waits for its playlists. Returns how many can be checked
+    («All» only shows if there is more than one with 2 or more songs)."""
     page.click("nav [data-go=repetidos]")
     page.click(f"#dup-svc [data-svc={key}]")
-    # Mientras carga, la única opción es «Cargando…», sin value
+    # While loading, the only option is «Loading…», with no value
     page.wait_for_function("document.querySelector('#dup-playlist option')"
                            " && !document.querySelector('#dup-playlist option:not([value])')", timeout=60000)
     return page.locator("#dup-playlist option[value]:not([value=''])").count() - page.locator("#dup-playlist option[value=__all__]").count()
@@ -338,14 +338,14 @@ def result_checks(run, page, design):
     assert not wrong, f"{len(wrong)} otras versiones vienen tildadas"
     original = page.evaluate("[...document.querySelectorAll('.dups input')].map(i => i.checked)")
     try:
-        # Destildar una fila: dice «Se conserva» en vez de «Se quita»
-        # (por posición: «la primera tildada» sería otra fila después del clic)
+        # Unticking a row: it says «Stays» instead of «Removed»
+        # (by position: «the first ticked one» would be another row after the click)
         k = page.evaluate("[...document.querySelectorAll('.dups input')].findIndex(i => i.checked)")
         if k >= 0:
             row = page.locator(".dups li").nth(k)
             row.locator("input").click()
             assert row.locator(".tag.off").is_visible() and not row.locator(".tag.on").is_visible(), "al destildar no cambia a «Se conserva»"
-        # «Destildar todos» y «Tildar todos» en la primera tarjeta
+        # «Untick all» and «Tick all» on the first card
         group, toggle = page.locator(".dup-group").first, page.locator(".dup-group .dup-toggle").first
         untick, tick = page.evaluate("[t('dedupe.untick_all'), t('dedupe.tick_all')]")
         if toggle.inner_text() == untick:
@@ -353,7 +353,7 @@ def result_checks(run, page, design):
             assert group.locator("input:checked").count() == 0 and toggle.inner_text() == tick, "«Destildar todos» no destildó"
         toggle.click()
         assert group.locator("input:not(:checked)").count() == 0 and toggle.inner_text() == untick, "«Tildar todos» no tildó"
-        # La barra de decisión, siempre a la vista mientras se baja
+        # The decision bar, always visible while scrolling down
         for where in (0.5, 1):
             page.evaluate("(f) => { const m = document.querySelector('main'); m.scrollTop = m.scrollHeight * f; window.scrollTo(0, document.body.scrollHeight * f); }", where)
             page.wait_for_timeout(150)
@@ -395,10 +395,10 @@ def confirm_dialog(run, page, attempts):
 
 
 def sandbox_remove(run, page, api, c, sandbox, created):
-    """Una playlist nueva con A, B, C, A, B: la pantalla real encuentra los dos repetidos, se quitan de
-    verdad (con la confirmación) y queda A, B, C."""
+    """A new playlist with A, B, C, A, B: the real screen finds the two duplicates, they're really
+    removed (through the confirmation) and A, B, C is left."""
     old = leftovers(c)
-    for pid in old:                              # de una corrida cortada
+    for pid in old:                              # from an interrupted run
         delete_playlist(c, pid)
     source, songs = three_songs(c)
     if not songs:
@@ -428,7 +428,7 @@ def sandbox_remove(run, page, api, c, sandbox, created):
     page.click("#confirm-yes")
     try:
         page.wait_for_function("!state.busy && !document.querySelector('.dup-group')", timeout=180000)
-    except Exception:                              # qué decía la pantalla mientras esperaba
+    except Exception:                              # what the screen said while it waited
         said = page.evaluate("""() => ['#dup-summary', '#toast', '#dup-progress-text', '#dup-decide-text']
             .map(s => document.querySelector(s)).filter(e => e && e.offsetParent !== null)
             .map(e => e.textContent.trim()).filter(Boolean).join(' | ')""")
@@ -443,9 +443,9 @@ def sandbox_remove(run, page, api, c, sandbox, created):
 
 
 def liked_add_remove(c, liked):
-    """«Me gusta» de verdad: marca dos temas que no estaban marcados, como lo hace una transferencia
-    (`add` a LIKED), comprueba que quedan arriba y en orden, los desmarca (`remove`) y comprueba que tu
-    lista quedó como estaba. Si algo falla en el medio, igual los desmarca."""
+    """Liked songs for real: likes two songs that weren't liked, the way a transfer does it
+    (`add` to LIKED), checks they end up on top, unlikes them (`remove`) and checks your list
+    is as it was. If something fails halfway, it still unlikes them."""
     from app.connectors.base import LIKED
     from app.core.models import Duplicate
 
@@ -458,11 +458,11 @@ def liked_add_remove(c, liked):
         return Skip("no encontré dos canciones tuyas sin «Me gusta»")
     liked.update(s.id for s in songs)
     p, q = songs
-    # YouTube Music marca de a uno: el orden es exacto. Tidal y Spotify marcan en tandas y dentro de una
-    # tanda el orden lo decide el servicio (medido el 2026-11-25): basta con que los dos queden arriba
+    # YouTube Music likes one at a time: the order is exact. Tidal and Spotify like in batches, and inside a
+    # batch the service decides the order (measured on 2026-11-25): both ending up on top is enough
     exact = c.key == "ytmusic"
     try:
-        c.add(LIKED, [p, q])                       # lo que hace una transferencia a «Canciones que te gustan»
+        c.add(LIKED, [p, q])                       # what a transfer to liked songs does
         settle(lambda: liked_ids()[:2] == [p.id, q.id] if exact else set(liked_ids()[:2]) == {p.id, q.id},
                f"«{p.title}» y «{q.title}» no quedaron arriba en «Me gusta»{', en ese orden' if exact else ''}")
     finally:
@@ -540,7 +540,7 @@ def main() -> int:
                 run.step(f"Repetidos en {n}: el resultado", result_checks, run, page, check)
                 run.step(f"Repetidos en {n}: ventana mínima", smallest_window, run, page, check)
                 run.step(f"Repetidos en {n}: la confirmación", confirm_dialog, run, page, attempts)
-            # De verdad, en una playlist que crea y borra la prueba
+            # For real, in a playlist the check creates and deletes
             c, created = api._connectors[key], []
             try:
                 run.step(f"Repetidos en {n}: quitar de verdad en una playlist de prueba", sandbox_remove,

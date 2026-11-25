@@ -1,10 +1,10 @@
-"""Foto del estilo calculado de cada elemento, en cada estado de la app (cada pantalla y
-lo que se abre en ella, en la ventana normal y en la mínima), para comprobar que un refactor del CSS o
-del JavaScript no cambia nada. A diferencia de las capturas, no depende de la hora ni del mouse.
+"""A snapshot of every element's computed style, in every state of the app (each screen and
+what opens in it, in the normal and the smallest window), to check that a CSS or JavaScript
+refactor changes nothing. Unlike screenshots, it doesn't depend on the time or the mouse.
 
-    py tools/ui_style_snapshot.py antes.json        (antes de tocar nada)
-    py tools/ui_style_snapshot.py despues.json
-    py tools/ui_style_snapshot.py --diff antes.json despues.json   → "0 diferencias"
+    py tools/ui_style_snapshot.py before.json       (before touching anything)
+    py tools/ui_style_snapshot.py after.json
+    py tools/ui_style_snapshot.py --diff before.json after.json   → "0 diferencias"
 """
 import json
 import sys
@@ -45,13 +45,13 @@ def states(browser):
         return tmp, make_api(tmp, **kw)
 
     def opened(api):
-        """La página, con los avisos (toast) quietos: uno que aparece queda hasta que lo reemplaza otro.
-        Si no, que llegue a la foto o no dependía de lo rápida que estuviera la máquina (se va a los 3,2 s)."""
+        """The page, with toasts held still: one that shows up stays until another replaces it.
+        Otherwise, whether it reached the snapshot depended on how fast the machine was (it leaves after 3.2 s)."""
         page, errors = open_page(browser, api)
         page.evaluate("() => { const show = toast; window.toast = msg => { show(msg); clearTimeout(show._t); }; }")
         return page, errors
 
-    # 1. primer uso (Inicio, Conexiones con pasos reales y el panel de Spotify, conectando)
+    # 1. first run (Home, Connections with real steps and the Spotify panel, connecting)
     tmp, (api, tidal, yt) = fresh(connected=False)
     with_spotify(api, tmp)
     tidal.login_steps = lambda b: TidalConnector.login_steps(None, b)
@@ -65,7 +65,7 @@ def states(browser):
     yield "conexiones-spotify", page
     page.click("[data-connect=tidal]"); page.wait_for_selector("#cancel-login")
     yield "conexiones-conectando", page
-    page.click("#cancel-login"); page.wait_for_selector("#toast.show")   # «cancelado» llega con la consulta siguiente
+    page.click("#cancel-login"); page.wait_for_selector("#toast.show")   # «cancelled» arrives with the next poll
     page.click("nav [data-go=ajustes]"); page.wait_for_function("document.querySelector('#th-ok').value !== ''")
     yield "ajustes", page
     page.click("#wipe"); page.wait_for_selector("#wipe-confirm[open]"); page.wait_for_timeout(300)
@@ -73,7 +73,7 @@ def states(browser):
     page.click("#wipe-no")
     page.close()
 
-    # 2. Transferir y resultado con "?" y alternativas
+    # 2. Transfer and result with "?" and alternatives
     tmp, (api, tidal, yt) = fresh()
     from tests.fakes import S
     yt.add_playlist("otra", "Otra lista", [S("Rasputin", "Majestic", "Boney M.", dur=187, id="r1"),
@@ -89,7 +89,7 @@ def states(browser):
     page.click("nav [data-go=repetidos]"); page.click("#dup-svc [data-svc=ytmusic]")
     page.wait_for_selector("#dup-playlist option[value=dups]", state="attached")
     yield "repetidos-antes", page
-    # El avance, armado con eventos fijos (no depende de cuánto tarda la revisión)
+    # The progress, built from fixed events (it doesn't depend on how long the check takes)
     page.evaluate("""() => { document.querySelector('#dup-how').hidden = true; document.querySelector('#dup-progress').hidden = false;
         const p = {}; onScanEvent(p, { type: 'scan_list', names: ['Clásicos', 'Otra lista', 'Para correr'] });
         onScanEvent(p, { type: 'scan_start', k: 0, name: 'Clásicos' }); onScanEvent(p, { type: 'scan_result', k: 0, found: 2 });
@@ -141,8 +141,8 @@ def diff(a_path, b_path):
                 problems.append(f"{state}: {'falta' if el not in y else 'sobra'} {el[-90:]}")
                 continue
             for prop in sorted(set(x[el]) | set(y[el])):
-                # Las variables (--algo) no se dibujan: lo que cambia la pantalla son las propiedades que las usan,
-                # y esas sí se comparan. Así, pasar un valor repetido a una variable no da falsas alarmas
+                # Variables (--something) aren't drawn: what changes the screen are the properties that use them,
+                # and those are compared. That way, moving a repeated value into a variable gives no false alarms
                 if prop.startswith("--"):
                     continue
                 if x[el].get(prop) != y[el].get(prop):
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if len(args) == 3 and args[0] == "--diff":
         diff(args[1], args[2])
-    elif len(args) == 1 and not args[0].startswith("-"):     # "--help" no es un nombre de archivo (pasó: 100 MB)
+    elif len(args) == 1 and not args[0].startswith("-"):     # "--help" is not a file name (it happened: 100 MB)
         dump(args[0])
     else:
         sys.exit(__doc__)
