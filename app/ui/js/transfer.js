@@ -1,7 +1,7 @@
-/* Transferir: de dónde y a dónde, elegir playlists, en vivo y el resultado. */
+/* Transfer: from where and to where, picking playlists, live progress and the result. */
 "use strict";
 
-/* ---------------------------------------------------------------- transferir: de dónde y a dónde */
+/* ---------------------------------------------------------------- transfer: from where and to where */
 
 function fitSelect(sel) {
   const probe = document.createElement("span");
@@ -9,7 +9,7 @@ function fitSelect(sel) {
   probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
   probe.textContent = sel.options[sel.selectedIndex]?.text || "";
   document.body.appendChild(probe);
-  // Ancho del nombre + los rellenos (el de la derecha deja lugar a la flecha ▾)
+  // Width of the name + the padding (the right one leaves room for the ▾ arrow)
   const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
   sel.style.width = `${Math.ceil(probe.getBoundingClientRect().width + pad + 2)}px`;
   probe.remove();
@@ -21,14 +21,14 @@ function setupRoute() {
   const onChange = which => () => {
     const other = which === "from" ? "to" : "from", prev = state[which];
     state[which] = $("#" + which).value;
-    // Si quedan iguales, se dan vuelta (con más de dos servicios, el otro toma el que había)
+    // If they end up the same, they swap (with more than two services, the other takes the previous one)
     if (state.from === state.to) { state[other] = prev; $("#" + other).value = state[other]; }
     fitSelect($("#from")); fitSelect($("#to"));
     state.transfer = null; resetTransferView();
   };
   $("#from").addEventListener("change", onChange("from"));
   $("#to").addEventListener("change", onChange("to"));
-  // ⇅ da vuelta la dirección (el destino pasa a ser el origen)
+  // ⇅ flips the direction (the destination becomes the source)
   $("#swap").addEventListener("click", () => {
     [state.from, state.to] = [state.to, state.from];
     $("#from").value = state.from; $("#to").value = state.to;
@@ -46,7 +46,7 @@ function updateSwapTitle() {
   $("#swap").title = t("transfer.swap_title", { src: NAMES[state.to], dst: NAMES[state.from] });
 }
 
-/* ---------------------------------------------------------------- transferir: elegir */
+/* ---------------------------------------------------------------- transfer: picking */
 
 async function getPlaylists(key, force = false) {
   if (!force && state.playlists[key]) return state.playlists[key];
@@ -56,7 +56,7 @@ async function getPlaylists(key, force = false) {
   return Array.isArray(r) ? r : null;
 }
 
-/** Lo marcado en las listas, para redibujarlas sin perderlo (si sigue siendo la misma ruta). */
+/** What is ticked in the lists, to redraw them without losing it (if it's still the same route). */
 function rememberPicks(route) {
   if (!$("#src-list input")) return;
   state.picked = { route, src: $("input[name=src]:checked")?.value, dst: $$("input[name=dst]:checked").map(i => i.value),
@@ -74,7 +74,7 @@ function restorePicks(route) {
 }
 
 async function loadPickers() {
-  const turn = loadPickers.turn = (loadPickers.turn || 0) + 1;     // solo cuenta el último pedido
+  const turn = loadPickers.turn = (loadPickers.turn || 0) + 1;     // only the latest request counts
   const { from, to } = state, route = `${from}>${to}`;
   rememberPicks(route);
   $("#route-lede").textContent = t("transfer.lede");
@@ -90,17 +90,17 @@ async function loadPickers() {
   $("#src-list").innerHTML = $("#dst-list").innerHTML = `<li class="loading">${esc(t("transfer.loading"))}</li>`;
   const [all, dst] = await Promise.all([getPlaylists(from), getPlaylists(to)]);
   if (turn !== loadPickers.turn) return;
-  // De origen, solo las que tienen algo para pasar (las de cantidad desconocida quedan: el servicio no la dice)
+  // As a source, only those with something to move (unknown counts stay: the service doesn't say)
   const src = all && all.filter(p => p.count !== 0);
-  // El nombre va en su propio span: si es muy largo se corta con "…" y se ve completo al pasar el mouse
+  // The name goes in its own span: if it's very long it's cut with "…" and shown in full on hover
   const item = (p, type) => `<li data-filter="${esc(p.name.toLowerCase())}"><label title="${esc(p.name)}"><input type="${type}" name="${type === "radio" ? "src" : "dst"}" value="${esc(p.id)}" data-name="${esc(p.name)}" data-count="${p.count ?? ""}"> <span class="name">${esc(p.name)}</span> <span class="count num">${esc(countLabel(p.count))}</span></label></li>`;
   $("#src-list").innerHTML = !src ? `<li class="loading error">${esc(t("transfer.read_error"))}</li>`
     : src.length ? src.map(p => item(p, "radio")).join("")
     : `<li class="loading">${esc(t(all.length ? "transfer.no_playlists_with_songs" : "transfer.no_playlists", { service: NAMES[from] }))}</li>`;
-  // "Crear una playlist nueva" va primero (y queda fija arriba): con cientos de playlists no se pierde al final
+  // "Create a new playlist" goes first (and stays pinned on top): with hundreds of playlists it isn't lost at the end
   $("#dst-list").innerHTML = `<li class="new"><label><input type="checkbox" id="dst-new"> ${esc(t("transfer.new"))}</label><input type="text" id="dst-new-name" aria-label="${esc(t("transfer.new_aria"))}" placeholder="${esc(t("transfer.new_placeholder"))}" hidden></li>`
     + (dst || []).map(p => item(p, "checkbox")).join("");
-  // Si alguna de las dos listas es larga, las dos llevan buscador: así las cajas quedan alineadas
+  // If either list is long, both get a search box: that way the boxes stay aligned
   const withFilter = Math.max((src || []).length, (dst || []).length) > FILTER_FROM;
   addFilter("#src-list", withFilter, t("transfer.src_title", { service: NAMES[from] }));
   addFilter("#dst-list", withFilter, t("transfer.dst_title", { service: NAMES[to] }));
@@ -108,9 +108,9 @@ async function loadPickers() {
   updateGo();
 }
 
-const FILTER_FROM = 8;   // con más playlists que esto, aparece el buscador
+const FILTER_FROM = 8;   // with more playlists than this, the search box appears
 
-/** Buscador arriba de una lista de playlists. Oculta las que no coinciden (no las destilda). */
+/** A search box above a playlist list. Hides the ones that don't match (doesn't untick them). */
 function addFilter(listSel, show, listName) {
   const list = $(listSel), picker = list.closest(".picker");
   $(".filter", picker)?.remove();
@@ -153,7 +153,7 @@ $("#pick").addEventListener("change", e => {
 });
 $("#pick").addEventListener("input", e => { if (e.target.id === "dst-new-name") e.target.dataset.touched = "1"; updateGo(); });
 
-/* ---------------------------------------------------------------- transferir: en vivo */
+/* ---------------------------------------------------------------- transfer: live */
 
 function setStep(n) { [...$("#steps").children].forEach((li, i) => { li.className = i < n ? "done" : (i === n ? "current" : ""); }); }
 
@@ -176,7 +176,7 @@ function trackHTML(e) {
   else if (e.status === "ya_estaba") note = t("transfer.note_already");
   let alts = e.status === "no_encontrado" && e.alternatives?.length
     ? `<div class="alts">${e.alternatives.map((a, k) => `<button data-alt="${e.n}:${k}" disabled title="${esc(t("transfer.alt_title", { title: a.title, artist: a.artist || "?" }))}">+ ${esc(a.title)} · ${esc(a.artist || "?")}</button>`).join("")}</div>` : "";
-  if (e.status === "dudoso_omitido" && m && !state.transfer?.dryRun) {   // el usuario decide: "+ Agregar igual"
+  if (e.status === "dudoso_omitido" && m && !state.transfer?.dryRun) {   // the user decides: "+ Add anyway"
     alts = `<div class="alts"><button data-add-doubtful="${e.n}" disabled title="${esc(t("transfer.add_anyway_title", { title: m.title, artist: m.artist || "?" }))}">${esc(t("transfer.add_anyway"))}</button></div>`;
   }
   const score = e.score != null && !["ya_estaba", "repetido", "no_encontrado"].includes(e.status) ? Number(e.score).toFixed(2) : "";
@@ -197,51 +197,51 @@ async function startTransfer(dryRun) {
   $("#mosaic").innerHTML = ""; $("#tracks").innerHTML = ""; $("#review-list").innerHTML = ""; $("#review").hidden = true;
   $("#count").textContent = "0";
   $("#count-of").textContent = t("transfer.songs"); $("#run-actions").hidden = false;
-  // De qué servicio y playlist a cuáles: "Servicio · Playlist a Otro servicio · Playlist"
+  // From which service and playlist to which: "Service · Playlist to Another service · Playlist"
   const side = (svc, name) => `<span class="route-svc">${esc(NAMES[svc])}</span> · ${esc(name)}`;
   $("#run-route").innerHTML = `${side(state.from, src.dataset.name)} <span class="muted">${esc(t("transfer.route_sep"))}</span> ${side(state.to, targets.map(x => x.name).join(", "))}`;
   showCounts(tr);
-  // La leyenda dice lo que va a pasar: "Agregado" / "Se agregaría" (prueba). Los "?" nunca se agregan solos
+  // The legend says what will happen: "Added" / "Would be added" (dry run). "?" are never added on their own
   const dry = dryRun ? "_dry" : "";
   $('#run .legend [data-i18n="transfer.legend_ok"]').textContent = t(`transfer.legend_ok${dry}`);
   $('#run .legend [data-i18n="transfer.legend_skipped"]').textContent = t(`transfer.legend_skipped${dry}`);
 
   const done = await follow(tr.job, e => onTransferEvent(tr, e));
   stopWaiting($("#eta")); $("#run-actions").hidden = true; $("#eta").hidden = true; $("#run-note").hidden = true; setStep(2);
-  if (!dryRun) serviceChanged(tr.to);          // aun si falló o se canceló: pudo haber escrito algo
+  if (!dryRun) serviceChanged(tr.to);          // even if it failed or was cancelled: it may have written something
   if (done.state === "done") {
     showTransferResult(tr, done.result);
   } else {
     const cancelled = done.state === "cancelled";
     $("#done-title").textContent = t(cancelled ? "transfer.cancelled_title" : "transfer.failed_title");
-    // Si se cortó buscando, lo buscado quedó guardado: se dice, así se sabe que no hay que empezar de cero
+    // If it stopped while searching, the searches were kept: it says so, so you know you don't start from zero
     const saved = tr.saved && t("transfer.saved", { done: tr.saved.done, total: tr.saved.total, service: NAMES[tr.to] });
     $("#done-detail").innerHTML = [cancelled ? t("transfer.cancelled_text") : (done.error || ""), saved]
       .filter(Boolean).map(esc).join("<br>");
-    // Se cortó buscando: no se agregó nada todavía. La leyenda no dice "Agregado" y el tema que se
-    // estaba buscando no queda como si siguiera
+    // It stopped while searching: nothing was added yet. The legend doesn't say "Added" and the song being
+    // searched doesn't look as if it were still going
     if (cancelled || tr.saved) $('#run .legend [data-i18n="transfer.legend_ok"]').textContent = t("transfer.legend_ok_stopped");
     $$("#tracks .badge.now").forEach(b => b.closest("li").remove());
     $$("#mosaic i.now").forEach(i => { i.className = ""; });
     $("#open-dest").hidden = true; $("#done").classList.add("show");
-    // Si falló porque un servicio dejó de responder (sesión vencida), los chips lo muestran
+    // If it failed because a service stopped answering (expired session), the chips show it
     if (!cancelled) refreshStatus();
   }
 }
 
-/** Los números de la leyenda. "Repetido en el origen" es raro: se muestra solo si hay alguno. */
+/** The legend's numbers. "Repeated in the source" is rare: it only shows if there is one. */
 function showCounts(tr) {
   for (const k in tr.n) $("#n-" + k).textContent = tr.n[k];
   $("#n-rep").parentElement.hidden = tr.n.rep === 0;
 }
 
-const ETA_AFTER = 5;     // con menos temas, el promedio todavía no dice nada
+const ETA_AFTER = 5;     // with fewer songs, the average doesn't say anything yet
 
-/** Cuánto falta de búsqueda, según lo que tardó cada tema buscado hasta ahora (sin los que ya estaban
- * buscados de una vez anterior ni las pausas que pidió el servicio). */
+/** How much searching is left, from how long each song searched so far took (without the ones already
+ * searched in an earlier run or the pauses the service asked for). */
 function updateEta(tr, n, now = performance.now()) {
   const el = $("#eta"), searched = n - (tr.cached || 0);
-  if (el._wait) return;                    // mientras hay una pausa, se ve la cuenta regresiva
+  if (el._wait) return;                    // while there is a pause, the countdown shows
   el.hidden = searched < ETA_AFTER || n >= tr.total;
   if (el.hidden) return;
   const seconds = Math.max(0, now - tr.started - (tr.pausedMs || 0)) / 1000 / searched * (tr.total - n);
@@ -252,7 +252,7 @@ function onTransferEvent(tr, e) {
   if (e.type === "source") {
     tr.total = e.total; tr.started = performance.now(); $("#count-of").textContent = t("transfer.of", { songs: songs(e.total) });
     $("#mosaic").innerHTML = Array.from({ length: e.total }, (_, i) => `<i data-n="${i + 1}"></i>`).join("");
-    // Con muchos temas, cuadrados más chicos: el mosaico no tapa la pantalla
+    // With many songs, smaller squares: the mosaic doesn't cover the screen
     $("#mosaic").classList.toggle("dense", e.total > 90 && e.total <= 300);
     $("#mosaic").classList.toggle("denser", e.total > 300);
   } else if (e.type === "searching") {
@@ -270,7 +270,7 @@ function onTransferEvent(tr, e) {
   } else if (e.type === "saved") {
     tr.saved = e;
   } else if (e.type === "writing") {
-    $("#run-actions").hidden = true;          // desde acá se escribe: cortar dejaría una playlist a medias
+    $("#run-actions").hidden = true;          // from here on it writes: stopping would leave a playlist half-done
   } else if (e.type === "adding_to") {
     tr.adding = { name: e.name, started: performance.now(), pausedMs: 0 };
     showAdding(tr, 0, e.total);
@@ -283,7 +283,7 @@ function onTransferEvent(tr, e) {
     if (tr.rows[e.n]) tr.rows[e.n].innerHTML = trackHTML(e);
     $("#count").textContent = e.n; showCounts(tr); updateEta(tr, e.n);
   } else if (e.type === "already" || e.type === "repeated") {
-    // "ya estaba" en el destino, o repetido más arriba en el origen: no se agrega (otra vez)
+    // "already there" in the destination, or repeated higher up in the source: not added (again)
     const status = e.type === "already" ? "ya_estaba" : "repetido";
     const prev = tr.tracks[e.n]; if (!prev || prev.status === status) return;
     tr.n[CLASS[prev.status]]--; tr.n[CLASS[status]]++;
@@ -295,10 +295,10 @@ function onTransferEvent(tr, e) {
   }
 }
 
-/** Mientras se agregan (un servicio que marca "Me gusta" de a uno tarda muchos minutos con miles): cuántos
- * van y cuánto falta, para que no parezca colgada. */
+/** While adding (a service that likes songs one at a time takes many minutes with thousands): how many
+ * are done and how long is left, so it doesn't look frozen. */
 function showAdding(tr, done, total, now = performance.now()) {
-  const el = $("#eta"); if (el._wait || !tr.adding) return;   // durante una pausa se ve la cuenta regresiva
+  const el = $("#eta"); if (el._wait || !tr.adding) return;   // during a pause the countdown shows
   let text = t("transfer.adding", { name: tr.adding.name, done, total });
   const ms = Math.max(0, now - tr.adding.started - tr.adding.pausedMs);
   if (done >= ETA_AFTER && done < total) {
@@ -308,7 +308,7 @@ function showAdding(tr, done, total, now = performance.now()) {
   el.textContent = text; el.hidden = false;
 }
 
-/** Un cuadrado del mosaico grande: color, qué tema es, y se puede tocar para ir a ese tema en la lista. */
+/** A square of the big mosaic: color, which song it is, and it can be clicked to jump to that song in the list. */
 function setBigTile(n, status, song) {
   const tile = $("#mosaic").children[n - 1]; if (!tile) return;
   tile.className = `${CLASS[status]} jump`;
@@ -319,7 +319,7 @@ $("#mosaic").addEventListener("click", e => {
   const tile = e.target.closest("i.jump"); if (!tile || !state.transfer) return;
   const row = state.transfer.rows[Number(tile.dataset.n)]; if (!row) return;
   row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");   // reinicia el resaltado
+  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");   // restarts the highlight
 });
 
 function showTransferResult(tr, res) {
@@ -330,7 +330,7 @@ function showTransferResult(tr, res) {
   updateAddAll();
 }
 
-/** El recuadro de resultado. Se vuelve a escribir si la persona agrega algo después. */
+/** The result box. It is rewritten if the person adds something later. */
 function showDoneText(tr, res) {
   const lines = res.targets.map(x => {
     const extras = [];
@@ -346,7 +346,7 @@ function showDoneText(tr, res) {
   if (s.skipped) notes.push(t(res.dry_run ? "transfer.notes_skipped_dry" : "transfer.notes_skipped", { n: s.skipped }));
   if (s.not_found) notes.push(t("transfer.notes_not_found", { n: s.not_found }));
   if (s.repeated) notes.push(t("transfer.notes_repeated", { n: s.repeated }));
-  // Siempre de dónde salió y a dónde llegó: servicio y playlist de los dos lados
+  // Always where it came from and where it went: service and playlist on both sides
   if (tr.from) lines.unshift(t("transfer.from_line", { name: res.source_name || tr.sourceName, service: NAMES[tr.from] }));
   $("#done-detail").innerHTML = lines.map(esc).join("<br>") + (notes.length ? `<br>${esc(notes.join(" "))}` : "");
   const first = res.targets.find(x => x.url);
@@ -356,7 +356,7 @@ function showDoneText(tr, res) {
   $("#done").classList.add("show");
 }
 
-/** La persona decidió sobre un tema: cuadrado, ícono y cantidades pasan a decir lo que quedó. */
+/** The person decided about a song: square, icon and counts now say how it ended up. */
 function markDecided(tr, n, status) {
   const prev = tr.tracks[n]; if (!prev) return;
   tr.n[CLASS[prev.status]]--; tr.n[CLASS[status]]++;
@@ -367,16 +367,16 @@ function markDecided(tr, n, status) {
   showCounts(tr);
 }
 
-/** Después de agregar algo: el resultado y lo que muestran las otras pantallas. */
+/** After adding something: the result and what the other screens show. */
 function afterDecision(tr, outcome) {
   Object.assign(tr.result, outcome);
   showDoneText(tr, tr.result);
   serviceChanged(tr.to);
 }
 
-/** "Para revisar": los temas en los que la persona puede hacer algo (un "?" para agregar igual, o la
- *  versión de otro artista) suben a un bloque propio debajo del resultado, en el orden de la playlist.
- *  Las filas se mueven (no se copian): sus botones y el salto desde el mosaico siguen andando. */
+/** "To review": the songs the person can act on (a "?" to add anyway, or another artist's
+ *  version) move up to their own block below the result, in playlist order.
+ *  The rows are moved (not copied): their buttons and the jump from the mosaic keep working. */
 function showReview(tr, res) {
   const list = $("#review-list");
   list.innerHTML = "";
@@ -386,7 +386,7 @@ function showReview(tr, res) {
   $("#review").hidden = pending.length === 0;
 }
 
-/** "Agregar los N que pueden ser otra versión": solo si quedan "?" sin agregar en una transferencia real. */
+/** "Add the N that may be another version": only if there are "?" left unadded in a real transfer. */
 function updateAddAll() {
   const pending = $$("#review-list [data-add-doubtful]:not(.done), #tracks [data-add-doubtful]:not(.done)").map(b => Number(b.dataset.addDoubtful));
   const btn = $("#add-all");
@@ -424,7 +424,7 @@ async function onTrackClick(e) {
   if (one && !one.disabled && !one.classList.contains("done") && state.transfer?.result) { addDoubtful([Number(one.dataset.addDoubtful)]); return; }
   const b = e.target.closest("[data-alt]"); if (!b || b.disabled || !state.transfer?.result) return;
   const [n, k] = b.dataset.alt.split(":").map(Number);
-  const siblings = $$("[data-alt]", b.parentElement);       // un tema se agrega una sola vez
+  const siblings = $$("[data-alt]", b.parentElement);       // a song is added only once
   const enable = on => siblings.forEach(x => { x.disabled = !on; });
   enable(false);
   const r = await call("add_alternative", state.transfer.result.transfer, n, k);

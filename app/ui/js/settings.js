@@ -1,9 +1,9 @@
-/* Ajustes: idioma, coincidencias, datos y Acerca de. */
+/* Settings: language, matching, data and About. */
 "use strict";
 
-/* ---------------------------------------------------------------- ajustes */
+/* ---------------------------------------------------------------- settings */
 
-/** Ajustes: idioma, coincidencias, datos y Acerca de. */
+/** Settings: language, matching, data and About. */
 async function renderSettings() {
   const langs = await call("languages");
   if (langs) {
@@ -46,22 +46,22 @@ $("#th-reset").addEventListener("click", async () => {
 $("#language-list").addEventListener("change", async e => {
   if (e.target.name !== "lang") return;
   const r = await call("set_language", e.target.value);
-  if (!r) { renderSettings(); return; }          // no se pudo (por ejemplo, hay una tarea en curso)
-  // Se recarga la ventana: así todo, incluso lo que ya estaba dibujado, sale en el idioma nuevo
-  try { sessionStorage.setItem("pt-screen", "ajustes"); } catch (_) { /* sin almacenamiento: vuelve a Inicio */ }
+  if (!r) { renderSettings(); return; }          // it couldn't (for example, a task is running)
+  // The window reloads: that way everything, even what was already drawn, comes out in the new language
+  try { sessionStorage.setItem("pt-screen", "ajustes"); } catch (_) { /* no storage: back to Home */ }
   location.reload();
 });
 
 $("#open-data").addEventListener("click", () => call("open_data_dir"));
 
-// Borrar todo: siempre con el diálogo (no se puede deshacer). Después, la app queda como la primera vez
+// Erase everything: always through the dialog (it can't be undone). Afterwards the app is as it was the first time
 $("#wipe").addEventListener("click", () => $("#wipe-confirm").showModal());
 $("#wipe-no").addEventListener("click", () => $("#wipe-confirm").close());
 $("#wipe-yes").addEventListener("click", async () => {
   $("#wipe-confirm").close();
-  const r = await call("wipe_data", true);         // true: la persona confirmó en el diálogo
+  const r = await call("wipe_data", true);         // true: the person confirmed in the dialog
   if (!r) return;
-  // Nada de antes queda a la vista: ni un resultado de repetidos ni una transferencia
+  // Nothing from before stays on screen: no duplicates result and no transfer
   state.status = {}; forgetPlaylists(); state.transfer = null; state.picked = null; state.dupPlaylist = null;
   clearDups(); resetTransferView();
   await refreshStatus();

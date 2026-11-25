@@ -1,14 +1,14 @@
-/* Arranque: textos, servicios, estado y la primera pantalla. */
+/* Startup: texts, services, status and the first screen. */
 "use strict";
 
-/* ---------------------------------------------------------------- arranque */
+/* ---------------------------------------------------------------- startup */
 
 async function start() {
   api = window.pywebview.api;
   try {
     const i = await api.ui_strings();
     LANG = i.language; STR = i.strings;
-  } catch (_) { /* sin textos: quedan los de respaldo del HTML */ }
+  } catch (_) { /* no texts: the HTML's fallback ones stay */ }
   applyI18n();
   const services = await call("services") || [];
   NAMES = Object.fromEntries(services.map(s => [s.key, s.name]));
@@ -24,12 +24,12 @@ async function start() {
     $("#version").textContent = t("nav.version", { v: info.version });
     $("#about-version").textContent = t("settings.about_version", { v: info.version });
   }
-  // La página ya cargó: se avisa antes de preguntar a los servicios (eso es internet y puede tardar; mientras
-  // tanto la app se usa y los estados dicen "…"). Si no, la prueba de arranque fallaba por un servicio lento
+  // The page has loaded: say so before asking the services (that goes over the internet and can take a while;
+  // meanwhile the app is usable and the statuses say "…"). Otherwise the startup test failed because of a slow service
   api.ui_ready();
   await refreshStatus();
   let screen = null;
-  try { screen = sessionStorage.getItem("pt-screen"); sessionStorage.removeItem("pt-screen"); } catch (_) { /* nada */ }
+  try { screen = sessionStorage.getItem("pt-screen"); sessionStorage.removeItem("pt-screen"); } catch (_) { /* nothing */ }
   if (screen) go(screen);
 }
 

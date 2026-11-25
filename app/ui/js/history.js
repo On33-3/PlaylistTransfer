@@ -1,7 +1,7 @@
-/* Historial: lista, filtros, detalle y descarga. */
+/* History: list, filters, detail and download. */
 "use strict";
 
-/* ---------------------------------------------------------------- historial */
+/* ---------------------------------------------------------------- history */
 
 async function renderHistory() {
   const kind = state.histKind || "";

@@ -1,44 +1,44 @@
-/* PlaylistTransfer: estilos de la ventana. Sin recursos externos (ni fuentes ni íconos de afuera).
-   Orden: valores de diseño, base, ventana, componentes, una sección por pantalla y las listas
-   desplegables. Los tamaños salen siempre de :root; tests/ui_helpers.py mide que se respeten. */
+/* PlaylistTransfer: the window's styles. No external resources (no outside fonts or icons).
+   Order: design values, base, window, components, one section per screen and the dropdown
+   lists. Sizes always come from :root; tests/ui_helpers.py measures that they are respected. */
 
-/* =========================================================================== valores de diseño */
+/* =========================================================================== design values */
 :root {
-  --bg: #F3F1FA;        /* lila neblina */
+  --bg: #F3F1FA;        /* misty lilac */
   --surface: #FFFFFF;
-  --ink: #2E2A3D;       /* tinta ciruela */
+  --ink: #2E2A3D;       /* plum ink */
   --ink-soft: #6B6580;
   --line: #E4E0F0;
-  /* Lo elegido (segmento, filtro, paso actual) es violeta claro; una acción principal es violeta intenso
-     con letra blanca: un botón para tocar nunca se confunde con algo ya seleccionado. Contraste 5,8:1 */
-  --lav: #CFC4F2;       /* lo elegido */
-  --lav-strong: #7E6BC2;/* foco y selección */
-  --action: #6A56B4;    /* botón principal */
+  /* What is chosen (segment, filter, current step) is light violet; a main action is deep violet
+     with white text: a button to click is never mistaken for something already selected. Contrast 5.8:1 */
+  --lav: #CFC4F2;       /* chosen */
+  --lav-strong: #7E6BC2;/* focus and selection */
+  --action: #6A56B4;    /* main button */
   --action-hover: #5E4AA6;
-  --sky: #BFE3F5;       /* en curso */
-  --mint: #BDEBD3;      /* ✓ encontrado */
-  --peach: #FFD9B8;     /* ? dudoso */
-  --rose: #FFC2C7;      /* ✗ no encontrado */
-  --sage: #DCE5E0;      /* ≈ ya estaba */
-  --butter: #F6E8AE;    /* ×2 repetido en el origen */
+  --sky: #BFE3F5;       /* in progress */
+  --mint: #BDEBD3;      /* ✓ found */
+  --peach: #FFD9B8;     /* ? doubtful */
+  --rose: #FFC2C7;      /* ✗ not found */
+  --sage: #DCE5E0;      /* ≈ already there */
+  --butter: #F6E8AE;    /* ×2 repeated in the source */
   --pending: #EAE6F4;
-  --danger-ink: #9B3B47;  /* texto de error y de lo que no se puede deshacer */
+  --danger-ink: #9B3B47;  /* error text, and text for what can't be undone */
   --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
-  /* Un solo sistema de tamaños. Botones: grande (la acción principal de la pantalla), mediano
-     (secundarias, Ajustes, avisos, estados vacíos) y chico (dentro de un tema de la lista).
-     Los campos usan el alto mediano. */
+  /* One size system. Buttons: large (the screen's main action), medium
+     (secondary ones, Settings, notices, empty states) and small (inside a song in the list).
+     Fields use the medium height. */
   --h-lg: 42px;
   --h-md: 36px;
   --h-sm: 28px;
   --r-field: 12px;
-  --gap-actions: 24px;       /* separación entre el contenido y su fila de botones */
-  --gap-in-box: 16px;        /* lo mismo, dentro de una caja (resultado, Ajustes) */
-  --toast-bottom: 36px;      /* el aviso negro, abajo al centro */
+  --gap-actions: 24px;       /* space between the content and its row of buttons */
+  --gap-in-box: 16px;        /* the same, inside a box (result, Settings) */
+  --toast-bottom: 36px;      /* the black toast, bottom center */
   --toast-h: 44px;
-  --main-pad-b: calc(var(--toast-bottom) + var(--toast-h) + 24px);   /* lugar abajo para que el aviso no tape el final */
-  --dup-w: 760px;           /* ancho del contenido de Quitar repetidos: todo arranca y termina en el mismo borde */
-  --decide-h: 68px;         /* la barra de decisión de Quitar repetidos (el aviso negro va arriba de ella) */
+  --main-pad-b: calc(var(--toast-bottom) + var(--toast-h) + 24px);   /* room at the bottom so the toast doesn't cover the end */
+  --dup-w: 760px;           /* width of the Remove duplicates content: everything starts and ends on the same edge */
+  --decide-h: 68px;         /* the Remove duplicates decision bar (the black toast goes above it) */
 }
 
 /* =========================================================================== base */
@@ -57,7 +57,7 @@ body {
 button, select, input { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--lav-strong); outline-offset: 2px; border-radius: 8px; }
 [hidden] { display: none !important; }
-/* Mientras llegan los textos del idioma elegido, la ventana no se muestra (evita ver un idioma y después el otro) */
+/* While the chosen language's texts arrive, the window isn't shown (avoids seeing one language and then the other) */
 html.i18n-pending body { visibility: hidden; }
 
 h1 { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
@@ -69,7 +69,7 @@ h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.0
 .loading { color: var(--ink-soft); padding: 10px; }
 .offscreen { position: fixed; left: -9999px; top: 0; }
 
-/* =========================================================================== ventana */
+/* =========================================================================== window */
 .window {
   width: 100%;
   height: 100vh;
@@ -96,7 +96,7 @@ h2 { font-size: 17px; font-weight: 600; margin: 34px 0 12px; letter-spacing: -.0
 .brand-mark i:nth-child(4) { background: var(--peach); }
 .brand-mark i:nth-child(8) { background: var(--rose); }
 
-/* Estado de cada servicio, arriba a la derecha */
+/* Each service's status, top right */
 .status { display: flex; gap: 8px; }
 .chip {
   display: inline-flex; align-items: center; gap: 7px;
@@ -129,15 +129,15 @@ nav button[aria-current="page"] { color: var(--ink); background: var(--surface);
 nav .spacer { flex: 1; }
 nav .version { padding: 0 14px; font-size: 12.5px; color: var(--ink-soft); }
 
-/* Una palabra larguísima (un nombre de playlist) se corta en vez de empujar */
-/* abajo, lugar para el aviso: al bajar del todo, lo último queda por encima, nunca tapado */
+/* A very long word (a playlist name) breaks instead of pushing */
+/* room for the toast at the bottom: when scrolled all the way, the last thing stays above it, never covered */
 main { overflow-y: auto; padding: 34px 40px var(--main-pad-b); overflow-wrap: anywhere; }
 .screen { display: none; max-width: var(--dup-w); }
 .screen.active { display: block; }
 
-/* =========================================================================== componentes */
+/* =========================================================================== components */
 
-/* ---- botones */
+/* ---- buttons */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
   height: var(--h-lg); padding: 0 20px; border-radius: 999px;
@@ -149,7 +149,7 @@ main { overflow-y: auto; padding: 34px 40px var(--main-pad-b); overflow-wrap: an
 .btn.ghost:hover { background: var(--surface); }
 .btn.danger { background: var(--rose); }
 .btn.danger:hover { background: #FFB3BA; }
-/* Lo que no se puede deshacer, sin gritar: contorno con letra roja (la acción fuerte va en el diálogo) */
+/* What can't be undone, without shouting: outline with red text (the strong action is in the dialog) */
 .btn.ghost.danger-text { color: var(--danger-ink); border-color: #EBC5CA; }
 .btn.ghost.danger-text:hover { background: #FFF5F6; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -157,29 +157,29 @@ main { overflow-y: auto; padding: 34px 40px var(--main-pad-b); overflow-wrap: an
   height: var(--h-md); padding: 0 16px; font-size: 14px;
 }
 
-/* Botones de solo ícono: el ícono es un SVG (no un carácter de texto, que cada fuente ubica distinto)
-   y se centra con grid. Norma: todo botón de ícono usa .icon-btn; los tests miden que quede centrado */
+/* Icon-only buttons: the icon is an SVG (not a text character, which each font places differently)
+   and is centered with grid. Rule: every icon button uses .icon-btn; the tests measure that it's centered */
 .icon-btn { width: var(--h-md); height: var(--h-md); padding: 0; display: inline-grid; place-items: center; }
 .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7;
   stroke-linecap: round; stroke-linejoin: round; }
 
-/* Filas de acciones: misma separación en todas las pantallas */
+/* Action rows: the same spacing on every screen */
 .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--gap-actions); }
 .done-box .actions, .settings .actions { margin-top: var(--gap-in-box); }
 
-/* ---- selector de opciones (Tidal / YouTube Music, Todo / Transferencias / Repetidos): mide lo
-        mismo que un botón grande, así la fila de Repetidos queda alineada */
+/* ---- option selector (Tidal / YouTube Music, All / Transfers / Duplicates): as tall as a
+        large button, so the Duplicates row stays aligned */
 .seg { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 999px; height: calc(var(--h-lg) - 8px); padding: 0 16px; cursor: pointer; font-weight: 500; color: var(--ink-soft); }
 .seg button[aria-pressed="true"] { background: var(--lav); color: var(--ink); }
-.seg button:disabled { opacity: .45; cursor: not-allowed; }     /* un servicio sin conectar no parece elegible */
+.seg button:disabled { opacity: .45; cursor: not-allowed; }     /* a service that isn't connected doesn't look selectable */
 
-/* ---- campos: alto mediano y mismo radio; el desplegable de una fila de acciones va al alto grande */
+/* ---- fields: medium height and the same radius; a dropdown in an action row takes the large height */
 .select { height: 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; }
 .row-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .row-controls .select { height: var(--h-lg); }
 
-/* ---- cajas: avisos y resultado con el mismo aspecto */
+/* ---- boxes: notices and result with the same look */
 .notice {
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px;
   max-width: 620px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;
@@ -191,29 +191,29 @@ main { overflow-y: auto; padding: 34px 40px var(--main-pad-b); overflow-wrap: an
 .done-box p { margin: 0 0 4px; min-width: 0; }
 .done-box .done-extra { margin-top: 12px; }
 
-/* ---- estado vacío: texto y botón en una línea, alineados */
+/* ---- empty state: text and button on one line, aligned */
 .empty { color: var(--ink-soft); padding: 18px 4px; border-bottom: 1px solid var(--line); }
 .empty b { color: var(--ink); }
 .empty .btn { margin-left: 0; }
 
-/* ---- diálogo y aviso que se va solo */
+/* ---- dialog, and the toast that goes away on its own */
 dialog { border: 0; border-radius: 20px; padding: 26px 28px; max-width: 420px; color: var(--ink); background: var(--surface); box-shadow: 0 30px 70px -20px rgba(46, 42, 61, .45); }
 dialog::backdrop { background: rgba(46, 42, 61, .28); }
 dialog h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
 dialog p { margin: 0; color: var(--ink-soft); }
-dialog p + p { margin-top: 10px; }            /* un segundo aviso (Spotify) separado del primero */
+dialog p + p { margin-top: 10px; }            /* a second notice (Spotify) apart from the first */
 .c-list { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
 .toast { position: fixed; left: 50%; bottom: var(--toast-bottom); min-height: var(--toast-h); box-sizing: border-box; transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 500; transition: opacity .25s, transform .25s; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
-body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(--decide-h) + 16px); }   /* no tapa la decisión */
+body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(--decide-h) + 16px); }   /* doesn't cover the decision */
 
-/* ---- mosaico: un cuadrado por tema, con su color */
+/* ---- mosaic: one square per song, with its color */
 .mosaic { display: grid; gap: 5px; }
 .mosaic.big { grid-template-columns: repeat(15, 1fr); max-width: 560px; }
 .mosaic.big i { aspect-ratio: 1; border-radius: 7px; background: var(--pending); transition: background-color .25s ease, transform .25s ease; }
 .mosaic.big i.jump { cursor: pointer; }
 .mosaic.big i.jump:hover { transform: scale(1.12); }
-.mosaic.big.dense { grid-template-columns: repeat(30, 1fr); gap: 3px; }      /* con muchos temas, más chicos */
+.mosaic.big.dense { grid-template-columns: repeat(30, 1fr); gap: 3px; }      /* with many songs, smaller */
 .mosaic.big.dense i { border-radius: 4px; }
 .mosaic.big.denser { grid-template-columns: repeat(45, 1fr); gap: 2px; }
 .mosaic.big.denser i { border-radius: 2px; }
@@ -235,8 +235,8 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .legend.compact { margin: 0 0 10px; gap: 6px 16px; font-size: 12.5px; }
 .legend.compact i { width: 10px; height: 10px; border-radius: 3px; }
 
-/* ---- insignia de estado de un tema (✓ ? ✗ ≈ ×2 −). Segoe UI reserva más lugar abajo que arriba: un
-        relleno abajo sube el símbolo y lo centra de verdad (de 1,25 px corrido a menos de 0,5 px) */
+/* ---- a song's status badge (✓ ? ✗ ≈ ×2 −). Segoe UI reserves more room below than above: a
+        bottom padding lifts the symbol and truly centers it (from 1.25 px off to under 0.5 px) */
 .badge { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; line-height: 1; padding-bottom: 2.5px; }
 .badge.ok { background: var(--mint); }
 .badge.doubt { background: var(--peach); }
@@ -246,13 +246,13 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .badge.removed { background: var(--lav); }
 .badge.now { background: var(--sky); }
 
-/* ---- pasos numerados (configurar un servicio y conectarlo) */
+/* ---- numbered steps (setting up a service and connecting it) */
 .setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; }
 .setup-steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; }
 .step-n { font-size: 13px; font-weight: 700; color: var(--lav-strong); line-height: 21px; }
 .step-body p, .step-body label { margin: 0; display: block; }
 
-/* =========================================================================== Inicio */
+/* =========================================================================== Home */
 .features { list-style: none; margin: -8px 0 0; padding: 0; display: grid; gap: 10px; max-width: 64ch; }
 .features li { padding-left: 16px; border-left: 3px solid var(--lav); color: var(--ink-soft); }
 .features li:nth-child(2) { border-left-color: var(--sky); }
@@ -260,7 +260,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .features li:nth-child(4) { border-left-color: var(--peach); }
 .features b { color: var(--ink); }
 
-/* =========================================================================== Conexiones y Ajustes */
+/* =========================================================================== Connections and Settings */
 .settings section { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
 .settings section:first-of-type { border-top: 1px solid var(--line); }
 .settings section > div { min-width: 0; }
@@ -269,7 +269,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .opt { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
 .opt input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
 
-/* ---- un servicio: nombre, estado, sus pasos y sus botones (que nunca se aplastan) */
+/* ---- a service: name, status, its steps and its buttons (which never get squashed) */
 .svc { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 12px; }
 .svc:has(.svc-steps) { padding: 10px 0 14px; }
 .svc > span:first-child { min-width: 0; }
@@ -280,7 +280,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .login-wait { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
 .login-wait .setup-steps { margin-top: 6px; color: var(--ink); max-width: 52ch; }
 
-/* ---- configurar un servicio (Spotify): los pasos en la misma fila, sin ventanas nuevas */
+/* ---- setting up a service (Spotify): the steps in the same row, with no new windows */
 .setup-panel { margin: 4px 0 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .setup-panel .error { margin: 8px 0 0; }
 .setup-section + .setup-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -298,7 +298,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .setup-hint { margin: 8px 0 0; font-size: 13.5px; }
 .setup-note { margin: 12px 0 0; font-size: 13.5px; }
 
-/* ---- Ajustes: umbrales, datos y Acerca de */
+/* ---- Settings: thresholds, data and About */
 .thresholds { display: flex; gap: 20px; flex-wrap: wrap; }
 .thresholds label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-soft); }
 .thresholds input { width: 90px; height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface); padding: 0 10px; color: var(--ink); font-size: 14px; }
@@ -310,8 +310,8 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .licenses li { padding: 2px 0; }
 .licenses a { color: var(--ink); }
 
-/* =========================================================================== Transferir */
-/* Pasos 1 · 2 · 3. El dígito, centrado de verdad en su círculo (ver .badge) */
+/* =========================================================================== Transfer */
+/* Steps 1 · 2 · 3. The digit, truly centered in its circle (see .badge) */
 .steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 26px; font-size: 13.5px; }
 .steps li { padding: 5px 12px 5px 6px; border-radius: 999px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
 .steps li b { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--pending); color: var(--ink); line-height: 1; padding-bottom: 1.5px; font-variant-numeric: tabular-nums; }
@@ -319,7 +319,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .steps li.current { background: var(--surface); color: var(--ink); font-weight: 600; }
 .steps li.current b { background: var(--lav); }
 
-/* ---- de dónde y a dónde: los nombres se ven como algo para elegir (flecha ▾, un SVG en línea) y ⇅ da vuelta */
+/* ---- from where and to where: the names look like something to pick (▾ arrow, an inline SVG) and ⇅ flips */
 .route-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 18px; font-weight: 600; }
 .route-pick select {
   appearance: none; border: 0; cursor: pointer; height: var(--h-md); border-radius: var(--r-field);
@@ -331,7 +331,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .route-pick select:hover { background-color: #FBFAFE; }
 .route-pick .icon-btn { border-radius: 50%; }
 
-/* ---- las dos listas, con la misma altura (la de la más alta, hasta 290 px) */
+/* ---- the two lists, with the same height (the taller one's, up to 290 px) */
 .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: stretch; }
 .picker { display: flex; flex-direction: column; min-width: 0; }
 .picker h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink-soft); }
@@ -345,18 +345,18 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .picker label .count { flex: none; margin-left: auto; color: var(--ink-soft); font-size: 13px; }
 .picker input { accent-color: var(--lav-strong); width: 16px; height: 16px; }
 .picker .filter { height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); background: var(--surface); padding: 0 12px; margin: 0 0 8px; width: 100%; font-size: 14px; }
-/* "Crear una playlist nueva" queda fija arriba: con cientos de playlists no se pierde */
+/* "Create a new playlist" stays pinned on top: with hundreds of playlists it isn't lost */
 .picker .new { border-bottom: 1px dashed var(--line); margin: 0 0 4px; padding: 0 0 4px; position: sticky; top: -6px; background: var(--surface); z-index: 1; }
 .picker .new input[type="text"] { margin: 4px 10px 8px 36px; width: calc(100% - 46px); height: var(--h-md); border-radius: var(--r-field); border: 1px solid var(--line); padding: 0 10px; background: var(--bg); font-size: 14px; }
 .picker .no-match { padding: 8px 10px; color: var(--ink-soft); font-size: 13.5px; }
 
-/* ---- en vivo y resultado: contador y ruta se acomodan */
+/* ---- live and result: counter and route arrange themselves */
 .progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; max-width: 560px; flex-wrap: wrap; }
 .counter { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
 .counter small { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
-.route { font-weight: 600; min-width: 0; flex-basis: 100%; }    /* su propio renglón: servicio · playlist de los dos lados */
+.route { font-weight: 600; min-width: 0; flex-basis: 100%; }    /* its own line: service · playlist on both sides */
 .route .route-svc { color: var(--ink-soft); font-weight: 500; }
-.eta { margin: 14px 0 0; line-height: 22px; }     /* alto entero: lo de abajo queda en píxel exacto */
+.eta { margin: 14px 0 0; line-height: 22px; }     /* whole-number height: what's below lands on an exact pixel */
 
 .tracks { list-style: none; padding: 0; margin: 22px 0 0; max-width: 680px; border-top: 1px solid var(--line); }
 .tracks li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -371,18 +371,18 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .tracks .alts button:hover:not(:disabled) { border-color: var(--lav-strong); }
 .tracks .alts button:disabled { opacity: .55; cursor: default; }
 
-/* "Para revisar": los temas que esperan una decisión, entre el resultado y la lista completa */
+/* "To review": the songs waiting for a decision, between the result and the full list */
 .review { margin: var(--gap-actions) 0 0; max-width: 680px; }
-.review-head { margin: 0; line-height: 22px; }   /* alto entero: la lista de abajo queda en píxel exacto y los símbolos centrados */
+.review-head { margin: 0; line-height: 22px; }   /* whole-number height: the list below lands on an exact pixel and the symbols stay centered */
 .review .tracks { margin-top: 10px; }
 
-/* =========================================================================== Quitar repetidos */
-#dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* no crece con el nombre más largo */
+/* =========================================================================== Remove duplicates */
+#dup-playlist { width: 340px; max-width: 100%; min-width: 0; text-overflow: ellipsis; }   /* doesn't grow with the longest name */
 .dup-pick { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .dup-summary { margin: var(--gap-actions) 0 0; }
 .dup-hint { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; max-width: var(--dup-w); }
 .dup-hint b { color: var(--ink); font-weight: 600; }
-/* Antes de revisar: tres tarjetas del mismo alto, con el número arriba a la izquierda */
+/* Before checking: three cards of the same height, with the number top left */
 .dup-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 28px 0 0; max-width: var(--dup-w); }
 .dup-how > div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
 .dup-how-n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--lav); font-weight: 700; font-size: 13px; line-height: 1; margin-bottom: 8px; }
@@ -393,7 +393,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-tag.remove { background: var(--rose); }
 .dup-tag.keep { background: var(--mint); }
 .dup-tag.version { background: var(--peach); }
-/* Revisando: barra de avance y el estado de cada playlist */
+/* Checking: progress bar and each playlist's status */
 .dup-progress { margin: var(--gap-actions) 0 0; max-width: var(--dup-w); }
 .dup-progress-head { margin: 0; }
 .dup-bar { height: 8px; background: var(--pending); border-radius: 999px; overflow: hidden; margin: 10px 0 16px; }
@@ -406,7 +406,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-pill.found { background: var(--rose); color: var(--ink); }
 .dup-pill.clean { background: var(--sage); }
 .dup-pill.error { background: var(--rose); color: var(--danger-ink); }
-/* Resultado: una tarjeta por playlist con repetidos */
+/* Result: one card per playlist with duplicates */
 .dup-group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin: 14px 0 0; max-width: var(--dup-w); }
 .dup-group > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; font-weight: 600; }
 .dup-group > header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
@@ -416,7 +416,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-group .dups { margin: 0; padding: 0 14px; }
 .dup-group .dups li:last-child { border-bottom: 0; }
 .dup-clean { margin: 14px 0 0; font-size: 14px; max-width: var(--dup-w); }
-/* Cada fila: casilla | se quita | flecha | queda */
+/* Each row: checkbox | removed | arrow | stays */
 .dups { list-style: none; padding: 0; margin: 22px 0 0; border-top: 1px solid var(--line); }
 .dups li { display: grid; grid-template-columns: 28px minmax(0, 1fr) 22px minmax(0, 1fr); gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: start; }
 .dups input { accent-color: var(--lav-strong); width: 17px; height: 17px; margin-top: 3px; }
@@ -427,7 +427,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dups .keep .tag { background: var(--mint); }
 .dups .t { font-weight: 600; }
 .dups .meta { color: var(--ink-soft); font-size: 13px; }
-/* Cada fila dice lo que va a pasar: tildada, se quita (tachada) → queda; sin tildar, se conservan las dos */
+/* Each row says what will happen: ticked, it is removed (struck through) → stays; unticked, both stay */
 .dups .arrow { align-self: center; color: var(--ink-soft); font-size: 16px; text-align: center; }
 .dups .side .tag.off { display: none; background: var(--sage); }
 .dups li:has(input:not(:checked)) .side .tag.on { display: none; }
@@ -436,8 +436,8 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dups li:has(input:not(:checked)) .arrow { visibility: hidden; }
 .dups li:has(input:not(:checked)) { background: #FBFAFE; }
 .dups .why { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
-/* La barra de decisión: pegada abajo mientras se baja por la lista */
-/* bottom negativo: pegada al borde de la ventana, también sobre el lugar que main deja para el aviso */
+/* The decision bar: stuck to the bottom while scrolling down the list */
+/* negative bottom: stuck to the window's edge, also over the room main leaves for the toast */
 .dup-decide { position: sticky; bottom: calc(-1 * var(--main-pad-b)); z-index: 2; margin: 18px 0 0; max-width: var(--dup-w); min-height: var(--decide-h); box-sizing: border-box;
               background: rgba(243, 241, 250, .94); backdrop-filter: blur(6px); border-top: 1px solid var(--line);
               padding: 12px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -446,13 +446,13 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-decide p b { color: var(--ink); }
 .dup-decide .btn { flex: none; white-space: nowrap; }
 
-/* =========================================================================== Historial */
+/* =========================================================================== History */
 .hist-controls { margin-bottom: 16px; }
 .export-note { font-size: 13.5px; margin-top: 10px; word-break: break-all; }
 .hist { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
 .hist > li { border-bottom: 1px solid var(--line); }
 .hist li.empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-/* Cada fila: el texto se corta en dos líneas como mucho y el mosaico no empuja */
+/* Each row: the text wraps to two lines at most and the mosaic doesn't push */
 .hist button.row { width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer; display: grid; grid-template-columns: 116px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 4px; }
 .hist button.row:hover { background: rgba(255,255,255,.55); }
 .hist .date { color: var(--ink-soft); font-size: 13.5px; }
@@ -464,20 +464,20 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .hist .detail li { padding: 3px 0; display: flex; gap: 10px; align-items: center; }
 .hist .detail .badge { width: 20px; height: 20px; border-radius: 6px; font-size: 11px; }
 
-/* =========================================================================== listas desplegables */
-/* La lista que se despliega, con el estilo de la app en vez del de Windows (Chromium 135+: el WebView2
-   de Windows 11 se actualiza solo). Si el motor no lo soporta, queda la lista común: no se rompe nada.
-   Las mismas reglas para las dos: De/a (Transferir) y la playlist (Quitar repetidos). */
+/* =========================================================================== dropdown lists */
+/* The dropdown, with the app's style instead of Windows' (Chromium 135+: Windows 11's WebView2
+   updates itself). If the engine doesn't support it, the plain list stays: nothing breaks.
+   The same rules for both: From/to (Transfer) and the playlist (Remove duplicates). */
 @supports (appearance: base-select) {
   .route-pick select, .route-pick select::picker(select), .select, .select::picker(select) { appearance: base-select; }
   .route-pick select, .select { display: inline-flex; align-items: center; }
-  .route-pick select::picker-icon, .select::picker-icon { display: none; }      /* tienen su flecha ▾ */
-  .select {   /* la misma flecha ▾ que De/a */
+  .route-pick select::picker-icon, .select::picker-icon { display: none; }      /* they have their own ▾ arrow */
+  .select {   /* the same ▾ arrow as From/to */
     padding-right: 36px;
     background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237E6BC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 11px auto;
   }
-  /* Lo elegido, en un solo renglón: si no entra termina en «…» (la lista abierta muestra el nombre entero).
-     Lo dibuja el <button><selectedcontent> que arma la lista (SELECTED en dedupe.js) */
+  /* The picked item, on one line: if it doesn't fit it ends in «…» (the open list shows the whole name).
+     Drawn by the <button><selectedcontent> the list is built with (SELECTED in dedupe.js) */
   .select > button {
     display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none;
     font: inherit; color: inherit; text-align: left; cursor: inherit;
@@ -489,7 +489,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
     box-shadow: 0 14px 34px rgba(46, 42, 61, .14);
     opacity: 0; translate: 0 -4px; transition: opacity .12s, translate .12s, display .12s allow-discrete, overlay .12s allow-discrete;
   }
-  /* Con cientos de playlists, la lista no tapa la pantalla: alto máximo y scroll */
+  /* With hundreds of playlists, the list doesn't cover the screen: max height and scroll */
   .select::picker(select) { max-height: min(360px, 60vh); overflow-y: auto; width: anchor-size(width); }
   .route-pick select:open::picker(select), .select:open::picker(select) { opacity: 1; translate: 0 0; }
   @starting-style {
@@ -499,7 +499,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
     display: flex; align-items: center; gap: 10px; min-height: var(--h-md); padding: 0 12px;
     border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
   }
-  .select option { font-weight: 500; font-size: 14.5px; padding: 8px 12px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }   /* un nombre largo pasa a dos renglones */
+  .select option { font-weight: 500; font-size: 14.5px; padding: 8px 12px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }   /* a long name wraps to two lines */
   .route-pick option:hover, .route-pick option:focus-visible,
   .select option:hover, .select option:focus-visible { background: var(--bg); outline: none; }
   .route-pick option:checked, .select option:checked { background: rgba(207, 196, 242, .45); }
@@ -507,7 +507,7 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
   .route-pick option:disabled, .select option:disabled { color: var(--ink-soft); opacity: .55; cursor: not-allowed; background: none; }
 }
 
-/* =========================================================================== movimiento reducido */
+/* =========================================================================== reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

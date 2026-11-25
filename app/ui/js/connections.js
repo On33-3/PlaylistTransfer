@@ -1,10 +1,10 @@
-/* Conexiones: cada servicio con sus pasos (los da su conector), configurar Spotify, conectar
-   y cancelar, y el navegador donde se inicia sesión. */
+/* Connections: each service with its steps (given by its connector), setting up Spotify, connecting
+   and cancelling, and the browser used to sign in. */
 "use strict";
 
-/* ---------------------------------------------------------------- conexiones */
+/* ---------------------------------------------------------------- connections */
 
-/** Conexiones: cada servicio con sus pasos, y el navegador donde se inicia sesión. */
+/** Connections: each service with its steps, and the browser used to sign in. */
 async function renderConnections() {
   const b = await call("browsers");
   const loginSteps = await call("login_steps") || {};
@@ -19,11 +19,11 @@ async function renderConnections() {
       : st === "setup" ? `<button class="btn primary" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup"))}</button>`
       : state.login?.key === k ? loginButtonsHTML()
       : `<button class="btn primary" data-connect="${k}" data-needs-idle>${esc(t(st === "expired" ? "settings.reconnect" : "settings.connect"))}</button>`;
-    // Los pasos de configuración, a mano mientras falta conectar (si conectar falla, ahí está qué revisar).
-    // Conectado no hacen falta; para cambiar el Client ID se desconecta y vuelven a estar (se conserva)
+    // The setup steps, at hand while not connected yet (if connecting fails, that's what to check).
+    // Once connected they aren't needed; to change the Client ID, disconnect and they're back (it is kept)
     if (SETUP[k] && st !== "setup" && st !== "connected") btns = `<button class="btn ghost" data-setup="${k}" aria-expanded="false">${esc(t("settings.setup_again"))}</button>${btns}`;
-    // Sin conectar: los pasos numerados se ven antes de tocar nada (el 1 es tocar este botón). Lo que pide
-    // configurarse antes (Spotify) muestra una línea que manda a «Configurar», donde están sus pasos.
+    // Not connected: the numbered steps show before anything is clicked (step 1 is clicking this button). What needs
+    // setting up first (Spotify) shows a line pointing to «Set up», where its steps are.
     const button = t(st === "expired" ? "settings.reconnect" : "settings.connect");
     const hint = st === "connected" ? ""
       : st === "setup" ? `<div class="svc-hint muted">${richText(`settings.hint.${k}_setup`, { button: t("settings.setup") })}</div>`
@@ -51,9 +51,9 @@ $("#browser-list").addEventListener("change", async e => {
   if (r) { toast(t("settings.browser_toast", { name: r.name })); renderConnections(); }
 });
 
-/** Los pasos de configuración, tal como los define el conector (setup_info): uno por acción, numerados
- *  2.1, 2.2..., con lo que hay que pegar al lado del paso donde va y los botones con el mismo nombre
- *  que usa el texto. Los nombres entre «» (campos y botones) van en negrita para encontrarlos rápido. */
+/** The setup steps, as the connector defines them (setup_info): one per action, numbered
+ *  2.1, 2.2..., with what has to be pasted next to the step where it goes, and buttons with the same
+ *  name the text uses. Names in «» (fields and buttons) are bold so they are quick to find. */
 function setupPanelHTML(k) {
   const s = SETUP[k];
   const fmt = richText;
@@ -87,7 +87,7 @@ async function saveClientId(key) {
   if (r.error) { err.textContent = r.error; err.hidden = false; input.focus(); return; }
   SETUP[key].client_id = r.client_id;
   await refreshStatus(); await renderConnections();
-  connectService(key);                 // ya está configurado: sigue con el inicio de sesión
+  connectService(key);                 // already set up: go on with the sign-in
 }
 
 async function connectService(key) {
@@ -113,16 +113,16 @@ async function connectService(key) {
   await refreshStatus(); renderConnections(); serviceChanged(key);
 }
 
-/** Mientras espera el inicio de sesión: si la persona cerró la ventana del navegador, la app no se entera
- *  (Tidal y Spotify se abren en el navegador común). «Abrir de nuevo» corta la espera y vuelve a empezar.
- *  Salen de `state.login`, no se agregan a mano: la pantalla se redibuja (al cambiar de sección o de navegador). */
+/** While waiting for the sign-in: if the person closed the browser window, the app doesn't know
+ *  (Tidal and Spotify open in the normal browser). «Open again» stops the wait and starts over.
+ *  They come from `state.login`, not added by hand: the screen gets redrawn (when changing section or browser). */
 function loginButtonsHTML() {
   const off = state.login.stopping ? "disabled" : "";
   return `<button class="btn primary" id="reopen-login" ${off}>${esc(t("settings.reopen_login"))}</button>`
     + `<button class="btn ghost" id="cancel-login" ${off}>${esc(t("settings.cancel_login"))}</button>`;
 }
 
-/** El aviso de espera, solo si el servicio no muestra ya sus pasos. */
+/** The waiting notice, only if the service isn't already showing its steps. */
 function showLoginWait() {
   const wait = state.login && $("#wait-" + state.login.key); if (!wait) return;
   wait.hidden = !!$(".svc-steps", wait.closest(".svc"));
@@ -146,7 +146,7 @@ $("#svc-list").addEventListener("click", async e => {
   if (setup) {
     const panel = $("#setup-" + setup.dataset.setup), open = panel.hidden;
     panel.hidden = !open; setup.setAttribute("aria-expanded", open);
-    if (open) $("button", panel).focus();      // el primer paso, no el último
+    if (open) $("button", panel).focus();      // the first step, not the last
   }
   const copy = e.target.closest("[data-copy]");
   if (copy && await copyText(copy.dataset.copy)) toast(t("settings.copied"));

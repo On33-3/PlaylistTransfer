@@ -1,5 +1,5 @@
-/* Cómo se muestra una operación (transferencia o limpieza): título, ruta, fecha y el mosaico de
-   cuadrados que informan. Lo usan Transferir e Historial. */
+/* How an operation (transfer or clean-up) is shown: title, route, date and the mosaic of
+   squares that tell what happened. Used by Transfer and History. */
 "use strict";
 
 function opTitle(op) {
@@ -11,7 +11,7 @@ function opRoute(op) {
 }
 function opSub(op) {
   if (op.kind === "dedupe") return t("op.removed", { n: op.removed });
-  // Los dudosos ya están entre los agregados: se aclaran entre paréntesis, no se suman aparte
+  // The doubtful ones are already among the added: they're noted in parentheses, not counted separately
   const added = t("op.added", { n: op.added });
   const parts = [op.doubtful ? t("op.added_with_doubts", { added, doubtful: t("op.doubtful", { n: op.doubtful }) }) : added];
   if (op.already) parts.push(t("op.already", { n: op.already }));
@@ -24,19 +24,19 @@ function opDate(op) {
   return isNaN(d) ? op.created_at : d.toLocaleString(dateLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 const emptyHistory = () => `<li class="empty"><b>${esc(t("history.empty_title"))}</b> ${esc(t("history.empty_text"))} <button class="btn ghost" data-go="transferir">${esc(t("history.empty_btn"))}</button></li>`;
-/* ---- mosaicos: un cuadrado por tema, con su color; al pasar el mouse dice qué tema es ---- */
+/* ---- mosaics: one square per song, with its color; on hover it says which song it is ---- */
 
 const LEGEND = [["ok", "ok", "--mint"], ["doubt", "doubt", "--peach"], ["miss", "miss", "--rose"],
                 ["dup", "dup", "--sage"], ["rep", "rep", "--butter"], ["removed", "removed", "--lav"]];
-/** El nombre del estado. En una prueba sin cambios, lo encontrado "se agregaría" (no se agregó nada). */
+/** The status name. In a dry run, what was found "would be added" (nothing was added). */
 const statusLabel = (s, dry = false) => {
   if (s === "dudoso_omitido") return t(dry ? "legend.skipped_dry" : "legend.skipped");
   const key = CLASS[s] || "ok";
   return t(dry && key === "ok" ? "legend.ok_dry" : `legend.${key}`);
 };
 
-/** Qué significa cada color (una sola vez por pantalla, arriba de la lista). En el historial el "?"
- *  puede ser agregado o no (según la casilla de esa transferencia): cada cuadrado dice cuál. */
+/** What each color means (once per screen, above the list). In the history a "?" may or may not
+ *  have been added (depending on that transfer's checkbox): each square says which. */
 function legendHTML() {
   return LEGEND.map(([key, cls, color]) =>
     `<span><i style="background:var(${color})"></i>${SYMBOL[cls]} ${esc(t(key === "doubt" ? "legend.doubt_any" : `legend.${key}`))}</span>`).join("");
@@ -47,7 +47,7 @@ function tileTitle(status, song, dry = false) {
   return song?.[0] ? t("tile.tooltip", { title: song[0], artist: song[1] || "?", status: label }) : label;
 }
 
-/** El mosaico chico de una operación del historial (con "+N" si tiene más temas de los que se dibujan). */
+/** The small mosaic of a history operation (with "+N" if it has more songs than are drawn). */
 function mosaicHTML(op) {
   const statuses = op.tiles || [], songsOf = op.tile_songs || [];
   const tiles = statuses.map((s, i) => `<i class="${CLASS[s] || "ok"}" title="${esc(tileTitle(s, songsOf[i]))}"></i>`).join("");

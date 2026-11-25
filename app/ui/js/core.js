@@ -1,15 +1,15 @@
-/* PlaylistTransfer: lo común a todas las pantallas. Habla con Python por window.pywebview.api
-   (ver app/api/). Todos los textos salen de app/locales/<idioma>.json con t("clave"): en ningún
-   archivo de la UI va texto suelto. Los archivos son scripts comunes (no módulos: la página se abre
-   como archivo local) y comparten estas funciones; el orden de carga está en index.html. */
+/* PlaylistTransfer: what every screen shares. It talks to Python through window.pywebview.api
+   (see app/api/). Every text comes from app/locales/<language>.json with t("key"): no UI file
+   holds loose text. The files are plain scripts (not modules: the page is opened as a local
+   file) and share these functions; the load order is in index.html. */
 "use strict";
 
 const SYMBOL = { ok: "✓", doubt: "?", miss: "✗", dup: "≈", rep: "×2", now: "…", removed: "−" };
 const CLASS = { ok: "ok", dudoso: "doubt", dudoso_omitido: "doubt", no_encontrado: "miss", ya_estaba: "dup", repetido: "rep", quitado: "removed" };
-// Los servicios salen de api.services() (app/connectors/registry.py) al arrancar
-let NAMES = {};          // {tidal: "Tidal", ...} en el orden en que se muestran
-let USABLE = [];         // los que ya se pueden usar
-let SETUP = {};          // los que piden configurar algo antes (Spotify): {sections, client_id}
+// The services come from api.services() (app/connectors/registry.py) at startup
+let NAMES = {};          // {tidal: "Tidal", ...} in the order they are shown
+let USABLE = [];         // the ones that can be used now
+let SETUP = {};          // the ones that need something set up first (Spotify): {sections, client_id}
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -17,12 +17,12 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const mmss = s => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "");
 
-/* ---------------------------------------------------------------- idioma */
+/* ---------------------------------------------------------------- language */
 
 let LANG = "es";
 let STR = {};
 
-/** Texto en el idioma actual. Con {n: número} usa la variante _one / _other si existe. */
+/** Text in the current language. With {n: number} it uses the _one / _other variant if there is one. */
 function t(key, vars = {}) {
   let k = key;
   if (typeof vars.n === "number") {
@@ -33,7 +33,7 @@ function t(key, vars = {}) {
   return text.replace(/\{(\w+)\}/g, (m, v) => (v in vars ? vars[v] : m));
 }
 const songs = n => t("songs", { n });
-/** Cuántos temas tiene una playlist. Sin el dato se dice, porque sin número parece vacía. */
+/** How many songs a playlist has. Without the figure it says so, because with no number it looks empty. */
 const countLabel = n => (n == null ? t("playlists.count_unknown") : songs(n));
 const listAnd = items => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${t("list.and")} ${items[items.length - 1]}`);
 const dateLocale = () => (LANG === "es" ? "es-AR" : "en-US");
@@ -48,16 +48,16 @@ function applyI18n(root = document) {
 let api = null;
 const state = {
   status: {},            // tidal: "connected" | "expired" | "disconnected"
-  from: null, to: null,  // los dos primeros servicios disponibles
-  playlists: {},         // cache por servicio
+  from: null, to: null,  // the first two available services
+  playlists: {},         // cache per service
   busy: false,
-  login: null,           // inicio de sesión en curso: {key, job, again, stopping, waitHTML}
+  login: null,           // sign-in in progress: {key, job, again, stopping, waitHTML}
   transfer: null,        // {job, total, result, ...}
   scan: null,
   dupService: null,
 };
 
-/* ---------------------------------------------------------------- utilidades */
+/* ---------------------------------------------------------------- utilities */
 
 function toast(msg) {
   const el = $("#toast"); el.textContent = msg; el.classList.add("show");
@@ -75,15 +75,15 @@ async function call(method, ...args) {
   }
 }
 
-/* ---------------------------------------------------------------- esperas de los servicios: siempre se avisan */
+/* ---------------------------------------------------------------- the services' waits: always announced */
 
-/** "Spotify pidió una pausa: sigo en 2:40." (o "no contestó bien: pruebo de nuevo en 5 s.") */
+/** "Spotify asked for a pause: continuing in 2:40." (or "it didn't answer properly: trying again in 5 s.") */
 function waitText(e, left) {
   const time = left < 60 ? `${left} s` : mmss(left);
   return t(e.why === "retry" ? "wait.retry" : "wait.rate", { service: e.service, time });
 }
 
-/** Cuenta regresiva en `el` mientras un servicio pide esperar. */
+/** A countdown in `el` while a service asks to wait. */
 function showWaiting(el, e) {
   stopWaiting(el);
   const end = Date.now() + e.seconds * 1000;
@@ -96,10 +96,10 @@ function showWaiting(el, e) {
 }
 function stopWaiting(el) { clearInterval(el._wait); el._wait = null; }
 
-/** Lo que hace una tarea sin pantalla de progreso propia (agregar después, quitar) si un servicio pide esperar. */
+/** What a task without its own progress screen (adding later, removing) does if a service asks to wait. */
 const toastWaits = e => { if (e.type === "waiting") toast(waitText(e, e.seconds)); };
 
-/** Sigue una tarea en segundo plano hasta que termina. onEvent recibe cada evento en vivo. */
+/** Follows a background task until it finishes. onEvent receives each event live. */
 async function follow(job, onEvent = toastWaits) {
   let since = 0;
   setBusy(true);
@@ -121,17 +121,17 @@ function setBusy(b) {
 
 const connected = key => state.status[key] === "connected";
 
-/* ---------------------------------------------------------------- que todas las pantallas digan lo mismo */
+/* ---------------------------------------------------------------- every screen saying the same thing */
 
-let playlistsVersion = 0;   // una respuesta pedida antes de olvidar las listas ya no se guarda
+let playlistsVersion = 0;   // an answer requested before the lists were forgotten is no longer stored
 
 function forgetPlaylists(key = null) {
   playlistsVersion++;
   if (key) delete state.playlists[key]; else state.playlists = {};
 }
 
-/** Cambió algo en un servicio (se agregaron temas, se creó una playlist, se conectó o se desconectó):
- *  se olvida lo guardado y la pantalla que se está viendo se actualiza, sin perder lo elegido. */
+/** Something changed in a service (songs were added, a playlist was created, it connected or disconnected):
+ *  what was stored is forgotten and the screen on view is updated, without losing what was chosen. */
 function serviceChanged(key) {
   forgetPlaylists(key);
   const screen = $(".screen.active")?.id;
@@ -140,14 +140,14 @@ function serviceChanged(key) {
   if (screen === "historial") renderHistory();
 }
 
-/* ---------------------------------------------------------------- navegación */
+/* ---------------------------------------------------------------- navigation */
 
 function go(id) {
   $$(".screen").forEach(s => s.classList.toggle("active", s.id === id));
   $$("nav button").forEach(b => (b.dataset.go === id ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("main").scrollTop = 0;
-  // Al entrar a elegir, las playlists se piden de nuevo: pudieron cambiar en el servicio ("Me gusta" nuevos).
-  // Lo guardado solo evita repetir el pedido dentro de la misma pantalla (cambiar origen y destino)
+  // When going in to pick, the playlists are asked for again: they may have changed in the service (new likes).
+  // What is stored only avoids repeating the request within the same screen (switching source and destination)
   if (id === "repetidos" || (id === "transferir" && !state.transfer)) forgetPlaylists();
   if (id === "transferir" && !state.transfer) loadPickers();
   if (id === "repetidos") renderDupControls();
@@ -157,7 +157,7 @@ function go(id) {
 }
 document.addEventListener("click", e => { const el = e.target.closest("[data-go]"); if (el && !el.disabled) go(el.dataset.go); });
 
-/* ---------------------------------------------------------------- estado de los servicios */
+/* ---------------------------------------------------------------- the services' status */
 
 async function refreshStatus() {
   $("#chips").innerHTML = Object.values(NAMES).map(n => `<span class="chip checking"><span class="dot"></span>${n} <span class="state">…</span></span>`).join("");
@@ -171,25 +171,25 @@ async function refreshStatus() {
     const target = s.status === "soon" ? "" : `data-go="conexiones"`;
     return `<button class="chip ${cls}" ${target} title="${esc(s.name)}"><span class="dot"></span>${esc(s.name)} ${label}</button>`;
   }).join("");
-  // Para pasar música hacen falta dos servicios. Con dos o más no se reclama nada: cada uno usa los que
-  // quiere, y quien no usa uno de ellos no tiene por qué verlo reclamado para siempre
+  // Moving music takes two services. With two or more nothing is asked for: each person uses the ones
+  // they want, and someone who doesn't use one of them shouldn't see it asked for forever
   const missing = USABLE.filter(connected).length < 2;
   $("#home-connect").hidden = !missing;
-  $("#home-transfer").classList.toggle("primary", !missing);       // un solo botón principal
+  $("#home-transfer").classList.toggle("primary", !missing);       // a single main button
   $("#home-transfer").classList.toggle("ghost", missing);
 }
 
-/* ---------------------------------------------------------------- textos con formato y pasos numerados */
+/* ---------------------------------------------------------------- formatted texts and numbered steps */
 
-/** Texto del diccionario con los nombres entre «» (o “”) en negrita: campos y botones que hay que encontrar. */
+/** Dictionary text with the names in «» (or “”) in bold: fields and buttons that have to be found. */
 const richText = (key, vars) => esc(t(key, vars)).replace(/([«“])([^»”]+)([»”])/g, "$1<b>$2</b>$3");
 
-/** Pasos numerados (1, 2, 3...) con el mismo formato que los de configuración. */
+/** Numbered steps (1, 2, 3...) with the same format as the setup ones. */
 const stepsHTML = (keys, vars) => `<ol class="setup-steps">${keys.map((k, i) =>
   `<li><span class="step-n num">${i + 1}</span><div class="step-body"><p>${richText(k, vars)}</p></div></li>`).join("")}</ol>`;
 
 async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* sin permiso: plan B */ }
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* no permission: plan B */ }
   const area = document.createElement("textarea");
   area.value = text; area.setAttribute("readonly", ""); area.className = "offscreen";
   document.body.appendChild(area); area.select();

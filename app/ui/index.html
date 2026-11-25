@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<!-- Los textos salen de app/locales/<idioma>.json (data-i18n = clave). El castellano de acá es solo un respaldo. -->
+<!-- The texts come from app/locales/<language>.json (data-i18n = key). The Spanish here is only a fallback. -->
 <div class="window" role="application" aria-label="PlaylistTransfer">
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>PlaylistTransfer</div>
@@ -26,7 +26,7 @@
   </nav>
 
   <main>
-    <!-- ================= INICIO ================= -->
+    <!-- ================= HOME ================= -->
     <section class="screen active" id="inicio" aria-labelledby="t-inicio">
       <h1 id="t-inicio" data-i18n="home.title">Tus playlists, en el servicio que quieras.</h1>
       <p class="lede" id="home-lede"></p>
@@ -36,7 +36,7 @@
         <li><b data-i18n="home.f_dedupe_title">Quitar repetidos.</b> <span data-i18n="home.f_dedupe">Encuentra la misma canción dos veces.</span></li>
         <li><b data-i18n="home.f_history_title">Historial.</b> <span data-i18n="home.f_history">Cada transferencia queda guardada.</span></li>
       </ul>
-      <!-- Mientras falte conectar, el primer paso es el botón principal (el texto "Conexiones" dice para qué) -->
+      <!-- While something still has to be connected, the first step is the main button (the "Connections" text says what for) -->
       <div class="actions">
         <button class="btn primary" id="home-connect" data-go="conexiones" data-i18n="home.connect_btn" hidden>Ir a Conexiones</button>
         <button class="btn primary" id="home-transfer" data-go="transferir" data-i18n="home.transfer">Transferir música</button>
@@ -45,7 +45,7 @@
 
     </section>
 
-    <!-- ================= TRANSFERIR ================= -->
+    <!-- ================= TRANSFER ================= -->
     <section class="screen" id="transferir" aria-labelledby="t-transferir">
       <h1 id="t-transferir" data-i18n="transfer.title">Transferir</h1>
       <p class="lede" id="route-lede"></p>
@@ -109,7 +109,7 @@
             <button class="btn ghost" id="again" data-i18n="transfer.again">Hacer otra transferencia</button>
           </div>
         </div>
-        <!-- Lo que necesita una decisión (los "?" y los que están con otro artista), arriba de todo -->
+        <!-- What needs a decision (the "?" and the ones found by another artist), at the very top -->
         <div class="review" id="review" hidden>
           <p class="review-head"><b data-i18n="transfer.review_title">Para revisar</b> <span class="muted" data-i18n="transfer.review_text">Estos temas necesitan que decidas vos. Los demás están más abajo.</span></p>
           <ul class="tracks" id="review-list"></ul>
@@ -118,7 +118,7 @@
       </div>
     </section>
 
-    <!-- ================= REPETIDOS ================= -->
+    <!-- ================= DUPLICATES ================= -->
     <section class="screen" id="repetidos" aria-labelledby="t-rep">
       <h1 id="t-rep" data-i18n="dedupe.title">Quitar repetidos</h1>
       <p class="lede" data-i18n="dedupe.lede">Busca la misma canción dos veces en una playlist, aunque sea otra versión: otro álbum, remaster, mono o video. Queda la que estaba primero. Las versiones de otros artistas no cuentan como repetidas.</p>
@@ -128,20 +128,20 @@
       </div>
       <div class="row-controls" id="dup-controls">
         <div class="seg" role="group" data-i18n-aria="dedupe.service_aria" aria-label="Servicio" id="dup-svc"></div>
-        <!-- La lista y su botón van juntos: si no entran al lado de los servicios, bajan los dos -->
+        <!-- The list and its button go together: if they don't fit next to the services, both move down -->
         <div class="dup-pick">
           <select class="select" data-i18n-aria="dedupe.playlist_aria" aria-label="Playlist" id="dup-playlist" data-needs-idle></select>
           <button class="btn primary" id="dup-scan" disabled data-i18n="dedupe.scan">Revisar</button>
         </div>
       </div>
-      <!-- Antes de revisar: qué va a pasar, en tres pasos (con los mismos colores de la lista) -->
+      <!-- Before checking: what will happen, in three steps (with the list's same colors) -->
       <div class="dup-how" id="dup-how">
         <div><span class="dup-how-n">1</span><h4 data-i18n="dedupe.how1_title">Revisá</h4><p data-i18n="dedupe.how1_text"></p></div>
         <div><span class="dup-how-n">2</span><h4 data-i18n="dedupe.how2_title">Elegí</h4><p data-i18n="dedupe.how2_text"></p>
           <div class="dup-how-tags"><span class="dup-tag remove" data-i18n="dedupe.tag_remove">Se quita</span><span class="dup-tag keep" data-i18n="dedupe.tag_keep">Queda</span><span class="dup-tag version" data-i18n="dedupe.tag_version">Otra versión</span></div></div>
         <div><span class="dup-how-n">3</span><h4 data-i18n="dedupe.how3_title">Confirmá</h4><p data-i18n="dedupe.how3_text"></p></div>
       </div>
-      <!-- Revisando: cuál va y cómo dio cada una -->
+      <!-- Checking: which one is next and how each one came out -->
       <div class="dup-progress" id="dup-progress" hidden>
         <p class="dup-progress-head"><b id="dup-progress-text"></b> <span class="muted" id="dup-progress-now"></span></p>
         <div class="dup-bar" id="dup-bar-box"><i id="dup-bar"></i></div>
@@ -153,14 +153,14 @@
       <div id="dups"></div>
       <p class="dup-clean muted" id="dup-clean" hidden></p>
       <p class="dup-clean error" id="dup-failed" hidden></p>
-      <!-- La decisión, siempre a la vista mientras se baja por la lista -->
+      <!-- The decision, always visible while scrolling down the list -->
       <div class="dup-decide" id="dup-actions" hidden>
         <p id="dup-decide-text"></p>
         <button class="btn danger" id="remove" disabled data-i18n="dedupe.remove">Quitar</button>
       </div>
     </section>
 
-    <!-- ================= HISTORIAL ================= -->
+    <!-- ================= HISTORY ================= -->
     <section class="screen" id="historial" aria-labelledby="t-hist">
       <h1 id="t-hist" data-i18n="history.title">Historial</h1>
       <p class="lede" data-i18n="history.lede">Cada transferencia y cada limpieza queda registrada en tu compu. Tocá una para ver el detalle.</p>
@@ -180,7 +180,7 @@
       <p class="muted export-note" id="export-note" hidden></p>
     </section>
 
-    <!-- ================= AJUSTES ================= -->
+    <!-- ================= SETTINGS ================= -->
     <section class="screen settings" id="conexiones" aria-labelledby="t-cx">
       <h1 id="t-cx" data-i18n="connections.title">Conexiones</h1>
       <p class="lede" data-i18n="connections.lede">Conectá los servicios que uses, siguiendo los pasos de cada uno.</p>

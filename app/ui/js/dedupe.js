@@ -1,34 +1,34 @@
-/* Quitar repetidos: elegir una playlist o todas, revisar y confirmar. */
+/* Remove duplicates: pick one playlist or all of them, check and confirm. */
 "use strict";
 
-/* ---------------------------------------------------------------- quitar repetidos */
+/* ---------------------------------------------------------------- remove duplicates */
 
-const ALL_PLAYLISTS = "__all__";     // revisar todas las playlists del servicio (como app/api/duplicates.ALL)
-// Lo elegido en la lista cerrada, en un renglón con «…» si no entra (styles.css, `.select > button`).
-// Va primero en la lista: un motor sin listas con estilo lo ignora
+const ALL_PLAYLISTS = "__all__";     // check every playlist of the service (like app/api/duplicates.ALL)
+// The picked item in the closed list, on one line with «…» if it doesn't fit (styles.css, `.select > button`).
+// It goes first in the list: an engine without styled lists ignores it
 const SELECTED = "<button><selectedcontent></selectedcontent></button>";
 
 async function renderDupControls() {
-  const turn = renderDupControls.turn = (renderDupControls.turn || 0) + 1;   // solo cuenta el último pedido
+  const turn = renderDupControls.turn = (renderDupControls.turn || 0) + 1;   // only the latest request counts
   const avail = USABLE.filter(connected);
   $("#dup-connect").hidden = avail.length > 0;
   $("#dup-controls").hidden = avail.length === 0;
   if (!avail.length) { if (state.scan) clearDups(); $("#dup-how").hidden = true; return; }
   if (!avail.includes(state.dupService)) state.dupService = avail[0];
-  // Un resultado de un servicio que ya no está conectado (o de otro) no puede quitar nada: se descarta
+  // A result from a service that is no longer connected (or from another one) can't remove anything: it's dropped
   if (state.scan && state.scan.service !== state.dupService) clearDups();
-  // Quietos mientras hay algo en curso: si no, el resultado de un servicio aparecía bajo el nombre de otro
+  // Locked while something runs: otherwise one service's result showed up under another's name
   $("#dup-svc").innerHTML = USABLE.map(k => `<button data-svc="${k}" aria-pressed="${k === state.dupService}" data-needs-idle data-blocked="${connected(k) ? 0 : 1}" ${connected(k) && !state.busy ? "" : "disabled"}>${NAMES[k]}</button>`).join("");
   $("#dup-playlist").innerHTML = SELECTED + `<option>${esc(t("common.loading"))}</option>`;
-  // Con menos de 2 temas no puede haber repetidos (las de cantidad desconocida quedan)
+  // With fewer than 2 songs there can't be duplicates (unknown counts stay)
   const all = await getPlaylists(state.dupService) || [];
   if (turn !== renderDupControls.turn) return;
   const pls = all.filter(p => p.count == null || p.count >= 2);
-  // Con más de una, la primera opción es revisarlas todas
+  // With more than one, the first option is checking them all
   const allOption = pls.length > 1 ? `<option value="${ALL_PLAYLISTS}">${esc(t("dedupe.all_playlists", { n: pls.length }))}</option>` : "";
   $("#dup-playlist").innerHTML = SELECTED + (pls.length ? allOption + pls.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(countLabel(p.count))})</option>`).join("")
     : `<option value="">${esc(t(all.length ? "dedupe.no_playlists_with_songs" : "dedupe.no_playlists"))}</option>`);
-  // Redibujar no cambia la playlist elegida (antes, después de quitar temas se volvía a revisar otra)
+  // Redrawing doesn't change the chosen playlist (before, after removing songs another one was checked)
   const values = $$("#dup-playlist option").map(o => o.value);
   if (state.dupPlaylist && values.includes(state.dupPlaylist)) $("#dup-playlist").value = state.dupPlaylist;
   else if (state.dupPlaylist && !state.scan) clearDups();
@@ -44,12 +44,12 @@ $("#dup-svc").addEventListener("click", e => {
 });
 $("#dup-playlist").addEventListener("change", () => { state.dupPlaylist = $("#dup-playlist").value; showPickedName(); clearDups(); });
 
-/** Un nombre largo termina en «…» en la lista cerrada: al pasar el mouse se lee entero. */
+/** A long name ends in «…» in the closed list: on hover it can be read in full. */
 function showPickedName() {
   $("#dup-playlist").title = $("#dup-playlist").selectedOptions[0]?.textContent || "";
 }
 
-/** Vuelve al estado de antes de revisar: se ven los tres pasos. */
+/** Back to the state before checking: the three steps show. */
 function clearDups() {
   state.scan = null;
   $("#dups").innerHTML = ""; $("#dup-summary").hidden = true; $("#dup-actions").hidden = true;
@@ -58,17 +58,17 @@ function clearDups() {
   scanButton(false);
 }
 
-/** Antes de revisar, "Revisar" es la acción principal; con el resultado a la vista lo es la barra de abajo. */
+/** Before checking, "Check" is the main action; with the result on screen, the bar at the bottom is. */
 function scanButton(results) {
   const b = $("#dup-scan");
   b.classList.toggle("primary", !results); b.classList.toggle("ghost", results);
   b.textContent = t(results ? "dedupe.scan_again" : "dedupe.scan");
 }
 
-/** Texto con **negritas**: se escapa todo y solo se marcan esas partes. */
+/** Text with **bold**: everything is escaped and only those parts are marked. */
 const rich = text => esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 
-/* ---- revisando: cuál va y cómo dio cada una */
+/* ---- checking: which one is next and how each one came out */
 
 function onScanEvent(p, e) {
   const now = $("#dup-progress-now");
@@ -92,7 +92,7 @@ function onScanEvent(p, e) {
       : e.found ? ["found", t("dedupe.n_dups", { n: e.found })] : ["clean", t("dedupe.pill_clean")];
     pill.className = `dup-pill ${cls}`; pill.textContent = text;
   } else if (e.type === "waiting") {
-    showWaiting(now, e);                       // el servicio pidió una pausa: cuenta regresiva
+    showWaiting(now, e);                       // the service asked for a pause: countdown
   } else if (e.type === "waited") {
     stopWaiting(now); now.textContent = "";
   }
@@ -122,12 +122,12 @@ async function scanDups() {
   showDupResults();
 }
 
-/* ---- resultado: una tarjeta por playlist con repetidos */
+/* ---- result: one card per playlist with duplicates */
 
 const dupCount = n => t("dedupe.n_dups", { n });
 const listCount = n => t("dedupe.lists", { n });
 
-/** "Gym, Anime, NEW y 10 más" */
+/** "Gym, Anime, NEW and 10 more" */
 function someNames(names, show = 4) {
   const shown = names.slice(0, show).join(", ");
   return names.length > show ? t("dedupe.and_more", { names: shown, n: names.length - show }) : shown;
@@ -147,13 +147,13 @@ function showDupResults() {
       : t("dedupe.all_clean", { n: res.checked });
   }
   $("#dup-summary").innerHTML = `<b>${esc(head)}</b>`;
-  // Qué significa tildar, dicho antes de la lista: nada queda librado a la intuición
+  // What ticking means, said before the list: nothing is left to intuition
   $("#dup-hint").hidden = !groups.length; $("#dup-hint").innerHTML = groups.length ? rich(t("dedupe.decide_hint")) : "";
   scanButton(true);
 
   $("#dups").innerHTML = groups.map(dupGroupHTML).join("");
 
-  // Revisando todas: las que están bien, en una línea (si están todas bien, cuáles se revisaron)
+  // Checking all: the clean ones, on one line (if they're all clean, which ones were checked)
   const clean = res.many ? res.clean : [];
   $("#dup-clean").hidden = !clean.length;
   $("#dup-clean").textContent = !clean.length ? ""
@@ -165,7 +165,7 @@ function showDupResults() {
   updateRemove();
 }
 
-/** La tarjeta de una playlist: su nombre, cuántos se quitan, "tildar / destildar todos" y sus filas. */
+/** A playlist's card: its name, how many are removed, "tick / untick all" and its rows. */
 function dupGroupHTML(g, gi) {
   return `
     <section class="dup-group" data-g="${gi}">
@@ -176,8 +176,8 @@ function dupGroupHTML(g, gi) {
     </section>`;
 }
 
-/** Una fila: tildada, se quita → queda la de la derecha; sin tildar, se conservan las dos (lo cambia el CSS).
- * Las otras versiones vienen sin tildar y, si es por la duración, dicen por qué. */
+/** A row: ticked, it is removed → the one on the right stays; unticked, both stay (the CSS switches it).
+ * Other versions come unticked and, if it's because of the length, they say why. */
 function dupRowHTML(d, gi) {
   const meta = s => [s.artist, s.album, mmss(s.duration)].filter(Boolean).map(esc).join(", ");
   const why = d.longer == null ? ""
@@ -190,7 +190,7 @@ function dupRowHTML(d, gi) {
           <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`;
 }
 
-/** Lo tildado, por playlist: [{ scan, selected: [i...] }] */
+/** What is ticked, per playlist: [{ scan, selected: [i...] }] */
 function dupChoices() {
   const by = new Map();
   $$("#dups input:checked").forEach(i => {
@@ -201,7 +201,7 @@ function dupChoices() {
   return [...by].map(([scan, selected]) => ({ scan, selected }));
 }
 
-/** Todo lo que depende de lo tildado: el botón, la barra de decisión, cada tarjeta y la confirmación. */
+/** Everything that depends on what is ticked: the button, the decision bar, each card and the confirmation. */
 function updateRemove() {
   if (!state.scan) return;
   const choices = dupChoices();
@@ -215,13 +215,13 @@ function updateRemove() {
   updateConfirm(choices, c, label, one);
 }
 
-/** La barra de abajo dice qué va a pasar si se confirma, siempre a la vista. */
+/** The bar at the bottom says what will happen if confirmed, always visible. */
 function showDecision(c, lists, one) {
   const what = one ? t("dedupe.decide_one", { songs: songs(c), name: one.name }) : t("dedupe.decide", { songs: songs(c), lists: listCount(lists) });
   $("#dup-decide-text").innerHTML = c ? `<b>${esc(what)}</b> ${esc(t("dedupe.decide_keep"))}` : `<b>${esc(t("dedupe.decide_none"))}</b>`;
 }
 
-/** Cada tarjeta: cuántos se quitan de esa playlist y "tildar / destildar todos". */
+/** Each card: how many are removed from that playlist and "tick / untick all". */
 function updateGroupHeaders() {
   $$("#dups .dup-group").forEach(sec => {
     const boxes = $$("input", sec), on = boxes.filter(b => b.checked).length;
@@ -230,14 +230,14 @@ function updateGroupHeaders() {
   });
 }
 
-/** El diálogo: el título, cuántos de cada playlist si son varias y, en Spotify, que se vuelve a agregar la que queda. */
+/** The dialog: the title, how many from each playlist if there are several and, on Spotify, that the remaining one is added back. */
 function updateConfirm(choices, c, label, one) {
   $("#c-title").textContent = one ? t("dedupe.confirm_title", { action: label, name: one.name })
     : t("dedupe.confirm_title_lists", { songs: songs(c), lists: listCount(choices.length) });
   const per = choices.map(x => [state.scan.groups.find(g => g.scan === x.scan)?.name, x.selected.length]);
   $("#c-list").hidden = per.length < 2;
   $("#c-list").innerHTML = per.length < 2 ? "" : per.map(([name, n]) => `<li>${esc(t("dedupe.confirm_item", { name, songs: songs(n) }))}</li>`).join("");
-  // Spotify quita todas las copias de una canción: la que queda vuelve a agregarse en su lugar
+  // Spotify removes every copy of a song: the one that stays is added back in its place
   const readd = $$("#dups input:checked").filter(i => state.scan.groups[Number(i.dataset.g)]?.duplicates[Number(i.dataset.i)]?.readd).length;
   $("#c-readd").hidden = !readd;
   $("#c-readd").textContent = readd ? t("dedupe.confirm_readd", { n: readd, service: NAMES[state.dupService] }) : "";
@@ -250,7 +250,7 @@ $("#dups").addEventListener("click", e => {
   updateRemove();
 });
 $("#dup-scan").addEventListener("click", scanDups);
-// Una revisión larga (o una pausa que pidió el servicio) se puede cortar: no se quita nada al revisar
+// A long check (or a pause the service asked for) can be stopped: nothing is removed while checking
 $("#dup-cancel").addEventListener("click", () => {
   if (!state.dupJob) return;
   api.cancel(state.dupJob); $("#dup-cancel").disabled = true; $("#dup-cancel").textContent = t("transfer.cancelling");
@@ -260,12 +260,12 @@ $("#confirm-no").addEventListener("click", () => $("#confirm").close());
 $("#confirm-yes").addEventListener("click", async () => {
   const choices = dupChoices(); $("#confirm").close();
   if (!choices.length || !state.scan) return;
-  const r = await call("remove_many", choices, true);   // true: el usuario confirmó en el diálogo
+  const r = await call("remove_many", choices, true);   // true: the user confirmed in the dialog
   if (!r) return;
   const done = await follow(r.job);
   if (done.state !== "done") {
-    // Pudo haberse quitado algo de las primeras playlists: lo que se ve ya no vale. Se dice qué pasó y se
-    // vuelve a empezar (el error dice de cuáles se quitó y cuál hay que revisar de nuevo)
+    // Something may have been removed from the first playlists: what is on screen no longer holds. It says
+    // what happened and starts over (the error says which ones were changed and which to check again)
     const msg = done.error || t("dedupe.remove_error");
     forgetPlaylists(state.dupService); clearDups(); await renderDupControls();
     $("#dup-how").hidden = true; $("#dup-summary").hidden = false;
@@ -276,7 +276,7 @@ $("#confirm-yes").addEventListener("click", async () => {
   const res = done.result;
   toast(res.names.length > 1 ? t("dedupe.removed_many_toast", { songs: songs(res.removed), lists: listCount(res.names.length) })
     : t("dedupe.removed_toast", { songs: songs(res.removed), name: res.name }));
-  // Las playlists que cambiaron se revisaron de nuevo: la pantalla muestra cómo quedaron
+  // The playlists that changed were checked again: the screen shows how they ended up
   const scan = state.scan;
   for (const g of res.groups) {
     const at = scan.groups.findIndex(x => x.playlist_id === g.playlist_id);
