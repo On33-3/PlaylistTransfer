@@ -6,7 +6,7 @@ PlaylistTransfer changes people's playlists. A wrong match adds a song nobody as
 
 **At a glance** (November 2026)
 
-- **504 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
+- **506 automated tests**, about 75 seconds on a laptop, run on every push in a clean Windows machine on GitHub Actions.
 - The interface is tested **in the same engine the window uses** (Chromium, through Playwright and Edge), and design rules are measured on every screen.
 - Before each release, **the real interface runs against real accounts**, with every write blocked except inside a throwaway playlist the check creates and deletes.
 - Each release is built and opened in a clean Windows without Python before it is published, with a SHA-256 checksum.
@@ -34,7 +34,7 @@ Counts as of November 2026.
 | Interface, end to end | Every screen driven in headless Edge with Playwright, talking to the real API over the same bridge the window uses. | `tests/test_ui_*.py` | 65 |
 | Languages | Spanish and English have the same keys; English screens show no Spanish words. | `test_i18n` | 21 |
 | Packaging and startup | Icon, version info, licenses of what is bundled, package size limit, a startup failure is shown and logged, the window never reuses old copies of the UI. | `test_packaging`, `test_main` | 21 |
-| Tooling and static checks | The real-account check can't write outside its test playlist and test songs; the comments-only check catches any code change; pyflakes finds nothing. | `test_real_check`, `test_check_comments_only`, `test_code` | 13 |
+| Tooling and static checks | The real-account check can't write outside its test playlist and test songs; the comments-only check catches any code change; the demo library behind the README screenshots keeps every status; pyflakes finds nothing. | `test_real_check`, `test_check_comments_only`, `test_demo_library`, `test_code` | 15 |
 
 ### Design rules, measured
 
