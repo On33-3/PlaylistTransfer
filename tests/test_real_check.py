@@ -40,6 +40,30 @@ def test_removing_is_only_possible_in_the_test_playlist(tmp_path):
     assert r["state"] == "error" and len(yt.songs("other")) == 2 and "ytmusic.remove" in attempts
 
 
+def test_only_the_test_songs_can_be_liked_and_unliked(tmp_path):
+    from app.connectors.base import LIKED
+    from app.core.models import Duplicate
+    api, tidal, yt = make_api(tmp_path)
+    yt.add_playlist(LIKED, "Me gusta", [S("Mía", "X", id="mine")])
+    test, other = S("Prueba", "X", id="t1"), S("Otra", "X", id="o1")
+    liked: set[str] = {"t1"}
+    attempts = guard(api, set(), liked)
+    yt.add(LIKED, [test])                                                   # la de prueba, sí
+    for bad in ([other], [test, other]):                                    # cualquier otra, nunca
+        try:
+            yt.add(LIKED, bad)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError(f"se marcó {bad}")
+    try:
+        yt.remove(LIKED, [Duplicate(0, S("Mía", "X", id="mine"), test)], confirmed=True)   # tu «Me gusta», nunca
+    except RuntimeError:
+        pass
+    yt.remove(LIKED, [Duplicate(1, test, test)], confirmed=True)
+    assert [s.id for s in yt.songs(LIKED)] == ["mine"] and attempts == ["ytmusic.add", "ytmusic.add", "ytmusic.remove"]
+
+
 def test_a_dry_run_still_works_and_changes_nothing(tmp_path):
     api, tidal, yt = make_api(tmp_path)
     attempts = guard(api)

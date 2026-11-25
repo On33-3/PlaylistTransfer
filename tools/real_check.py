@@ -18,7 +18,10 @@ y tus sesiones:
      repetidas a propósito (A, B, C, A, B), la pantalla encuentra los dos repetidos, se quitan con la
      confirmación, queda A, B, C y el historial lo anota. Después la borra, aunque algo haya fallado
      (y al empezar, borra la de una corrida cortada)
-  8. Ajustes: «Privacidad y datos» se lee (nunca toca «Borrar todo»)
+  8. «Me gusta» de verdad: marca dos temas tuyos que no estaban marcados, como una transferencia a
+     «Canciones que te gustan», comprueba que quedan arriba, los desmarca y comprueba que tu lista quedó
+     igual (si algo falla en el medio, igual los desmarca)
+  9. Ajustes: «Privacidad y datos» se lee (nunca toca «Borrar todo»)
 
 Fuera de esa playlist de prueba nunca escribe en tus cuentas: antes de abrir la página, agregar, crear,
 quitar, desconectar, borrar todo y transferir de verdad quedan bloqueados (`guard`), y al final se
@@ -50,19 +53,31 @@ BLOCKED_API = ("remove_many", "remove_duplicates", "wipe_data", "disconnect", "c
 
 # ---------------------------------------------------------------- nada se escribe
 
-def guard(api, sandbox: set[str] | None = None) -> list[str]:
+def guard(api, sandbox: set[str] | None = None, liked: set[str] | None = None) -> list[str]:
     """Bloquea todo lo que cambia algo en las cuentas o en la app. Devuelve la lista de intentos
     (tiene que quedar vacía): cada uno también falla, así que nunca llega al servicio.
-    La única excepción es quitar de una playlist de prueba (`sandbox`, los ids que creó este script):
-    la UI puede quitar de verdad ahí y en ningún otro lado."""
+    Las únicas excepciones:
+      - quitar de una playlist de prueba (`sandbox`, los ids que creó este script): la UI puede quitar
+        de verdad ahí y en ningún otro lado;
+      - marcar y desmarcar «Me gusta» de los temas de prueba (`liked`, ids de temas que no estaban marcados)."""
+    from app.connectors.base import LIKED
     attempts: list[str] = []
     sandbox = sandbox if sandbox is not None else set()
+    liked = liked if liked is not None else set()
+
+    def only_test_songs(args) -> bool:
+        if len(args) < 2 or args[0] != LIKED or not args[1]:
+            return False
+        ids = [getattr(x, "id", None) or getattr(getattr(x, "song", None), "id", None) for x in args[1]]
+        return all(i in liked for i in ids)
 
     def block_connector(c, name):
         real = getattr(c, name)
 
         def blocked(*args, **kwargs):
             if name == "remove" and args and args[0] in sandbox:
+                return real(*args, **kwargs)
+            if name in ("add", "remove") and only_test_songs(args):
                 return real(*args, **kwargs)
             attempts.append(f"{c.key}.{name}")
             raise RuntimeError(f"prueba real: {c.key}.{name} está bloqueado")
@@ -147,6 +162,25 @@ def three_songs(c):
     return None, []
 
 
+def two_unliked(c, liked_ids: set[str]):
+    """Dos canciones distintas de tus playlists que no tenés en «Me gusta» (solo se leen).
+    En YouTube Music, canciones con álbum: un video marcado no siempre aparece en «Me gusta»."""
+    from app.connectors.base import LIKED
+    from app.core.matching import same_song
+    lists = sorted((p for p in c.list_playlists() if p.id != LIKED and p.name != SANDBOX_NAME and (p.count or 0) >= 2),
+                   key=lambda p: p.count)
+    picked = []
+    for p in lists:
+        for s in c.read(p.id)[1]:
+            usable = (s.id and s.id not in liked_ids and (c.key != "spotify" or s.id.startswith("spotify:track:"))
+                      and (c.key != "ytmusic" or s.album))
+            if usable and not any(same_song(s, x) for x in picked):
+                picked.append(s)
+            if len(picked) == 2:
+                return picked
+    return picked
+
+
 def settle(check, what: str):
     """Espera a que el servicio muestre el cambio (YouTube Music puede tardar unos segundos)."""
     until = time.monotonic() + SETTLE
@@ -171,7 +205,7 @@ def real_api(work: Path):
 
 class Run:
     def __init__(self, out: Path):
-        self.out, self.results = out, []
+        self.out, self.results, self.page = out, [], None     # page: para la captura de un paso que falla
 
     def step(self, name, fn, *args):
         print(f"· {name}…", flush=True)
@@ -184,6 +218,11 @@ class Run:
         except Exception as e:                    # un timeout, un selector que no aparece…
             state, detail = "FALLA", f"{type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}"
         took = time.monotonic() - started
+        if state == "FALLA" and self.page is not None:      # qué había en pantalla cuando falló
+            try:
+                self.shot(self.page, "FALLA", full=True)
+            except Exception:
+                pass
         self.results.append((name, state, str(detail or ""), took))
         print(f"  {state} ({took:.0f} s){': ' + str(detail) if detail else ''}", flush=True)
         return state == "OK"
@@ -387,13 +426,56 @@ def sandbox_remove(run, page, api, c, sandbox, created):
     page.click("#remove")
     page.wait_for_selector("#confirm[open]")
     page.click("#confirm-yes")
-    page.wait_for_function("!state.busy && !document.querySelector('.dup-group')", timeout=180000)
+    try:
+        page.wait_for_function("!state.busy && !document.querySelector('.dup-group')", timeout=180000)
+    except Exception:                              # qué decía la pantalla mientras esperaba
+        said = page.evaluate("""() => ['#dup-summary', '#toast', '#dup-progress-text', '#dup-decide-text']
+            .map(s => document.querySelector(s)).filter(e => e && e.offsetParent !== null)
+            .map(e => e.textContent.trim()).filter(Boolean).join(' | ')""")
+        raise AssertionError(f"quitar no terminó en 3 minutos (ocupada: {page.evaluate('state.busy')}); "
+                             f"la pantalla decía: «{said}»") from None
     run.shot(page, f"prueba-quitados-{c.key}")
     settle(lambda: [s.id for s in c.read(pid)[1]] == [a.id, b.id, x.id], "la playlist de prueba no quedó con A, B, C")
     h = api.history(limit=1)[0]
     assert h["kind"] == "dedupe" and h["removed"] == 2 and h["source_name"] == SANDBOX_NAME, f"el historial no lo anotó: {h}"
     again = f"; antes borré {len(old)} que había quedado de otra prueba" if old else ""
     return f"copié 3 de «{source}», agregué A, B, C, A, B y quedó A, B, C{again}"
+
+
+def liked_add_remove(c, liked):
+    """«Me gusta» de verdad: marca dos temas que no estaban marcados, como lo hace una transferencia
+    (`add` a LIKED), comprueba que quedan arriba y en orden, los desmarca (`remove`) y comprueba que tu
+    lista quedó como estaba. Si algo falla en el medio, igual los desmarca."""
+    from app.connectors.base import LIKED
+    from app.core.models import Duplicate
+
+    def liked_ids():
+        return [s.id for s in c.read(LIKED)[1]]
+
+    before = liked_ids()
+    songs = two_unliked(c, set(before))
+    if len(songs) < 2:
+        return Skip("no encontré dos canciones tuyas sin «Me gusta»")
+    liked.update(s.id for s in songs)
+    p, q = songs
+    # YouTube Music marca de a uno: el orden es exacto. Tidal y Spotify marcan en tandas y dentro de una
+    # tanda el orden lo decide el servicio (medido el 2026-11-25): basta con que los dos queden arriba
+    exact = c.key == "ytmusic"
+    try:
+        c.add(LIKED, [p, q])                       # lo que hace una transferencia a «Canciones que te gustan»
+        settle(lambda: liked_ids()[:2] == [p.id, q.id] if exact else set(liked_ids()[:2]) == {p.id, q.id},
+               f"«{p.title}» y «{q.title}» no quedaron arriba en «Me gusta»{', en ese orden' if exact else ''}")
+    finally:
+        try:
+            c.remove(LIKED, [Duplicate(0, s, s) for s in (p, q)], confirmed=True)
+            settle(lambda: not {p.id, q.id} & set(liked_ids()), "los temas de prueba siguen en «Me gusta»")
+        except Exception as e:
+            raise AssertionError(f"no pude desmarcar «{p.title}» y «{q.title}»: sacales el «Me gusta» a mano ({e})") from e
+        finally:
+            liked.difference_update({p.id, q.id})
+    assert liked_ids() == before, "«Me gusta» no quedó como estaba"
+    return (f"marqué «{p.title}» y «{q.title}», quedaron arriba{' en orden' if exact else ''}, los desmarqué "
+            f"y tu lista quedó igual ({len(before)} {'tema' if len(before) == 1 else 'temas'})")
 
 
 def sandbox_delete(c, sandbox, created):
@@ -434,7 +516,8 @@ def main() -> int:
 
     api = real_api(out / "datos")
     sandbox: set[str] = set()
-    attempts = guard(api, sandbox)
+    liked: set[str] = set()
+    attempts = guard(api, sandbox, liked)
     status = {s["key"]: s["status"] for s in api.status()}
     connected = [k for k, st in status.items() if st == "connected"]
     names = {s["key"]: s["name"] for s in api.services()}
@@ -443,6 +526,7 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         page, errors = open_page(browser, api)
+        run.page = page
         run.step("Inicio", home, run, page, check)
         if not args.no_transfer:
             run.step("Transferir: prueba sin cambios", transfer, run, page, check, connected, names)
@@ -463,6 +547,7 @@ def main() -> int:
                          run, page, api, c, sandbox, created)
             finally:
                 run.step(f"Repetidos en {n}: borrar la playlist de prueba", sandbox_delete, c, sandbox, created)
+            run.step(f"«Me gusta» en {n}: marcar y desmarcar dos temas", liked_add_remove, c, liked)
         if not keys:
             run.results.append(("Quitar repetidos", "SALTEADO", "ningún servicio conectado", 0))
         run.step("Ajustes: privacidad", settings, run, page, check)
