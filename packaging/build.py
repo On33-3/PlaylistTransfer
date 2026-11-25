@@ -1,10 +1,10 @@
-"""Arma el .exe y el zip para publicar. Lo mismo en tu compu y en GitHub Actions.
+"""Builds the .exe and the zip to publish. The same on your computer and on GitHub Actions.
 
-Uso (desde la raíz del repo):  py packaging/build.py
-Resultado: dist/PlaylistTransfer-<versión>-windows.zip y su .sha256
+Usage (from the repo root):  py packaging/build.py
+Result: dist/PlaylistTransfer-<version>-windows.zip and its .sha256
 
-Pasos: ícono → datos de versión → PyInstaller (carpeta, sin UPX) → licencias de terceros →
-LICENSE y LEEME → zip → SHA-256. Nada de la carpeta de datos del usuario entra al paquete.
+Steps: icon → version info → PyInstaller (folder, no UPX) → third-party licenses →
+LICENSE and LEEME → zip → SHA-256. Nothing from the user's data folder goes into the package.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 
 from app import __version__  # noqa: E402
 
-# Lo que va dentro del paquete (y sus dependencias): sus licencias se copian a THIRD-PARTY-NOTICES.txt
+# What goes inside the package (and its dependencies): their licenses are copied to THIRD-PARTY-NOTICES.txt
 BUNDLED = ["tidalapi", "ytmusicapi", "pywebview"]
 PERSONAL = re.compile(r"(browser\.json|oauth\.json|tidal_session|preferencias\.json|reporte_|historial|"
                       r"\.sqlite$|\.yt-login|browser-profiles|app\.log|\.env)", re.I)
@@ -115,7 +115,7 @@ def version_info() -> None:
 
 
 def dependencies(names: list[str]) -> list[md.Distribution]:
-    """Los paquetes nombrados y todas sus dependencias (las que están instaladas)."""
+    """The named packages and all their dependencies (the installed ones)."""
     seen: dict[str, md.Distribution] = {}
     todo = list(names)
     while todo:
@@ -152,7 +152,7 @@ def third_party_notices(out: Path) -> None:
 
 
 def write_checksum(path: Path) -> str:
-    """<archivo>.sha256 en el formato de `sha256sum -c`, con fin de línea LF (con CRLF falla)."""
+    """<file>.sha256 in `sha256sum -c` format, with LF line endings (it fails with CRLF)."""
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     path.with_name(path.name + ".sha256").write_bytes(f"{digest}  {path.name}\n".encode("ascii"))
     return digest
@@ -164,7 +164,7 @@ def check_no_personal_data(folder: Path) -> None:
         raise SystemExit(f"Hay archivos personales en el paquete, no se publica: {leaked[:5]}")
 
 
-MAX_ZIP_MB = 15     # tope: si algo nuevo infla el paquete, el armado avisa en vez de pasar inadvertido
+MAX_ZIP_MB = 15     # cap: if something new bloats the package, the build says so instead of letting it slip by
 
 
 def check_size(zip_path: Path) -> float:
@@ -185,7 +185,7 @@ def main() -> Path:
     app_dir = DIST / "PlaylistTransfer"
     shutil.copy(ROOT / "LICENSE", app_dir / "LICENSE.txt")
     third_party_notices(app_dir / "THIRD-PARTY-NOTICES.txt")
-    # Nombre en ASCII: con tildes, algunos descompresores lo muestran mal ("L+ëEME.txt")
+    # ASCII name: with accents, some unzip tools show it garbled ("L+ëEME.txt")
     (app_dir / "LEEME.txt").write_text(README_USER.format(version=__version__), encoding="utf-8-sig")
     (app_dir / "README.txt").write_text(README_USER_EN.format(version=__version__), encoding="utf-8-sig")
     if not (app_dir / "_internal" / "tidalapi" / "session.py").exists():

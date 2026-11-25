@@ -1,6 +1,6 @@
-"""Genera app/ui/icon.ico (el de la ventana, la barra de tareas y el .exe): el mosaico de 3×3 de la marca, con los colores pastel de la app.
+"""Generates app/ui/icon.ico (for the window, the taskbar and the .exe): the brand's 3×3 mosaic, in the app's pastel colors.
 
-Sin dependencias (PNG con zlib dentro de un .ico). Uso: py packaging/make_icon.py
+No dependencies (PNG with zlib inside an .ico). Usage: py packaging/make_icon.py
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import struct
 import zlib
 from pathlib import Path
 
-# Mismo orden y colores que .brand-mark en app/ui/styles.css
+# Same order and colors as .brand-mark in app/ui/styles.css
 MINT, LAV, SKY, PEACH, ROSE = (0xBD, 0xEB, 0xD3), (0xCF, 0xC4, 0xF2), (0xBF, 0xE3, 0xF5), (0xFF, 0xD9, 0xB8), (0xFF, 0xC2, 0xC7)
 GRID = [MINT, LAV, SKY,
         PEACH, MINT, LAV,
@@ -28,7 +28,7 @@ def pixels(n: int) -> list[list[tuple[int, int, int, int]]]:
     cell = (n - 2 * pad - 2 * gap) / 3
     radius = cell * 0.24
     img = [[(0, 0, 0, 0)] * n for _ in range(n)]
-    ss = 4                                                    # 4×4 muestras por píxel: bordes suaves
+    ss = 4                                                    # 4×4 samples per pixel: smooth edges
     for py in range(n):
         for px in range(n):
             hits: dict[int, int] = {}

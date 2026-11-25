@@ -1,14 +1,14 @@
-# PyInstaller: modo carpeta (onedir), sin UPX y con datos de versión.
-# El modo de un solo archivo y UPX hacen que los antivirus marquen más falsos positivos (ver SPEC).
-# No usar directamente: lo llama packaging/build.py, que primero genera version_info.txt.
+# PyInstaller: folder mode (onedir), no UPX and with version info.
+# Single-file mode and UPX make antivirus tools flag more false positives (see SPEC).
+# Don't use it directly: packaging/build.py calls it, after generating version_info.txt.
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files
 
 ROOT = Path(SPECPATH).parent
-# Módulos que PyInstaller arrastra y la app no usa (revisado contra las importaciones reales). NO agregar
-# cffi ni pycparser: los usa clr_loader, sin eso la ventana no abre (hay test). Tampoco sacar las DLL de
-# win-arm64 y win-x86 de pywebview: las busca al arrancar aunque el .exe sea de 64 bits (comprobado).
+# Modules PyInstaller drags in that the app doesn't use (checked against the real imports). Do NOT add
+# cffi or pycparser: clr_loader uses them, and without them the window won't open (there is a test). Don't remove
+# pywebview's win-arm64 and win-x86 DLLs either: it looks for them at startup even in a 64-bit .exe (seen).
 UNUSED = ["tkinter", "pytest", "playwright", "PyInstaller", "setuptools", "pkg_resources", "pip", "wheel", "packaging",
           "jinja2", "markupsafe", "pydoc", "pydoc_data", "_pyrepl", "pdb", "doctest", "unittest", "test"]
 PKG = ROOT / "packaging"
@@ -20,9 +20,9 @@ a = Analysis(
           + collect_data_files("ytmusicapi"),
     hiddenimports=["app.connectors.tidal", "app.connectors.ytmusic"],
     excludes=UNUSED,
-    optimize=2,                 # sin docstrings ni asserts: el código de la biblioteca ocupa menos
-    # tidalapi es LGPL-3.0: va como archivos .py sueltos (no dentro del ejecutable) para que
-    # cualquiera pueda reemplazarlo por otra versión, como pide esa licencia.
+    optimize=2,                 # no docstrings or asserts: the library code takes less space
+    # tidalapi is LGPL-3.0: it ships as loose .py files (not inside the executable) so that
+    # anyone can replace it with another version, as that license requires.
     module_collection_mode={"tidalapi": "py"},
     noarchive=False,
 )

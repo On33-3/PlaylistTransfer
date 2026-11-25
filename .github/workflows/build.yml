@@ -1,13 +1,13 @@
-# Tests en cada push y PR. Con un tag vX.Y.Z: compila el .exe en una Windows limpia, prueba que
-# abra y lo publica en Releases (zip + SHA-256). Sin acciones de terceros: solo las de GitHub y gh.
+# Tests on every push and PR. With a vX.Y.Z tag: builds the .exe on a clean Windows, checks that it
+# opens and publishes it in Releases (zip + SHA-256). No third-party actions: only GitHub's and gh.
 name: Test, build and release
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]          # (los filtros de paths no se aplican a los tags: una versión siempre se arma)
-    # Notas internas del proyecto: no cambian la app ni lo que prueban los tests (el README sí: tiene tests).
-    # Cada corrida son ~6 minutos de la cuota mensual (Windows cuenta doble)
+    tags: ["v*"]          # (path filters don't apply to tags: a release is always built)
+    # Internal project notes: they change neither the app nor what the tests check (the README does: it has tests).
+    # Each run is ~6 minutes of the monthly quota (Windows counts double)
     paths-ignore: ["CLAUDE.md", "SPEC.md", "docs/*.md"]
   pull_request:
     paths-ignore: ["CLAUDE.md", "SPEC.md", "docs/*.md"]
