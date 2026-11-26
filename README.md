@@ -37,7 +37,7 @@ Spotify is optional and requires two things (Spotify has required them since 202
 1. **Spotify Premium.**
 2. **Your own Spotify app**, free: in **Connections › Spotify › Set up** the app guides you step by step, with a button for each page and for copying each value you need to paste. Only you and up to 5 people you add can use it.
 
-> **Still being tested:** the Spotify connection is tested against a simulation of its API, but nobody has tried it with a real Premium account yet. If you do, let us know how it went (and whether any button name in the steps doesn't match what you see on Spotify).
+> **Tested with a real Premium account:** transferring, removing duplicates and Liked songs, checked again with a real account before each release. Spotify changes its developer dashboard from time to time: if a button name in the setup steps doesn't match what you see, let us know.
 
 Details: Spotify only lets apps read your own and collaborative playlists, and asks you to reconnect every 6 months. To remove an exact duplicate, Spotify removes every copy, so the app puts the remaining one back in its place (it shows up as added again) and checks it. Between Tidal and Spotify matches are usually exact (both use each recording's ISRC code).
 
