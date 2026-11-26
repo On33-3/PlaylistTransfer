@@ -13,8 +13,6 @@ Una app de escritorio para Windows que **pasa tus playlists entre Tidal, YouTube
 3. Abrí `PlaylistTransfer.exe`. No hace falta instalar Python.
 
 > **Windows protegió su PC:** aparece porque el programa todavía no está firmado digitalmente. Tocá **Más información → Ejecutar de todas formas**. Si querés verificar el archivo, cada release trae su código SHA-256.
->
-> Se pidió la firma gratuita a la [SignPath Foundation](https://signpath.org/): cuando la aprueben, las versiones van a salir firmadas con su certificado (ver [Política de firma de código](#política-de-firma-de-código)).
 
 Funciona en Windows 10 y 11.
 
@@ -83,15 +81,6 @@ py tools/real_check.py          # antes de publicar: la UI real con tus cuentas 
 - [`SPEC.md`](SPEC.md): el plan, las fases y por qué se decidió cada cosa.
 - Los comentarios y docstrings del código están en inglés; `docs/`, `SPEC.md` y `CLAUDE.md`, en castellano.
 - Publicar una versión: subí el número en `app/__init__.py` y creá el tag `vX.Y.Z`. GitHub Actions corre los tests, compila el `.exe`, prueba que abra y lo publica en Releases.
-
-## Política de firma de código
-
-Firma de código gratuita de [SignPath.io](https://about.signpath.io/), con certificado de [SignPath Foundation](https://signpath.org/) (pedido en revisión: hasta que lo aprueben, las versiones no salen firmadas).
-
-- Solo se firma el programa armado desde este repositorio, por GitHub Actions, a partir de una versión etiquetada. Nada armado en otro lado ni ningún programa de terceros se firma como si fuera PlaylistTransfer.
-- Commits y revisión: [Emmanuel Gaitan (On33-3)](https://github.com/On33-3).
-- Aprobación: [Emmanuel Gaitan (On33-3)](https://github.com/On33-3). Cada pedido de firma se aprueba a mano.
-- Privacidad: ver [Privacidad](#privacidad). El programa no envía información a otros sistemas salvo que se lo pidas, y en ese caso solo a los servicios de música en los que iniciás sesión.
 
 ## Licencia
 
