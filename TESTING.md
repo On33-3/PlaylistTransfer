@@ -108,6 +108,7 @@ When a change should only touch comments (translating them into English was one:
 | A malformed removal request crashed the API, and an index of `-1` picked the last duplicate | Negative-case review | `test_removing_with_a_malformed_request_answers_an_error_and_never_crashes` |
 | A half-broken saved-search file stopped a transfer | Negative-case review | `test_a_half_broken_progress_file_does_not_stop_a_transfer` |
 | Other cases from the same review: results left on screen after erasing everything or after disconnecting a service, and the same check sent twice in one request | Negative-case review | `tests/test_edge_cases.py` |
+| The 75 tests that use the browser were skipped on CI without anyone noticing: Playwright wasn't installed there, while this document said every test ran on every push | Reading the CI log while writing up the project | `requirements-dev.txt` installs Playwright, and on CI a missing browser now fails the run instead of skipping (`browser` fixture in `tests/conftest.py`) |
 | Startup failed now and then: the page waited for every service before saying it was ready | Repeated startup runs | The page is ready first; a slow service is written to the log |
 
 One bug the tests could not have caught: after an update, the window (WebView2) reused a cached copy of the old page with the new scripts. The tests open the page as a file, without that cache. The user found it. Now the cache is cleared before the window opens, and `test_the_window_never_reuses_old_copies_of_the_ui` guards it.

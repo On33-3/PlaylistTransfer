@@ -1,6 +1,7 @@
 """The user's real data (from the reports and the "Remove duplicates" video) and utilities."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -99,12 +100,18 @@ def spanish_by_default():
 
 @pytest.fixture(scope="module")
 def browser():
-    """Headless Edge (the same engine as WebView2), for the UI tests. If it isn't there, they're skipped."""
-    sync_api = pytest.importorskip("playwright.sync_api")
+    """Headless Edge (the same engine as WebView2), for the UI tests. If it isn't there, they're skipped on a
+    PC, but on CI (GitHub Actions sets CI) they fail: 75 tests once went unrun there without anyone noticing."""
+    def missing(why: str):
+        (pytest.fail if os.environ.get("CI") else pytest.skip)(why)
+    try:
+        from playwright import sync_api
+    except ImportError:
+        missing("Playwright is not installed (requirements-dev.txt)")
     with sync_api.sync_playwright() as pw:
         try:
             b = pw.chromium.launch(channel="msedge", headless=True)
         except Exception as e:
-            pytest.skip(f"No pude abrir Edge: {e}")
+            missing(f"Could not open Edge: {e}")
         yield b
         b.close()

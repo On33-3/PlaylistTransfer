@@ -1,3 +1,5 @@
 -r requirements.txt
 pytest>=8
 pyflakes==4.1.0
+# The UI tests drive the Edge that Windows already has (channel="msedge"): no browser download
+playwright==1.64.1
