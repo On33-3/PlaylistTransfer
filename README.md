@@ -13,6 +13,8 @@ A Windows desktop app that **moves your playlists between Tidal, YouTube Music a
 3. Open `PlaylistTransfer.exe`. You don't need to install Python.
 
 > **Windows protected your PC:** this shows up because the program isn't digitally signed yet. Click **More info → Run anyway**. If you want to verify the file, every release includes its SHA-256 checksum.
+>
+> Free code signing has been requested from the [SignPath Foundation](https://signpath.org/): once approved, releases will be signed with their certificate (see [Code signing policy](#code-signing-policy)).
 
 Works on Windows 10 and 11.
 
@@ -56,6 +58,7 @@ The app is available in **English and Spanish** (Settings › Language). The fir
 
 - You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, use **Settings › Erase everything**: the app goes back to how it was the first time, and your playlists are not touched.
 - The app has no servers and no analytics: it only talks to Tidal, YouTube Music and Spotify.
+- This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: it only connects to the music services you sign in to.
 - It uses **unofficial** libraries ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, it may stop working until they're updated. Spotify uses its official API, with the app you create.
 
 Not affiliated with Tidal, Google or Spotify.
@@ -80,6 +83,15 @@ py tools/real_check.py          # before a release: the real UI with your accoun
 - [`SPEC.md`](SPEC.md): the plan, the phases and why each decision was made (in Spanish).
 - Code comments and docstrings are in English; the docs in `docs/`, `SPEC.md` and `CLAUDE.md` are in Spanish.
 - Releasing a version: bump the number in `app/__init__.py` and `pyproject.toml` and push the tag `vX.Y.Z`. GitHub Actions runs the tests, builds the `.exe`, checks that it opens and publishes it in Releases.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/) (application in review: until it is approved, releases are not signed).
+
+- Only the program built from this repository is signed, by GitHub Actions, from a tagged release. Nothing built elsewhere and no third-party program is signed as if it were PlaylistTransfer.
+- Committers and reviewers: [Emmanuel Gaitan (On33-3)](https://github.com/On33-3).
+- Approvers: [Emmanuel Gaitan (On33-3)](https://github.com/On33-3). Each signing request is approved by hand.
+- Privacy: see [Privacy](#privacy). The program does not send any information to other systems unless you ask it to, and then only to the music services you sign in to.
 
 ## License
 
