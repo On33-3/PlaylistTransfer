@@ -93,3 +93,13 @@ def test_the_window_never_reuses_old_copies_of_the_ui(tmp_path):
     assert not (default / "Cache").exists() and not (default / "Code Cache").exists()
     assert (default / "Local Storage" / "f").exists()          # the rest of the window's data stays
     forget_page_cache(tmp_path / "no-existe")                   # the first time there's nothing: it doesn't fail
+
+
+@pytest.mark.parametrize("ok, missing, code", [(True, [], 0), (False, [], 1), (True, ["tidalapi"], 1)])
+def test_the_smoke_test_ends_with_its_result_without_closing_the_window(monkeypatch, ok, missing, code):
+    """Closing the window from the test's thread crashed the .exe now and then on CI after "UI ready"."""
+    ended = []
+    monkeypatch.setattr(main.logging, "shutdown", lambda: None)
+    monkeypatch.setattr(main.os, "_exit", lambda c: ended.append(c))
+    main.end_smoke(ok, missing)
+    assert ended == [code]

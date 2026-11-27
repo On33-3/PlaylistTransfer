@@ -88,6 +88,16 @@ def missing_modules() -> list[str]:
     return missing
 
 
+def end_smoke(ok: bool, missing: list[str]) -> None:
+    """The automated startup test is over: the result comes out as the exit code (the .exe has no console).
+    It ends the process right here: closing the window from this thread raced, now and then, with the window's
+    own thread (.NET's InvalidAsynchronousStateException, and the process crashed after "UI ready" on CI)."""
+    print("UI ready" if ok else "The UI never said it was ready", flush=True)
+    logging.getLogger(__name__).info("Startup test: %s", "UI ready" if ok else "the UI didn't load")
+    logging.shutdown()
+    os._exit(0 if ok and not missing else 1)
+
+
 def main() -> None:
     setup_logging()
     try:
@@ -119,16 +129,10 @@ def run() -> None:
     ready = threading.Event()
     api._on_ready = ready.set                    # the UI calls api.ui_ready() when it finishes loading
 
-    failed = {"modules": []}
-
     def on_start():
-        if not smoke:
-            return
-        failed["modules"] = missing_modules()
-        ok = ready.wait(30)
-        print("UI ready" if ok else "The UI never said it was ready", flush=True)
-        logging.getLogger(__name__).info("Startup test: %s", "UI ready" if ok else "the UI didn't load")
-        window.destroy()
+        if smoke:
+            missing = missing_modules()
+            end_smoke(ready.wait(30), missing)
 
     forget_page_cache(paths.data_dir() / "webview")
     webview.start(on_start, debug=os.environ.get("PT_DEBUG") == "1", private_mode=False,
@@ -137,8 +141,6 @@ def run() -> None:
         from app.storage.wipe import wipe
         logging.shutdown()
         wipe(paths.data_dir())
-    if smoke:   # the .exe has no console: the result comes out as the exit code
-        sys.exit(0 if ready.is_set() and not failed["modules"] else 1)
 
 
 if __name__ == "__main__":
