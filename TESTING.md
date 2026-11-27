@@ -109,6 +109,9 @@ When a change should only touch comments (translating them into English was one:
 | A half-broken saved-search file stopped a transfer | Negative-case review | `test_a_half_broken_progress_file_does_not_stop_a_transfer` |
 | Other cases from the same review: results left on screen after erasing everything or after disconnecting a service, and the same check sent twice in one request | Negative-case review | `tests/test_edge_cases.py` |
 | The 75 tests that use the browser were skipped on CI without anyone noticing: Playwright wasn't installed there, while this document said every test ran on every push | Reading the CI log while writing up the project | `requirements-dev.txt` installs Playwright, and on CI a missing browser now fails the run instead of skipping (`browser` fixture in `tests/conftest.py`) |
+| A tester's YouTube Music library had a mix that YouTube makes (an `RD…` playlist): ytmusicapi can't read it like a playlist, and that unexpected error stopped the whole "every playlist" duplicates check, losing the 190 duplicates already found | A tester (screenshot), then reproduced with the same playlist id | `test_an_unexpected_error_in_one_playlist_does_not_lose_the_whole_check` and the connector tests for mixes |
+| Unzipped with Windows Explorer, every file carries the mark of the web and .NET refused to load the window's assemblies: the app never opened | Investigating the same tester's report, by marking every file of the release | CI marks every file as downloaded and opens the `.exe`, with a control that must fail without `PlaylistTransfer.exe.config` |
+| The startup test crashed now and then on CI after "UI ready": closing the window from the test's thread raced with the window's own thread | CI | `test_the_smoke_test_ends_with_its_result_without_closing_the_window` |
 | Startup failed now and then: the page waited for every service before saying it was ready | Repeated startup runs | The page is ready first; a slow service is written to the log |
 
 One bug the tests could not have caught: after an update, the window (WebView2) reused a cached copy of the old page with the new scripts. The tests open the page as a file, without that cache. The user found it. Now the cache is cleared before the window opens, and `test_the_window_never_reuses_old_copies_of_the_ui` guards it.
@@ -117,7 +120,8 @@ One bug the tests could not have caught: after an update, the window (WebView2) 
 
 - The real-account check is run by hand before each release, not on a schedule.
 - Tidal and YouTube Music work through unofficial libraries. A change on their side can break them; `real_check` detects it, but nothing can prevent it.
-- The `.exe` is not signed yet.
+- The `.exe` is not signed yet, so Windows' Smart App Control blocks it, and only a signature fixes that (see the README's *Windows warnings*). It can't be reproduced on the author's PC: it runs a Windows Insider build where Smart App Control didn't block the app.
+- The real-account check uses the author's accounts, so it only covers what they have: a YouTube mix saved to the library was found by a tester, not by `real_check`.
 
 ## How AI was used
 

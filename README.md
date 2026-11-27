@@ -12,9 +12,24 @@ A Windows desktop app that **moves your playlists between Tidal, YouTube Music a
 2. Unzip it anywhere (for example, in Documents).
 3. Open `PlaylistTransfer.exe`. You don't need to install Python.
 
-> **Windows protected your PC:** this shows up because the program isn't digitally signed yet. Click **More info → Run anyway**. If you want to verify the file, every release includes its SHA-256 checksum.
+> **Windows may warn you or block the app the first time**, because it isn't digitally signed yet. [Windows warnings](#windows-warnings) explains each one and what you can do.
 
 Works on Windows 10 and 11.
+
+## Windows warnings
+
+PlaylistTransfer isn't digitally signed yet, so Windows may stop it the first time you open it:
+
+- **"Windows protected your PC"** (SmartScreen): click **More info → Run anyway**.
+- **"Smart App Control blocked an app"**: Windows 11's Smart App Control only lets a program run if Microsoft already knows it or if it's signed, and there's no way to allow a single program. If it's on, PlaylistTransfer won't open. You can wait for a signed version, or turn it off yourself in **Windows Security › App & browser control › Smart App Control** (an up-to-date Windows 11 lets you turn it back on later). It's your call: we don't ask you to lower your computer's protection for this app.
+
+**Why it isn't signed.** A code signing certificate is paid every year, and this is a free project. The free options aren't open to it yet: the [SignPath Foundation](https://signpath.org/), which signs open source projects for free, asks for more public visibility first, and Microsoft's own signing service only accepts individuals in the United States and Canada. Signing will be requested again as the project grows (stars and mentions help).
+
+**What you can check meanwhile:**
+
+- Every release lists the zip's SHA-256. In PowerShell, `Get-FileHash PlaylistTransfer-<version>-windows.zip` has to show the same code.
+- Every zip is built by GitHub Actions from this repository's code, and the log of every build is public in [Actions](../../actions).
+- You can scan the zip yourself on [VirusTotal](https://www.virustotal.com/).
 
 ## What it does
 
@@ -57,9 +72,20 @@ The app is available in **English and Spanish** (Settings › Language). The fir
 - You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, use **Settings › Erase everything**: the app goes back to how it was the first time, and your playlists are not touched.
 - The app has no servers and no analytics: it only talks to Tidal, YouTube Music and Spotify.
 - This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: it only connects to the music services you sign in to.
-- It uses **unofficial** libraries ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, it may stop working until they're updated. Spotify uses its official API, with the app you create.
 
 Not affiliated with Tidal, Google or Spotify.
+
+## Known limitations
+
+Knowing what doesn't work yet matters as much as knowing what does:
+
+- **It isn't signed yet**: Windows may warn or block it (see [Windows warnings](#windows-warnings)).
+- **Tidal and YouTube Music work through unofficial libraries** ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, the app may stop working until they're updated. Before each release it's checked with real accounts on the three services ([TESTING.md](TESTING.md)). Spotify uses its official API, with the app you create.
+- **YouTube's automatic mixes** saved to your library can't be read like a playlist: Remove duplicates lists them as not read and checks the rest.
+- **Spotify** needs Premium and your own developer app (up to 5 people per app). Its request limit can pause a large transfer, sometimes for hours: the app tells you until when, and picks up where it stopped.
+- **Windows only** (10 and 11).
+
+Found something else? [Open an issue](../../issues).
 
 ## Development
 

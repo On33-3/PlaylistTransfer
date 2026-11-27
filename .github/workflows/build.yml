@@ -121,7 +121,7 @@ jobs:
           {
             echo "Download **PlaylistTransfer-${GITHUB_REF_NAME#v}-windows.zip**, unzip it and open \`PlaylistTransfer.exe\`. You don't need to install Python."
             echo
-            echo "Windows may show *Windows protected your PC* because the program isn't signed yet: click **More info → Run anyway**."
+            echo "The program isn't digitally signed yet, so Windows may warn you or block it the first time: [Windows warnings]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY#windows-warnings) explains each one, why, and how to check this download."
             echo
             echo "*En castellano: [README.es.md]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.es.md).*"
             echo

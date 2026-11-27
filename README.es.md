@@ -12,9 +12,24 @@ Una app de escritorio para Windows que **pasa tus playlists entre Tidal, YouTube
 2. Descomprimilo donde quieras (por ejemplo, en Documentos).
 3. Abrí `PlaylistTransfer.exe`. No hace falta instalar Python.
 
-> **Windows protegió su PC:** aparece porque el programa todavía no está firmado digitalmente. Tocá **Más información → Ejecutar de todas formas**. Si querés verificar el archivo, cada release trae su código SHA-256.
+> **Windows puede avisarte o bloquear la app la primera vez**, porque todavía no está firmada digitalmente. En [Avisos de Windows](#avisos-de-windows) está qué significa cada uno y qué podés hacer.
 
 Funciona en Windows 10 y 11.
+
+## Avisos de Windows
+
+PlaylistTransfer todavía no está firmada digitalmente, así que Windows puede frenarla la primera vez que la abrís:
+
+- **«Windows protegió su PC»** (SmartScreen): tocá **Más información → Ejecutar de todas formas**.
+- **«El Control inteligente de aplicaciones bloqueó una aplicación»** (*Smart App Control*): en Windows 11 solo deja abrir un programa si Microsoft ya lo conoce o si está firmado, y no hay forma de autorizar un programa solo. Si lo tenés encendido, PlaylistTransfer no abre. Podés esperar una versión firmada, o apagarlo vos en **Seguridad de Windows › Control de aplicaciones y navegador › Control inteligente de aplicaciones** (un Windows 11 actualizado deja volver a encenderlo después). Es tu decisión: no te pedimos que bajes la protección de tu compu por esta app.
+
+**Por qué no está firmada.** Un certificado de firma se paga todos los años, y este es un proyecto gratis. Las opciones gratuitas todavía no están disponibles para él: la [SignPath Foundation](https://signpath.org/), que firma gratis proyectos de código abierto, pide antes más visibilidad pública, y el servicio de firma de Microsoft solo acepta personas de Estados Unidos y Canadá. La firma se va a volver a pedir a medida que el proyecto crezca (las estrellas y las menciones ayudan).
+
+**Lo que podés comprobar mientras tanto:**
+
+- Cada versión trae el código SHA-256 del zip. En PowerShell, `Get-FileHash PlaylistTransfer-<versión>-windows.zip` tiene que mostrar el mismo código.
+- Cada zip lo arma GitHub Actions a partir del código de este repositorio, y el registro de cada armado es público en [Actions](../../actions).
+- Podés analizar el zip vos en [VirusTotal](https://www.virustotal.com/).
 
 ## Qué hace
 
@@ -57,9 +72,20 @@ La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez us
 - Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, usá **Ajustes › Borrar todo**: la app queda como la primera vez, y tus playlists no se tocan.
 - La app no tiene servidores ni estadísticas: solo habla con Tidal, YouTube Music y Spotify.
 - El programa no envía información a otros sistemas salvo que lo pida quien lo usa: solo se conecta con los servicios de música en los que iniciás sesión.
-- Usa librerías **no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, puede dejar de andar hasta que se actualicen. Spotify usa su API oficial, con la app que creás vos.
 
 No está afiliado a Tidal, Google ni Spotify.
+
+## Limitaciones conocidas
+
+Saber qué no anda todavía importa tanto como saber qué anda:
+
+- **Todavía no está firmada**: Windows puede avisar o bloquearla (ver [Avisos de Windows](#avisos-de-windows)).
+- **Tidal y YouTube Music funcionan con librerías no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, la app puede dejar de andar hasta que se actualicen. Antes de cada versión se prueba con cuentas reales en los tres servicios ([TESTING.md](TESTING.md), en inglés). Spotify usa su API oficial, con la app que creás vos.
+- **Los mixes automáticos de YouTube** guardados en tu biblioteca no se pueden leer como una playlist: Quitar repetidos los muestra como no leídos y revisa el resto.
+- **Spotify** pide Premium y tu propia app de desarrollador (hasta 5 personas por app). Su límite de pedidos puede pausar una transferencia grande, a veces por horas: la app te dice hasta qué hora y sigue desde donde quedó.
+- **Solo Windows** (10 y 11).
+
+¿Encontraste algo más? [Abrí un issue](../../issues).
 
 ## Para desarrollar
 
