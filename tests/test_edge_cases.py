@@ -121,6 +121,55 @@ def test_a_playlist_named_like_html_is_shown_as_text(browser, tmp_path):
     assert errors == []
 
 
+def evil(where: str) -> str:
+    """HTML that, if it were ever run instead of shown, would note where it came from."""
+    return f'<img src=x onerror="window.hacked=(window.hacked||[]).concat(\'{where}\')">'
+
+
+def test_nothing_a_service_returns_is_ever_run_as_code(browser, tmp_path):
+    """Hardening (2026-11-27): the window can remove songs, so text from a service (a song, an artist, an
+    album, a playlist, an error) must never become code. Every field carries HTML through every screen:
+    Transfer (with its review), History with its detail, Remove duplicates with the confirmation, and an error."""
+    from app.connectors.base import ConnectorError
+    api, tidal, yt = make_api(tmp_path)
+    songs = [S(evil("title"), evil("artist"), dur=200, id="x1", album=evil("album")),
+             S("Take On Me", "a-ha", dur=225, id="x2")]
+    tidal.add_playlist("bad", evil("source playlist"), songs)
+    yt.add_playlist("bad-dst", evil("target playlist"), [])
+    yt.catalog += [S(evil("found title"), evil("found artist"), dur=200, id="xf", album=evil("found album"))]
+    yt.add_playlist("bad-dups", evil("dedupe playlist"), [S(evil("dup"), "X", id="d1"), S(evil("dup"), "X", id="d2")])
+    page, errors = open_page(browser, api)
+
+    page.click("nav [data-go=transferir]")
+    page.check("input[name=src][value=bad]")
+    page.check("input[name=dst][value=bad-dst]")
+    page.click("#go")
+    page.wait_for_selector("#done.show")
+    page.click("nav [data-go=historial]")
+    page.wait_for_selector("#hist li[data-op]")
+    for row in page.locator("#hist li[data-op] .row").all():
+        row.click()
+    page.wait_for_timeout(300)
+    to_dedupe(page, "bad-dups")
+    page.select_option("#dup-playlist", "bad-dups")
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group")
+    page.click("#remove")
+    page.wait_for_selector("#confirm[open]")
+    page.keyboard.press("Escape")
+
+    def fail(pid):
+        raise ConnectorError(evil("error message"))
+    yt.read = fail
+    page.select_option("#dup-playlist", "bad-dups")
+    page.click("#dup-scan")
+    page.wait_for_selector("#dup-summary .error")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.hacked") is None
+    assert "error message" in page.inner_text("#dup-summary")         # shown as text
+    assert errors == []
+
+
 def test_a_very_long_playlist_name_fits_in_the_smallest_window(browser, tmp_path):
     from tests.test_ui_dedupe import ALIGN
     api, tidal, yt = make_api(tmp_path)
