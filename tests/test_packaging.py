@@ -131,3 +131,15 @@ def test_the_build_stops_if_the_package_grows(tmp_path):
     big.write_bytes(b"0" * (int(build.MAX_ZIP_MB * 1e6) + 1))
     with pytest.raises(SystemExit, match="tope"):
         build.check_size(big)
+
+
+def test_dotnet_trusts_the_app_files_even_marked_as_downloaded():
+    """Unzipped with Windows Explorer, every file carries the mark of the web and .NET refused to load the
+    window's assemblies: the app never opened. PlaylistTransfer.exe.config, next to the .exe, lets it. CI proves
+    it for real on the packaged .exe (with a control without the file); this test keeps the pieces in place."""
+    config = (ROOT / "packaging" / "PlaylistTransfer.exe.config").read_text(encoding="utf-8")
+    assert '<loadFromRemoteSources enabled="true"/>' in config
+    build = (ROOT / "packaging" / "build.py").read_text(encoding="utf-8")
+    assert 'app_dir / "PlaylistTransfer.exe.config"' in build
+    workflow = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
+    assert "Marked as downloaded from the internet, the .exe still opens" in workflow

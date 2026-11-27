@@ -65,6 +65,34 @@ jobs:
           if ($p.ExitCode -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "The .exe did not load the UI (exit code $($p.ExitCode))" }
           "The .exe opened and loaded the UI"
 
+      # Downloaded with a browser and unzipped with Windows Explorer, every file carries the mark of the web, and
+      # .NET refuses marked assemblies unless PlaylistTransfer.exe.config says otherwise. The control proves this
+      # runner reproduces it: without that file, the marked .exe must fail. (The zip is already made: not affected.)
+      - name: Marked as downloaded from the internet, the .exe still opens
+        shell: pwsh
+        run: |
+          $dir = "dist\PlaylistTransfer"
+          function Open-Smoke {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo (Resolve-Path "$dir\PlaylistTransfer.exe")
+            $psi.UseShellExecute = $false
+            $psi.EnvironmentVariables["PATH"] = ($env:PATH -split ";" | Where-Object { $_ -notmatch "Python|hostedtoolcache" }) -join ";"
+            $psi.EnvironmentVariables["PT_SMOKE"] = "1"
+            $p = [System.Diagnostics.Process]::Start($psi)
+            if (-not $p.WaitForExit(120000)) { $p.Kill(); return -1 }
+            return $p.ExitCode
+          }
+          $files = Get-ChildItem $dir -Recurse -File
+          $files | ForEach-Object { Set-Content -Path $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`n" }
+          "Marked $($files.Count) files as downloaded from the internet"
+          Move-Item "$dir\PlaylistTransfer.exe.config" "$env:RUNNER_TEMP\PlaylistTransfer.exe.config"
+          $control = Open-Smoke
+          Move-Item "$env:RUNNER_TEMP\PlaylistTransfer.exe.config" "$dir\PlaylistTransfer.exe.config"
+          if ($control -eq 0) { throw "Control: without the .exe.config the marked .exe opened anyway, so this check proves nothing" }
+          "Control: without the .exe.config it did not open (exit code $control), as expected"
+          $code = Open-Smoke
+          if ($code -ne 0) { Get-Content "$env:LOCALAPPDATA\PlaylistTransfer\app.log" -Tail 30; throw "Marked as downloaded, the .exe did not load the UI (exit code $code)" }
+          "Marked as downloaded, the .exe opened and loaded the UI"
+
       - uses: actions/upload-artifact@v7
         with:
           name: PlaylistTransfer-windows

@@ -186,6 +186,8 @@ def main() -> Path:
 
     app_dir = DIST / "PlaylistTransfer"
     shutil.copy(ROOT / "LICENSE", app_dir / "LICENSE.txt")
+    # Without it the window doesn't open when the zip was unzipped with Windows Explorer (see the file)
+    shutil.copy(PKG / "PlaylistTransfer.exe.config", app_dir / "PlaylistTransfer.exe.config")
     third_party_notices(app_dir / "THIRD-PARTY-NOTICES.txt")
     # ASCII name: with accents, some unzip tools show it garbled ("L+ëEME.txt")
     (app_dir / "LEEME.txt").write_text(README_USER.format(version=__version__), encoding="utf-8-sig")
