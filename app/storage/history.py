@@ -125,17 +125,20 @@ class History:
         if con is None or not operation_ids:
             return {}
         marks = ", ".join("?" for _ in operation_ids)
+        # Only the first `limit` of each one come out of the database (with a long history, reading every
+        # song to show 60 of each took hundreds of MB: tools/load_check.py --memory)
         with con:
-            rows = con.execute(f"SELECT operation_id, status, title, artist FROM operation_tracks "
-                               f"WHERE operation_id IN ({marks}) ORDER BY operation_id, n", list(operation_ids)).fetchall()
+            rows = con.execute(f"SELECT operation_id, status, title, artist, total FROM ("
+                               f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY operation_id ORDER BY n) AS k,"
+                               f"         COUNT(*) OVER (PARTITION BY operation_id) AS total"
+                               f"  FROM operation_tracks WHERE operation_id IN ({marks}))"
+                               f" WHERE k <= ? ORDER BY operation_id, k", [*operation_ids, limit]).fetchall()
         con.close()
         out: dict[int, dict] = {}
         for r in rows:
-            d = out.setdefault(r["operation_id"], {"statuses": [], "songs": [], "total": 0})
-            d["total"] += 1
-            if len(d["statuses"]) < limit:
-                d["statuses"].append(r["status"])
-                d["songs"].append((r["title"], r["artist"]))
+            d = out.setdefault(r["operation_id"], {"statuses": [], "songs": [], "total": r["total"]})
+            d["statuses"].append(r["status"])
+            d["songs"].append((r["title"], r["artist"]))
         return out
 
     def tracks(self, operation_id: int) -> list[TrackRecord]:
