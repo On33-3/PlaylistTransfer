@@ -15,6 +15,13 @@ from app.storage.history import Operation, TrackRecord
 
 log = logging.getLogger(__name__)
 ALL = "__all__"      # the UI asks to check every playlist of the service
+# Right after removing, a service can still answer with the old list for a moment (seen with YouTube Music on
+# 2026-11-27: the duplicates showed up again although they were gone). Seconds to wait before each new look.
+SETTLE_WAITS = (2, 4, 8)
+
+
+def _same_songs(now: list, before: list) -> bool:
+    return len(now) == len(before) and all((a.id, a.set_id) == (b.id, b.set_id) for a, b in zip(now, before))
 
 
 def _longer(d: Duplicate) -> int | None:
@@ -71,8 +78,9 @@ class DuplicatesApi(ApiBase):
                     "clean": clean, "failed": failed}
         return self._start("scan", work)
 
-    def _scan_one(self, c: Connector, key: str, playlist_id: str, batch: dict) -> dict:
-        name, songs = c.read(playlist_id)
+    def _scan_one(self, c: Connector, key: str, playlist_id: str, batch: dict,
+                  read: tuple[str, list] | None = None) -> dict:
+        name, songs = read or c.read(playlist_id)
         dups = find_duplicates(songs)
         # A check of several playlists is kept whole (one group), with one number per playlist
         scan_id = f"part-{next(self._ids)}"
@@ -132,9 +140,7 @@ class DuplicatesApi(ApiBase):
                 emit({"type": "removing", "k": k, "of": len(plan), "name": scan["name"]})
                 name, now = c.read(scan["playlist_id"])
                 before = scan["songs"]
-                unchanged = len(now) == len(before) and all(
-                    (a.id, a.set_id) == (b.id, b.set_id) for a, b in zip(now, before))
-                if not unchanged:
+                if not _same_songs(now, before):
                     if removed:            # the earlier ones are already done: it says what was and what wasn't
                         raise ConnectorError(tr("err.partial_dedupe", done=", ".join(names), name=name))
                     raise ConnectorError(tr("err.playlist_changed"))
@@ -146,6 +152,12 @@ class DuplicatesApi(ApiBase):
                      for n, d in enumerate(chosen, 1)])
                 removed += len(chosen)
                 names.append(name)
-                groups.append(self._scan_one(c, scan["key"], scan["playlist_id"], batch))   # how it ended up
+                after = c.read(scan["playlist_id"])                       # how it ended up
+                for seconds in SETTLE_WAITS:
+                    if not _same_songs(after[1], before):
+                        break
+                    c.pause(seconds, "update")                        # still the old answer: says so and looks again
+                    after = c.read(scan["playlist_id"])
+                groups.append(self._scan_one(c, scan["key"], scan["playlist_id"], batch, after))
             return {"removed": removed, "name": names[0], "names": names, "groups": groups}
         return self._start("remove", work)

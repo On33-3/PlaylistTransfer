@@ -206,6 +206,30 @@ def test_remove_only_the_selected_ones_and_record_it(app):
     assert (t["title"], t["status"], t["match_title"]) == ("Virtual Insanity (Official Video)", "quitado", "Virtual Insanity")
 
 
+@pytest.mark.parametrize("stale_reads, waits", [(1, 1), (99, 3)])
+def test_right_after_removing_an_old_answer_is_not_shown_as_the_result(app, monkeypatch, stale_reads, waits):
+    """Seen with YouTube Music (2026-11-27, real_check): the duplicates were gone, but the next read still
+    answered with the old list and the screen showed them again. While it reads as before, it waits (saying
+    so) and reads again; a few times at most, and then it shows what the service says."""
+    api, tidal, yt = app
+    res = scan(api)
+    before = list(yt.songs("dups"))
+    real_read, reads = yt.read, iter(range(10**6))
+
+    def read(pid):
+        name, songs = real_read(pid)
+        removed = any(c[0] == "remove" for c in yt.calls)
+        return (name, before) if removed and next(reads) < stale_reads else (name, songs)
+    monkeypatch.setattr(yt, "read", read)
+    pauses = []
+    monkeypatch.setattr(yt, "pause", lambda seconds, why="rate": pauses.append(why))
+    r = wait(api, api.remove_duplicates(res["scan"], [0], True)["job"])
+    assert r["state"] == "done" and r["result"]["removed"] == 1
+    assert pauses == ["update"] * waits
+    [group] = r["result"]["groups"]
+    assert group["total"] == (3 if stale_reads == 1 else 4)    # the service never caught up: what it says
+
+
 def test_remove_refuses_if_the_playlist_changed(app):
     api, tidal, yt = app
     res = scan(api)

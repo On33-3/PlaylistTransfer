@@ -145,6 +145,9 @@ def test_a_pause_shows_a_countdown(browser, tmp_path):
     assert page.inner_text("#eta") == "YouTube Music no contestó bien: pruebo de nuevo en 5 s."
     page.evaluate("onTransferEvent(state.transfer, { type: 'waited' })")
     assert page.is_hidden("#eta") and errors == []
+    # Right after removing duplicates, while the service still answers with the old list (a toast)
+    page.evaluate("toastWaits({ type: 'waiting', service: 'YouTube Music', why: 'update', seconds: 4 })")
+    assert page.inner_text("#toast") == "YouTube Music todavía muestra la playlist como antes: vuelvo a mirar en 4 s."
 
 
 # ---------------------------------------------------------------- while adding

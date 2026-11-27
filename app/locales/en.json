@@ -85,6 +85,7 @@
     "transfer.saved": "What was searched is saved ({done} of {total} songs): transfer this playlist to {service} again and it picks up from there.",
     "wait.rate": "{service} asked for a break: continuing in {time}.",
     "wait.retry": "{service} didn't answer properly: trying again in {time}.",
+    "wait.update": "{service} still shows the playlist as it was: looking again in {time}.",
     "transfer.review_title": "To review",
     "transfer.review_text": "These songs need your decision. The rest are further down.",
     "transfer.cancel": "Cancel",

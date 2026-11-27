@@ -85,6 +85,7 @@
     "transfer.saved": "Lo buscado quedó guardado ({done} de {total} temas): si transferís esta playlist a {service} otra vez, sigue desde ahí.",
     "wait.rate": "{service} pidió una pausa: sigo en {time}.",
     "wait.retry": "{service} no contestó bien: pruebo de nuevo en {time}.",
+    "wait.update": "{service} todavía muestra la playlist como antes: vuelvo a mirar en {time}.",
     "transfer.review_title": "Para revisar",
     "transfer.review_text": "Estos temas necesitan que decidas vos. Los demás están más abajo.",
     "transfer.cancel": "Cancelar",

@@ -80,7 +80,8 @@ async function call(method, ...args) {
 /** "Spotify asked for a pause: continuing in 2:40." (or "it didn't answer properly: trying again in 5 s.") */
 function waitText(e, left) {
   const time = left < 60 ? `${left} s` : mmss(left);
-  return t(e.why === "retry" ? "wait.retry" : "wait.rate", { service: e.service, time });
+  const key = { retry: "wait.retry", update: "wait.update" }[e.why] || "wait.rate";
+  return t(key, { service: e.service, time });
 }
 
 /** A countdown in `el` while a service asks to wait. */
