@@ -170,7 +170,7 @@ function dupGroupHTML(g, gi) {
   return `
     <section class="dup-group" data-g="${gi}">
       <header><span>${esc(g.name)}</span>
-        <span class="dup-group-right"><span class="dup-group-count"></span><button class="dup-toggle" data-toggle="${gi}"></button></span></header>
+        <span class="dup-group-right"><span class="dup-group-count"></span><button class="dup-toggle" data-toggle="${gi}" data-needs-idle></button></span></header>
       <ul class="dups">${g.duplicates.map(d => dupRowHTML(d, gi)).join("")}
       </ul>
     </section>`;
@@ -184,7 +184,7 @@ function dupRowHTML(d, gi) {
     : `<div class="why">${esc(t(d.longer > 0 ? "dedupe.why_longer" : "dedupe.why_shorter", { time: mmss(Math.abs(d.longer)) }))}</div>`;
   const version = d.kind !== "misma" ? `<span class="tag version">${esc(t("dedupe.tag_version"))}</span>` : "";
   return `
-        <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}">
+        <li><input type="checkbox" ${d.kind === "misma" ? "checked" : ""} aria-label="${esc(t("dedupe.remove_aria", { title: d.song.title }))}" data-g="${gi}" data-i="${d.i}" data-needs-idle>
           <div class="side remove"><span class="tag on">${esc(t("dedupe.tag_remove"))}</span><span class="tag off">${esc(t("dedupe.tag_keep_both"))}</span>${version}<div class="t">${esc(d.song.title)}</div><div class="meta">${meta(d.song)}</div>${why}</div>
           <span class="arrow" aria-hidden="true">→</span>
           <div class="side keep"><span class="tag">${esc(t("dedupe.tag_keep"))}</span><div class="t">${esc(d.kept.title)}</div><div class="meta">${meta(d.kept)}</div></div></li>`;
@@ -255,6 +255,42 @@ $("#dup-cancel").addEventListener("click", () => {
   if (!state.dupJob) return;
   api.cancel(state.dupJob); $("#dup-cancel").disabled = true; $("#dup-cancel").textContent = t("transfer.cancelling");
 });
+/* ---- removing: the bar at the bottom (always in sight) says what is happening. Unliking 190 songs takes
+   minutes, and the user saw nothing move after confirming (2026-11-27) */
+
+function onRemoveEvent(rm, e) {
+  const el = $("#dup-decide-text");
+  if (e.type === "removing") {
+    Object.assign(rm, { k: e.k, of: e.of, name: e.name, done: null, total: null, started: performance.now(), pausedMs: 0 });
+  } else if (e.type === "removing_progress") {
+    Object.assign(rm, { done: e.done, total: e.total });
+  } else if (e.type === "rechecking") {
+    rm.again = e.name;
+  } else if (e.type === "waiting") {
+    rm.pausedMs += e.seconds * 1000;
+    showWaiting(el, e);                        // the service asked for a pause: countdown
+    return;
+  } else if (e.type !== "waited") {
+    return;
+  }
+  stopWaiting(el);
+  el.innerHTML = `<b>${esc(removingText(rm))}</b>`;
+}
+
+/** "Removing from “Gym” (1 of 3 playlists): 40 of 190 · about 2 minutes left" */
+function removingText(rm, now = performance.now()) {
+  if (rm.again) return t("dedupe.rechecking", { name: rm.again });
+  const many = rm.of > 1, counted = rm.done != null;
+  const key = counted ? (many ? "dedupe.removing_many_count" : "dedupe.removing_one_count")
+    : (many ? "dedupe.removing_many" : "dedupe.removing_one");
+  let text = t(key, { name: rm.name, k: rm.k + 1, n: rm.of, done: rm.done, total: rm.total });
+  if (counted && rm.done >= ETA_AFTER && rm.done < rm.total) {
+    const seconds = Math.max(0, now - rm.started - rm.pausedMs) / 1000 / rm.done * (rm.total - rm.done);
+    text += ` · ${seconds < 60 ? t("transfer.adding_left_less") : t("transfer.adding_left", { n: Math.ceil(seconds / 60) })}`;
+  }
+  return text;
+}
+
 $("#remove").addEventListener("click", () => { if (state.scan && dupChoices().length) $("#confirm").showModal(); });
 $("#confirm-no").addEventListener("click", () => $("#confirm").close());
 $("#confirm-yes").addEventListener("click", async () => {
@@ -262,7 +298,10 @@ $("#confirm-yes").addEventListener("click", async () => {
   if (!choices.length || !state.scan) return;
   const r = await call("remove_many", choices, true);   // true: the user confirmed in the dialog
   if (!r) return;
-  const done = await follow(r.job);
+  $("#remove").disabled = true; $("#remove").textContent = t("dedupe.removing_button");
+  const rm = { again: null };
+  const done = await follow(r.job, e => onRemoveEvent(rm, e));
+  stopWaiting($("#dup-decide-text"));
   if (done.state !== "done") {
     // Something may have been removed from the first playlists: what is on screen no longer holds. It says
     // what happened and starts over (the error says which ones were changed and which to check again)

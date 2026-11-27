@@ -84,8 +84,9 @@ class FakeService(Connector):
         self._ready()
         self.calls.append(("remove", playlist_id, sorted(d.index for d in items)))
         songs = self.playlists[playlist_id][1]
-        for i in sorted({d.index for d in items}, reverse=True):
+        for k, i in enumerate(sorted({d.index for d in items}, reverse=True), 1):
             del songs[i]
+            self.removing(k, len(items))
 
     @staticmethod
     def parse_id(value: str) -> str:

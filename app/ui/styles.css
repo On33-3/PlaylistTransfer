@@ -412,7 +412,8 @@ body:has(#repetidos.active .dup-decide:not([hidden])) .toast { bottom: calc(var(
 .dup-group > header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .dup-group > header .dup-group-right { flex: none; display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--ink-soft); font-size: 14px; }
 .dup-toggle { height: var(--h-sm); border: 0; background: none; color: var(--lav-strong); font-weight: 600; font-size: 13.5px; padding: 0 6px; border-radius: 8px; cursor: pointer; }
-.dup-toggle:hover { background: var(--pending); }
+.dup-toggle:hover:enabled { background: var(--pending); }
+.dup-toggle:disabled { color: var(--ink-soft); cursor: default; }   /* while removing */
 .dup-group .dups { margin: 0; padding: 0 14px; }
 .dup-group .dups li:last-child { border-bottom: 0; }
 .dup-clean { margin: 14px 0 0; font-size: 14px; max-width: var(--dup-w); }

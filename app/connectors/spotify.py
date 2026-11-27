@@ -437,6 +437,7 @@ class SpotifyConnector(Connector):
             uris = sorted({d.song.id for d in items if d.song.id})
             for i in range(0, len(uris), LIBRARY_BATCH):
                 self._call("DELETE", "/me/library", params={"uris": ",".join(uris[i:i + LIBRARY_BATCH])})
+                self.removing(min(i + LIBRARY_BATCH, len(uris)), len(uris))
             return
         _, now = self.read(playlist_id)
         current = [s.id for s in now]
@@ -449,6 +450,7 @@ class SpotifyConnector(Connector):
         uris = sorted(gone)
         for i in range(0, len(uris), ADD_BATCH):
             self._call("DELETE", f"/playlists/{playlist_id}/items", body={"items": [{"uri": u} for u in uris[i:i + ADD_BATCH]]})
+            self.removing(min(i + ADD_BATCH, len(uris)), len(uris))
         for pos, u in readd:                     # from the front to the back: each one lands in its final place
             self._call("POST", f"/playlists/{playlist_id}/items", body={"uris": [u], "position": pos})
         _, after = self.read(playlist_id)

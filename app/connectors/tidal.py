@@ -291,9 +291,12 @@ class TidalConnector(Connector):
             return
         if playlist_id == LIKED:                  # in favorites each song is there once: removed by id
             fav = self._favorites()
-            for d in items:
+            for k, d in enumerate(items, 1):
                 fav.remove_track(d.song.id)
+                self.removing(k, len(items))
             return
         pl = self._editable(playlist_id)
-        for index in sorted({d.index for d in items}, reverse=True):   # from the back to the front
+        indexes = sorted({d.index for d in items}, reverse=True)       # from the back to the front
+        for k, index in enumerate(indexes, 1):
             pl.remove_by_index(index)
+            self.removing(k, len(indexes))

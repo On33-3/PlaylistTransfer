@@ -265,8 +265,9 @@ class YTMusicConnector(Connector):
         require_confirmation(confirmed)
         if playlist_id == LIKED:                  # in liked songs each song is there once: it gets unliked
             yt = self._ready()
-            for d in items:
+            for k, d in enumerate(items, 1):
                 self.patient(yt.rate_song, d.song.id, "INDIFFERENT")
+                self.removing(k, len(items))
                 time.sleep(self.search_pause)
             return
         payload = [{"videoId": d.song.id, "setVideoId": d.song.set_id}
@@ -276,3 +277,4 @@ class YTMusicConnector(Connector):
         yt = self._ready()
         for i in range(0, len(payload), BATCH):
             yt.remove_playlist_items(playlist_id, payload[i:i + BATCH])
+            self.removing(min(i + BATCH, len(payload)), len(payload))

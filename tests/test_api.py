@@ -206,6 +206,19 @@ def test_remove_only_the_selected_ones_and_record_it(app):
     assert (t["title"], t["status"], t["match_title"]) == ("Virtual Insanity (Official Video)", "quitado", "Virtual Insanity")
 
 
+def test_removing_says_where_it_is_and_when_it_checks_again(app):
+    """After confirming, the screen has to say what is happening: which playlist, how many are done, and
+    the check of how it ended up (the user saw nothing happening behind, 2026-11-27)."""
+    api, tidal, yt = app
+    res = scan(api)
+    job = api.remove_duplicates(res["scan"], [0, 1], True)["job"]
+    assert wait(api, job)["state"] == "done"
+    kinds = [(e["type"], e.get("name"), e.get("done"), e.get("total")) for e in api.poll(job, 0)["events"]]
+    assert kinds == [("removing", "Clásicos", None, None),
+                     ("removing_progress", None, 1, 2), ("removing_progress", None, 2, 2),
+                     ("rechecking", "Clásicos", None, None)]
+
+
 @pytest.mark.parametrize("stale_reads, waits", [(1, 1), (99, 3)])
 def test_right_after_removing_an_old_answer_is_not_shown_as_the_result(app, monkeypatch, stale_reads, waits):
     """Seen with YouTube Music (2026-11-27, real_check): the duplicates were gone, but the next read still

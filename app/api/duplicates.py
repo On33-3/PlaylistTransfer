@@ -152,6 +152,7 @@ class DuplicatesApi(ApiBase):
                      for n, d in enumerate(chosen, 1)])
                 removed += len(chosen)
                 names.append(name)
+                emit({"type": "rechecking", "k": k, "of": len(plan), "name": name})
                 after = c.read(scan["playlist_id"])                       # how it ended up
                 for seconds in SETTLE_WAITS:
                     if not _same_songs(after[1], before):

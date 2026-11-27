@@ -5,6 +5,7 @@ What changed in each version. Up to v0.3.14 the app was published privately; v0.
 ## Unreleased
 
 - **Remove duplicates: titles one letter apart are never ticked.** "Black Night" and "Black Knight" by the same artist could be taken as the same song and ticked to remove; a typo and another song look the same, so now they're shown as a possible duplicate, unticked, and you decide.
+- **Removing duplicates says what's happening.** After you confirm, the bar at the bottom shows which playlist it's removing from, how many are done and how long is left, any pause a service asks for, and when it checks the playlist again. Unliking hundreds of songs in YouTube Music takes minutes, and before nothing on screen moved.
 - **History opens lighter** with a long history: it only reads the songs it shows.
 
 ## v0.4.1 (2026-11-27)

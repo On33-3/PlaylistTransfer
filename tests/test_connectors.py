@@ -359,6 +359,21 @@ def test_yt_remove_uses_each_appearance(video_playlist):
     assert not kept_ids & {i["setVideoId"] for i in sent}       # never the one that stays
 
 
+def test_yt_removing_says_how_many_are_done():
+    """Unliking 190 songs is 190 requests: without saying how many are done, the screen looked frozen."""
+    told = []
+    c = ytc(FakeYT())
+    c.listen(told.append, None)
+    likes = [Duplicate(i, Song("X", id=f"v{i}"), Song("X", id="v0"), "exact") for i in range(3)]
+    c.remove(LIKED, likes, confirmed=True)
+    assert [(e["done"], e["total"]) for e in told if e["type"] == "removing_progress"] == [(1, 3), (2, 3), (3, 3)]
+    told.clear()
+    dups = [Duplicate(i, Song("X", id=f"v{i}", set_id=f"s{i}"), Song("X", id="v0", set_id="s0"), "exact")
+            for i in range(BATCH + 1)]
+    c.remove("PL1", dups, confirmed=True)
+    assert [(e["done"], e["total"]) for e in told if e["type"] == "removing_progress"] == [(BATCH, BATCH + 1), (BATCH + 1, BATCH + 1)]
+
+
 def test_yt_remove_refuses_without_set_video_id():
     fake = FakeYT()
     dup = Duplicate(3, Song("X", id="v"), Song("X", id="v0", set_id="s0"))

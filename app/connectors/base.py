@@ -173,6 +173,12 @@ class Connector(ABC):
         if self._listener is not None:
             self._listener({"type": "adding", "service": self.name, "done": done, "total": total})
 
+    def removing(self, done: int, total: int) -> None:
+        """How many duplicates have been removed so far, after each request: unliking 190 songs in YouTube
+        Music is 190 requests, and without this nothing on screen moved after confirming (2026-11-27)."""
+        if self._listener is not None:
+            self._listener({"type": "removing_progress", "service": self.name, "done": done, "total": total})
+
     def pause(self, seconds: float, why: str = "rate") -> None:
         """Waits as long as needed, saying why: "rate" (the service asked for a break) or "retry"
         (it answered badly and is retried). Checks Cancel every half second."""

@@ -374,6 +374,36 @@ def test_a_long_check_can_be_cancelled(browser, tmp_path):
     assert yt.calls == [] and errors == []
 
 
+def test_while_removing_the_screen_says_what_is_happening(browser, tmp_path):
+    """The user saw nothing after confirming (2026-11-27): unliking 190 songs takes minutes. The bar at the
+    bottom (always in sight) says which playlist, how many are done, any pause, and the check after."""
+    import threading
+    api, tidal, yt = all_api(tmp_path)
+    real, gate, said = yt.remove, threading.Event(), threading.Event()
+
+    def slow(pid, items, *, confirmed=False):
+        yt.removing(1, len(items))
+        said.set()
+        gate.wait(5)                                    # the removal waits until the test has looked
+        real(pid, items, confirmed=confirmed)
+    yt.remove = slow
+    page, errors = open_page(browser, api)
+    open_all(page)
+    page.click("#dup-scan")
+    page.wait_for_selector(".dup-group + .dup-group")
+    page.click("#remove")
+    page.click("#confirm-yes")
+    page.wait_for_function("document.querySelector('#dup-decide-text').textContent.includes('1 de')")
+    text = page.inner_text("#dup-decide-text")
+    assert text.startswith("Quitando de «") and "(1 de 2 playlists)" in text, text
+    assert page.is_disabled("#remove") and page.inner_text("#remove") == "Quitando…"
+    assert page.locator("#dups input:enabled").count() == 0
+    assert check(page, "repetidos") == []
+    gate.set()
+    page.wait_for_selector("text=Quitaste")
+    assert page.inner_text("#dup-decide-text").startswith("Quitando") is False and errors == []
+
+
 def test_if_removing_stops_halfway_the_screen_says_so_and_drops_the_old_list(browser, tmp_path):
     api, tidal, yt = all_api(tmp_path)
     page, errors = open_page(browser, api)
