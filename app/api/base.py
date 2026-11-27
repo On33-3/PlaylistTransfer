@@ -35,6 +35,20 @@ def _artist(s) -> str:
     return ", ".join(s.artists) if s is not None else ""
 
 
+
+def _number(value) -> int | None:
+    """A whole number sent by the page, or None if it isn't one (the page only sends numbers, but an odd
+    request must get an answer, not an exception: tests/test_edge_cases.py)."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value)
+    return None
+
 class ApiBase:
     def __init__(self, connectors: dict[str, Connector], history: History, prefs_path: Path, data_dir: Path,
                  list_browsers: Callable[[], list[Browser]] = browsers_mod.installed_browsers,
@@ -69,12 +83,13 @@ class ApiBase:
         return lang if lang in i18n.LANGUAGES else "en"
 
     @classmethod
-    def create(cls) -> "ApiBase":
+    def _create(cls) -> "ApiBase":
+        """The real one, for this PC (private: pywebview would publish a public one to the page)."""
         return cls(registry.build_connectors(), History(paths.history_file()), paths.prefs_file(), paths.data_dir())
 
 
     def _connector(self, key: str) -> Connector:
-        c = self._connectors.get(key)
+        c = self._connectors.get(key) if isinstance(key, str) else None
         if c is None:
             raise ConnectorError(tr("err.service_unavailable"))
         return c
@@ -124,8 +139,8 @@ class ApiBase:
 
 
     def poll(self, job_id: str, since: int = 0) -> dict:
-        return self._jobs.poll(job_id, int(since or 0))
+        return self._jobs.poll(str(job_id), max(0, _number(since) or 0))
 
     def cancel(self, job_id: str) -> dict:
-        self._jobs.cancel(job_id)
+        self._jobs.cancel(str(job_id))
         return {"ok": True}

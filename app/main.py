@@ -111,7 +111,7 @@ def run() -> None:
     import webview
 
     own_taskbar_icon()
-    api = Api.create()
+    api = Api._create()
     from app import i18n
     logging.getLogger(__name__).info("PlaylistTransfer starting; language: %s", i18n.get_language())
     window = webview.create_window(TITLE, url=str(ui_dir() / "index.html"), js_api=api,

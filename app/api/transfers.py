@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 
-from app.api.base import ApiBase, _artist, _remember
+from app.api.base import ApiBase, _artist, _number, _remember
 from app.connectors import registry
 from app.connectors.base import Connector, ConnectorError
 from app.core.matching import DOUBTFUL, NOT_FOUND, OK
@@ -24,6 +24,9 @@ class TransfersApi(ApiBase):
     def start_transfer(self, source: str, target: str, source_id: str, targets: list[dict], dry_run: bool = False) -> dict:
         """The "?" (may be another version) are not added on their own: the user decides at the end with
         `add_doubtful`."""
+        if not (isinstance(source, str) and isinstance(target, str) and isinstance(source_id, str)
+                and isinstance(targets, list) and all(isinstance(x, dict) for x in targets)):
+            return {"error": tr("err.bad_request")}
         if source == target:
             return {"error": tr("err.same_service")}
         if not targets:
@@ -62,15 +65,16 @@ class TransfersApi(ApiBase):
 
     def add_alternative(self, transfer: str, n: int, k: int) -> dict:
         """The user chose to add another artist's version (song `n`, alternative `k`)."""
-        result = self._transfers.get(transfer)
+        result = self._transfers.get(transfer) if isinstance(transfer, str) else None
         if result is None or result.dry_run:
             return {"error": tr("err.transfer_gone")}
-        track = next((t for t in result.tracks if t.n == int(n)), None)
-        if track is None or not (0 <= int(k) < len(track.alternatives)):
+        n, k = _number(n), _number(k)
+        track = next((t for t in result.tracks if t.n == n), None) if n is not None else None
+        if track is None or k is None or not (0 <= k < len(track.alternatives)):
             return {"error": tr("err.version_not_found")}
         if track.status != NOT_FOUND:        # one was already chosen: a song is not added twice
             return {"error": tr("err.version_not_found")}
-        alt = track.alternatives[int(k)]
+        alt = track.alternatives[k]
 
         def work(emit, cancel):
             dst = self._connector(result.target_service)
@@ -89,10 +93,12 @@ class TransfersApi(ApiBase):
     def add_doubtful(self, transfer: str, ns: list[int]) -> dict:
         """The user chose to add "?" songs anyway that hadn't been added (one or all).
         Before adding it reads each destination again: what is already there is not added twice."""
-        result = self._transfers.get(transfer)
+        result = self._transfers.get(transfer) if isinstance(transfer, str) else None
         if result is None or result.dry_run:
             return {"error": tr("err.transfer_gone")}
-        wanted = {int(n) for n in ns}
+        if not isinstance(ns, list):
+            return {"error": tr("err.bad_request")}
+        wanted = {n for n in map(_number, ns) if n is not None}
         tracks = [t for t in result.tracks if t.n in wanted and t.status == DOUBTFUL_SKIPPED and t.match]
         if not tracks:
             return {"error": tr("err.version_not_found")}

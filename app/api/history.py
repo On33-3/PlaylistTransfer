@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from app.api.base import ApiBase
+from app.api.base import ApiBase, _number
 from app.connectors import registry
 from app.i18n import t as tr
 from app.storage.export import ReportOperation, from_history, write_report
@@ -62,4 +62,5 @@ class HistoryApi(ApiBase):
         return {"ok": True}
 
     def history_detail(self, op_id: int) -> list[dict]:
-        return [t.__dict__ for t in self._history.tracks(int(op_id))]
+        op_id = _number(op_id)
+        return [] if op_id is None else [t.__dict__ for t in self._history.tracks(op_id)]

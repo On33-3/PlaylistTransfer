@@ -121,6 +121,45 @@ def test_a_playlist_named_like_html_is_shown_as_text(browser, tmp_path):
     assert errors == []
 
 
+WEIRD = [None, "", -1, 10**18, 3.5, [], {}, [None], {"a": 1}, "<b>", "__all__"]
+# They open dialogs, folders, links or browsers, or erase: covered by their own tests
+NOT_FUZZED = {"wipe_data", "open_data_dir", "open_url", "open_export", "connect", "choose_browser", "export_history"}
+
+
+def test_any_request_with_odd_values_gets_an_answer_never_an_exception(tmp_path):
+    """Hardening (2026-11-27): the window can call every public method of the API. Called with odd values
+    (wrong types, empty, huge), each one answers (an error is fine) and a task it starts never fails with
+    an unexpected error: odd requests are turned down before starting."""
+    import inspect
+    import itertools
+    api, tidal, yt = make_api(tmp_path)
+    unexpected = tr_unexpected()
+    found = []
+    for name in sorted(n for n in dir(api) if not n.startswith("_") and n not in NOT_FUZZED):
+        fn = getattr(api, name)
+        if not callable(fn):
+            continue
+        needed = [p for p in inspect.signature(fn).parameters.values() if p.default is p.empty]
+        for values in itertools.product(WEIRD, repeat=min(len(needed), 2)):
+            args = [*values, *["x"] * (len(needed) - len(values))]
+            try:
+                r = fn(*args)
+                json.dumps(r)
+            except Exception as e:
+                found.append(f"{name}{tuple(args)}: {type(e).__name__}: {e}")
+                continue
+            if isinstance(r, dict) and "job" in r:
+                done = api._jobs.wait(r["job"], 10)
+                if done["state"] == "error" and done["error"].startswith(unexpected):
+                    found.append(f"{name}{tuple(args)}: the task failed: {done['error']}")
+    assert found == []
+
+
+def tr_unexpected() -> str:
+    from app.i18n import t
+    return t("err.unexpected", detail="").split("(")[0]
+
+
 def evil(where: str) -> str:
     """HTML that, if it were ever run instead of shown, would note where it came from."""
     return f'<img src=x onerror="window.hacked=(window.hacked||[]).concat(\'{where}\')">'

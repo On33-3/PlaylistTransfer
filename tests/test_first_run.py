@@ -59,7 +59,7 @@ def test_services_start_disconnected(new_pc):
 def test_the_app_starts_with_spotify_waiting_for_setup(new_pc):
     """Without a Client ID nobody is asked: Spotify stays "not set up" and the rest works."""
     from app.api import Api
-    api = Api.create()
+    api = Api._create()
     assert {s["key"]: s["status"] for s in api.status()}["spotify"] == "setup"
     sp = next(s for s in api.services() if s["key"] == "spotify")
     assert sp["available"] and "http://127.0.0.1:8973/callback" in [st.get("copy") for sec in sp["setup"]["sections"] for st in sec["steps"]]

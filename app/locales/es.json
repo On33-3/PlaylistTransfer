@@ -404,6 +404,7 @@
     "err.need_confirmation": "Para quitar temas hace falta tu confirmación.",
     "err.scan_again": "Buscá los repetidos de nuevo.",
     "err.bad_selection": "La selección no es válida. Buscá los repetidos de nuevo.",
+    "err.bad_request": "La app recibió un pedido que no entiende. Volvé a intentarlo desde la pantalla.",
     "err.nothing_selected": "No elegiste ningún tema para quitar.",
     "err.playlist_unreadable": "{service} no dejó leer esta playlist.",
     "err.yt_mix": "Es un mix que arma YouTube: no se puede leer como una playlist común.",

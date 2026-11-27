@@ -404,6 +404,7 @@
     "err.need_confirmation": "Removing songs requires your confirmation.",
     "err.scan_again": "Search for duplicates again.",
     "err.bad_selection": "The selection isn't valid. Search for duplicates again.",
+    "err.bad_request": "The app got a request it doesn't understand. Try again from the screen.",
     "err.nothing_selected": "You didn't choose any song to remove.",
     "err.playlist_unreadable": "{service} didn't let the app read this playlist.",
     "err.yt_mix": "It's a mix that YouTube makes: it can't be read like a regular playlist.",
