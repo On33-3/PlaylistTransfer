@@ -1,6 +1,7 @@
 """Remove duplicates: find them (in one playlist or in all) and, with confirmation, remove them."""
 from __future__ import annotations
 
+import logging
 import time
 
 from app.api.base import ApiBase, _artist, _remember
@@ -9,8 +10,10 @@ from app.core.matching import OTHER_LENGTH, find_duplicates
 from app.core.models import Cancelled, Duplicate
 from app.core.transfer import song_dict
 from app.i18n import t as tr
+from app.jobs import unexpected_message
 from app.storage.history import Operation, TrackRecord
 
+log = logging.getLogger(__name__)
 ALL = "__all__"      # the UI asks to check every playlist of the service
 
 
@@ -41,13 +44,20 @@ class DuplicatesApi(ApiBase):
                 emit({"type": "scan_start", "k": k, "name": name})
                 try:
                     group = self._scan_one(c, key, pid, batch)
-                except (NotConnectedError, NoNetwork):
+                except (NotConnectedError, NoNetwork, Cancelled):
                     raise                                   # no session or no internet: no point going on
-                except ConnectorError as e:                 # a playlist that can't be read doesn't stop the others
+                except Exception as e:                      # a playlist that can't be read doesn't stop the others
                     if playlist_id != ALL:
                         raise
-                    failed.append({"name": name, "error": str(e)})
-                    emit({"type": "scan_result", "k": k, "error": str(e)})
+                    # Any error, not only the known ones: an unexpected one in ytmusicapi (a mix saved to the
+                    # library) stopped the whole check and lost what had been found
+                    if isinstance(e, ConnectorError):
+                        why = str(e)
+                    else:
+                        log.warning("Couldn't check %s: %s", name, unexpected_message(e))
+                        why = tr("err.playlist_unreadable", service=c.name)
+                    failed.append({"name": name, "error": why})
+                    emit({"type": "scan_result", "k": k, "error": why})
                     continue
                 checked_songs += group["total"]
                 emit({"type": "scan_result", "k": k, "found": len(group["duplicates"]), "name": group["name"]})

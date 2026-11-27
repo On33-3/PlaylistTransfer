@@ -11,7 +11,7 @@ from app.auth.browsers import Browser
 from app.jobs import Jobs
 from app.storage import prefs
 from app.storage.history import History
-from app.connectors.base import ConnectorError
+from app.connectors.base import ConnectorError, NotConnectedError
 from tests.fakes import FakeService, S, build_api
 
 VIVALDI = Browser("Vivaldi", "vivaldi", Path(r"C:\vivaldi.exe"), default=True)
@@ -542,6 +542,41 @@ def test_scan_all_playlists_one_by_one(app):
     assert kinds[0] == "scan_list" and kinds.count("scan_start") == 4 and kinds.count("scan_result") == 4
 
 
+def test_an_unexpected_error_in_one_playlist_does_not_lose_the_whole_check(app):
+    """A tester checked every YouTube Music playlist: ytmusicapi failed with a KeyError on a mix saved to the
+    library (it can't be read like a playlist), and the whole check stopped with that raw text, losing the
+    190 duplicates already found in liked songs. Now that playlist is listed as not read and the rest is kept."""
+    api, tidal, yt = app
+    more_playlists(yt)
+    yt.add_playlist("mix", "Mi Supermix", [S("Uno", "X", id="m1"), S("Dos", "Y", id="m2")])
+    real = yt.read
+
+    def read(pid):
+        if pid == "mix":
+            raise KeyError("Unable to find 'contents' using path ['contents', 'twoColumnBrowseResultsRenderer'] "
+                           "on {'responseContext': {'serviceTrackingParams': [...]}} " + "x" * 2000)
+        return real(pid)
+    yt.read = read
+    r = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])
+    assert r["state"] == "done", r.get("error")
+    res = r["result"]
+    assert [g["name"] for g in res["groups"]] == ["Clásicos", "Otra lista"]          # what was found is kept
+    assert [f["name"] for f in res["failed"]] == ["Rota", "Mi Supermix"]
+    assert all(len(f["error"]) < 200 and "responseContext" not in f["error"] for f in res["failed"])
+
+
+def test_with_the_session_gone_the_check_of_every_playlist_still_stops(app):
+    """Not being connected isn't one playlist's problem: going on would fail on every one."""
+    api, tidal, yt = app
+    more_playlists(yt)
+
+    def read(pid):
+        raise NotConnectedError("YouTube Music no está conectado.")
+    yt.read = read
+    r = wait(api, api.scan_duplicates("ytmusic", "__all__")["job"])
+    assert r["state"] == "error" and "no está conectado" in r["error"]
+
+
 def test_remove_from_several_playlists_at_once(app):
     api, tidal, yt = app
     more_playlists(yt)
@@ -576,3 +611,19 @@ def test_a_service_slow_to_answer_its_status_is_written_in_the_log(app, monkeypa
         api.status()
     assert any("YouTube Music took" in r.getMessage() for r in caplog.records)
 
+
+
+def test_an_unexpected_error_shows_a_short_detail_and_the_log_keeps_it_whole(caplog):
+    """The tester's screen was filled with a whole YouTube answer: the screen gets the start, the log all of it."""
+    import logging
+    from app.jobs import DETAIL_MAX
+    raw = "Unable to find 'contents' " + "x" * 3000 + " END"
+
+    def work(emit, cancel):
+        raise KeyError(raw)
+    jobs = Jobs()
+    with caplog.at_level(logging.ERROR, logger="app.jobs"):
+        done = jobs.wait(jobs.start("scan", work))
+    assert done["state"] == "error" and "KeyError" in done["error"]
+    assert len(done["error"]) < DETAIL_MAX + 80 and "END" not in done["error"]
+    assert "END" in caplog.text                                   # the log keeps it whole, for diagnosis

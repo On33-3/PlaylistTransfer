@@ -692,3 +692,25 @@ def test_yt_adding_to_a_playlist_says_it_per_batch():
     c.listen(told.append)
     c.add("PL1", [Song(f"T{i}", ["A"], id=f"v{i}") for i in range(BATCH + 5)])
     assert [(e["done"], e["total"]) for e in told if e["type"] == "adding"] == [(BATCH, BATCH + 5), (BATCH + 5, BATCH + 5)]
+
+
+class MixYT(FakeYT):
+    """A mix that YouTube makes (RD…), saved to the library: ytmusicapi can't read it as a playlist and fails
+    with a KeyError whose text is a whole YouTube answer (seen with a tester on 2026-11-27)."""
+    def get_playlist(self, pid, limit=None):
+        if pid.startswith("RD") or pid == "PLbroken":
+            raise KeyError("Unable to find 'contents' using path ['contents', 'twoColumnBrowseResultsRenderer'] "
+                           "on {'responseContext': {...}}")
+        return super().get_playlist(pid, limit)
+
+
+def test_yt_a_mix_says_it_is_a_mix_instead_of_the_raw_answer():
+    with pytest.raises(ConnectorError) as e:
+        ytc(MixYT()).read("RDEMI0V0e34vA6znf4KLMCIbbQ")
+    assert "mix" in str(e.value) and "responseContext" not in str(e.value)
+
+
+def test_yt_a_playlist_that_cant_be_parsed_gets_a_readable_message():
+    with pytest.raises(ConnectorError) as e:
+        ytc(MixYT()).read("PLbroken")
+    assert "YouTube Music" in str(e.value) and "responseContext" not in str(e.value)

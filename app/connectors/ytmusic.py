@@ -195,7 +195,15 @@ class YTMusicConnector(Connector):
         return count if isinstance(count, int) else None
 
     def read(self, playlist_id: str) -> tuple[str, list[Song]]:
-        pl = self._steady(self._ready().get_playlist, LIKED_LIST if playlist_id == LIKED else playlist_id, None)
+        try:
+            pl = self._steady(self._ready().get_playlist, LIKED_LIST if playlist_id == LIKED else playlist_id, None)
+        except (KeyError, IndexError, TypeError) as e:
+            # ytmusicapi couldn't find the songs in YouTube's answer. It happens with the mixes YouTube makes
+            # (ids RD…) saved to the library: they aren't read like a playlist (seen on 2026-11-27). The raw
+            # error is a whole YouTube answer: the log keeps the start, the user gets a sentence
+            log.warning("YouTube Music: couldn't read %s: %s: %.200s", playlist_id, type(e).__name__, e)
+            raise ConnectorError(tr("err.yt_mix") if playlist_id.startswith("RD")
+                                 else tr("err.playlist_unreadable", service=self.name)) from e
         songs = [self.to_song(t) for t in pl.get("tracks", []) if t.get("title")]
         if playlist_id == LIKED:
             return tr("playlist.liked"), songs

@@ -26,6 +26,7 @@ KEEP_FINISHED = 20      # finished tasks that are kept (each one keeps its event
 
 # Errors meant to be shown as they are; any other one is shown with a generic message
 USER_ERRORS = (ConnectorError, LoginError, ValueError)
+DETAIL_MAX = 160       # characters of an unexpected error shown on screen
 
 
 @dataclass
@@ -46,7 +47,9 @@ def unexpected_message(e: BaseException) -> str:
         return tr("err.no_network_generic")
     if isinstance(e, json.JSONDecodeError):          # the service answered something it shouldn't have
         return tr("err.bad_answer")
-    return tr("err.unexpected", detail=f"{type(e).__name__}: {e}")
+    # The detail can be a whole answer from a service (it filled the screen): the log keeps it complete
+    detail = f"{type(e).__name__}: {e}"
+    return tr("err.unexpected", detail=detail if len(detail) <= DETAIL_MAX else detail[:DETAIL_MAX].rstrip() + "…")
 
 
 class BusyError(Exception):

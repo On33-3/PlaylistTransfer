@@ -404,6 +404,8 @@
     "err.scan_again": "Buscá los repetidos de nuevo.",
     "err.bad_selection": "La selección no es válida. Buscá los repetidos de nuevo.",
     "err.nothing_selected": "No elegiste ningún tema para quitar.",
+    "err.playlist_unreadable": "{service} no dejó leer esta playlist.",
+    "err.yt_mix": "Es un mix que arma YouTube: no se puede leer como una playlist común.",
     "err.playlist_changed": "La playlist cambió desde que la revisaste. Buscá los repetidos de nuevo; no se quitó nada.",
     "err.history_empty": "Todavía no hay nada en el historial para exportar.",
     "err.no_save_dialog": "No pude abrir el diálogo para guardar.",
