@@ -85,6 +85,7 @@ La app está en **castellano e inglés** (Ajustes › Idioma). La primera vez us
 - Iniciás sesión en tu propio navegador. Tus sesiones, preferencias e historial se guardan **solo en tu compu**, en `%LOCALAPPDATA%\PlaylistTransfer`. Para borrar todo, usá **Ajustes › Borrar todo**: la app queda como la primera vez, y tus playlists no se tocan.
 - La app no tiene servidores ni estadísticas: solo habla con Tidal, YouTube Music y Spotify.
 - El programa no envía información a otros sistemas salvo que lo pida quien lo usa: solo se conecta con los servicios de música en los que iniciás sesión.
+- Qué es cada archivo que guarda, cómo funciona el inicio de sesión y cómo reportar un problema de seguridad en privado: [SECURITY.md](SECURITY.md) (en inglés).
 
 No está afiliado a Tidal, Google ni Spotify.
 
@@ -96,9 +97,10 @@ Saber qué no anda todavía importa tanto como saber qué anda:
 - **Tidal y YouTube Music funcionan con librerías no oficiales** ([tidalapi](https://github.com/tamland/python-tidal) y [ytmusicapi](https://github.com/sigma67/ytmusicapi)). Si un servicio cambia algo, la app puede dejar de andar hasta que se actualicen. Antes de cada versión se prueba con cuentas reales en los tres servicios ([TESTING.md](TESTING.md), en inglés). Spotify usa su API oficial, con la app que creás vos.
 - **Los mixes automáticos de YouTube** guardados en tu biblioteca no se pueden leer como una playlist: Quitar repetidos los muestra como no leídos y revisa el resto.
 - **Spotify** pide Premium y tu propia app de desarrollador (hasta 5 personas por app). Su límite de pedidos puede pausar una transferencia grande, a veces por horas: la app te dice hasta qué hora y sigue desde donde quedó.
+- **Tus sesiones se guardan sin cifrar**, protegidas como el resto de tu carpeta de usuario de Windows: un programa que corre como vos podría leerlas ([SECURITY.md](SECURITY.md)).
 - **Solo Windows** (10 y 11).
 
-¿Encontraste algo más? [Abrí un issue](../../issues).
+¿Encontraste algo más? [Abrí un issue](../../issues/new/choose) (en castellano también).
 
 ## Para desarrollar
 

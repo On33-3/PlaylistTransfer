@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A security problem
+    url: https://github.com/On33-3/PlaylistTransfer/security/advisories/new
+    about: Report it privately, not in a public issue (see SECURITY.md).
+  - name: How it's tested
+    url: https://github.com/On33-3/PlaylistTransfer/blob/main/TESTING.md
+    about: The testing strategy, the risks it starts from, and the bugs found so far.

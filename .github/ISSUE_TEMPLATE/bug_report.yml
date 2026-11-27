@@ -1,0 +1,51 @@
+name: Something doesn't work
+description: A bug, an error message, or the app not opening. En castellano también está bien.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Never paste session files** (`browser.json`, `*_session.json`) or anything with passwords: they give access to your accounts.
+        If Windows blocks the app, the README's [Windows warnings](https://github.com/On33-3/PlaylistTransfer#windows-warnings) may already answer it.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings › About, or the name of the zip you downloaded.
+      placeholder: "0.4.1"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+  - type: checkboxes
+    id: services
+    attributes:
+      label: Services involved
+      options:
+        - label: Tidal
+        - label: YouTube Music
+        - label: Spotify
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw. A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Remove duplicates › YouTube Music › All playlists
+        2. ...
+  - type: textarea
+    id: log
+    attributes:
+      label: The log (optional)
+      description: |
+        `%LOCALAPPDATA%\PlaylistTransfer\app.log` says what the app did. It can contain names of your playlists and songs: paste only the last lines, and only if you're fine sharing them.
+      render: text

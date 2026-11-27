@@ -1,0 +1,11 @@
+name: An idea
+description: Something the app could do, or do better. En castellano también está bien.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like it to do?
+      description: And what are you trying to get done? (Knowing the why helps keep the app simple.)
+    validations:
+      required: true

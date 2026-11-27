@@ -85,6 +85,7 @@ The app is available in **English and Spanish** (Settings › Language). The fir
 - You sign in with your own browser. Your sessions, preferences and history are stored **only on your computer**, in `%LOCALAPPDATA%\PlaylistTransfer`. To delete everything, use **Settings › Erase everything**: the app goes back to how it was the first time, and your playlists are not touched.
 - The app has no servers and no analytics: it only talks to Tidal, YouTube Music and Spotify.
 - This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: it only connects to the music services you sign in to.
+- What each saved file is, how signing in works, and how to report a security problem privately: [SECURITY.md](SECURITY.md).
 
 Not affiliated with Tidal, Google or Spotify.
 
@@ -96,9 +97,10 @@ Knowing what doesn't work yet matters as much as knowing what does:
 - **Tidal and YouTube Music work through unofficial libraries** ([tidalapi](https://github.com/tamland/python-tidal) and [ytmusicapi](https://github.com/sigma67/ytmusicapi)). If a service changes something, the app may stop working until they're updated. Before each release it's checked with real accounts on the three services ([TESTING.md](TESTING.md)). Spotify uses its official API, with the app you create.
 - **YouTube's automatic mixes** saved to your library can't be read like a playlist: Remove duplicates lists them as not read and checks the rest.
 - **Spotify** needs Premium and your own developer app (up to 5 people per app). Its request limit can pause a large transfer, sometimes for hours: the app tells you until when, and picks up where it stopped.
+- **Your sessions are saved unencrypted**, protected like the rest of your Windows user folder: a program running as you could read them ([SECURITY.md](SECURITY.md)).
 - **Windows only** (10 and 11).
 
-Found something else? [Open an issue](../../issues).
+Found something else? [Open an issue](../../issues/new/choose).
 
 ## Development
 
