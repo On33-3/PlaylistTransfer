@@ -501,6 +501,11 @@ def test_what_a_real_transfer_added_by_mistake(src, cand, expected):
     # THE FIRST TAKE is a single-take live recording, not the studio one
     (S("青のすみか - Where Our Blue Is", "Tatsuya Kitani", dur=197),
      S("青のすみか - From THE FIRST TAKE - Where Our Blue Is - From THE FIRST TAKE", "Tatsuya Kitani", dur=198)),
+    # Titles one letter apart (found by tools/load_check.py, 2026-11-27): a typo or another song, the
+    # letters can't tell. Found as a possible duplicate, but never ticked
+    (S("Black Night", "Deep Purple", dur=208), S("Black Knight", "Deep Purple", dur=208)),
+    (S("Sweet River Reprise", "Fleetwood Mac", dur=200), S("Secret River Reprise", "Fleetwood Mac", dur=200)),
+    (S("Bohemian Rhapsody", "Queen", dur=354), S("Bohemian Rapsody", "Queen", dur=354)),
 ])
 def test_a_different_recording_is_never_ticked_to_remove(first, again):
     [d] = find_duplicates([first, again])

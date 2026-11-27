@@ -549,6 +549,14 @@ def _other_recording(a: Song, b: Song) -> bool:
     return bool(a.duration and b.duration and abs(a.duration - b.duration) > OTHER_LENGTH)
 
 
+def _only_alike_titles(a: Song, b: Song) -> bool:
+    """The titles are only alike, not the same ("Black Night" / "Black Knight"): a typo or another song,
+    the letters can't tell. Found by tools/load_check.py on 2026-11-27."""
+    if (a.id and a.id == b.id) or (a.isrc and b.isrc and a.isrc.upper() == b.isrc.upper()):
+        return False
+    return not title_keys(a) & title_keys(b)
+
+
 def find_duplicates(songs: list[Song]) -> list[Duplicate]:
     """Repeated copies in a playlist. The first one always stays. Each copy says whether it is
     the same recording (SAME) or another version (OTHER_VERSION: live, remix...), so the UI
@@ -558,7 +566,8 @@ def find_duplicates(songs: list[Song]) -> list[Duplicate]:
     for i, s in enumerate(songs):
         twin = kept.first_match(s)
         if twin:
-            kind = SAME if version_tags(s, twin) == version_tags(twin, s) and not _other_recording(s, twin) else OTHER_VERSION
+            kind = SAME if (version_tags(s, twin) == version_tags(twin, s) and not _other_recording(s, twin)
+                            and not _only_alike_titles(s, twin)) else OTHER_VERSION
             dups.append(Duplicate(i, s, twin, kind))
         else:
             kept.add(s)
