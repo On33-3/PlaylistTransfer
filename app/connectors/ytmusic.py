@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -61,6 +62,20 @@ def parse_count(count) -> int | None:
         return int(str(count).replace(".", "").replace(",", "").split()[0]) if count else None
     except (ValueError, IndexError):
         return None
+
+
+COUNT_IN_DESCRIPTION = re.compile(r"(?:^|•)\s*(\d[\d.,]*) [^\W\d_]{2,}\s*$")
+
+
+def library_count(p: dict) -> int | None:
+    """ytmusicapi only fills "count" when the subtitle has a fixed shape; lists YouTube makes (like Replay,
+    "Made for … • 100 songs") come without it although the number is in the description. A rounded number
+    ("1,2 K canciones") or none at all stays unknown rather than wrong."""
+    count = parse_count(p.get("count"))
+    if count is None:
+        m = COUNT_IN_DESCRIPTION.search(p.get("description") or "")
+        count = parse_count(m.group(1)) if m else None
+    return count
 
 
 class YTMusicConnector(Connector):
@@ -169,9 +184,9 @@ class YTMusicConnector(Connector):
         liked, out = None, []
         for p in self._steady(self._ready().get_library_playlists, None):
             if p.get("playlistId") == LIKED_LIST:
-                liked = parse_count(p.get("count"))
+                liked = library_count(p)
             elif p.get("playlistId") not in SKIP_PLAYLISTS:
-                out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), parse_count(p.get("count"))))
+                out.append(PlaylistInfo(p["playlistId"], p.get("title") or tr("playlist.untitled"), library_count(p)))
         return [liked_info(liked if liked is not None else self._liked_count())] + out
 
     def _steady(self, call, *args):

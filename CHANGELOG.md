@@ -6,6 +6,7 @@ What changed in each version. Up to v0.3.14 the app was published privately; v0.
 
 - **Opens after unzipping with Windows Explorer.** Downloaded with a browser and unzipped with Explorer, the app could fail to open at all; now it opens, and every build checks it.
 - **Remove duplicates in every playlist no longer stops halfway.** A YouTube mix saved to your library (YouTube's automatic mixes can't be read like a playlist) stopped the whole check and lost what had been found; now it's listed as not read and the rest is kept. Unexpected errors show a short message.
+- **YouTube Music: song counts for the lists YouTube makes.** A list like Replay showed "unknown count" although YouTube says how many songs it has; now the count is shown.
 - **Transparency:** the README explains each Windows warning (SmartScreen and Smart App Control), why the app isn't signed yet and how to check the download, plus a list of known limitations.
 
 ## v0.4.0 (2026-11-25)

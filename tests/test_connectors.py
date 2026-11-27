@@ -314,6 +314,22 @@ def test_yt_list_skips_special_playlists_and_parses_counts():
                                                      ("PL2", "(sin nombre)", None)]
 
 
+@pytest.mark.parametrize("description, expected", [
+    ("Made for Alex • 100 songs", 100),          # like the real Replay list (LRYR…): readable, but no "count"
+    ("Hecho para Alex • 1.234 canciones", 1234),
+    ("Mix • YouTube Music", None),               # a mix says no number: still unknown
+    ("Auto playlist", None),
+    ("Alex • 1,2 K canciones", None),            # rounded: better unknown than a wrong number
+    ("Alex • 2025", None),                       # a number that isn't a count
+    (None, None),
+])
+def test_yt_a_playlist_without_count_takes_it_from_its_description(description, expected):
+    class Library(FakeYT):
+        def get_library_playlists(self, limit=None):
+            return [{"playlistId": "LRYRx", "title": "Replay", "description": description}]
+    assert ytc(Library()).list_playlists()[1].count == expected
+
+
 def test_yt_read_keeps_set_video_id():
     tracks = [{"title": "Take On Me", "artists": [{"name": "a-ha"}], "album": {"name": "Hunting High and Low"},
                "duration_seconds": 226, "videoId": "v1", "setVideoId": "s1"},
