@@ -2,7 +2,11 @@
 
 **English** · [Castellano](README.es.md)
 
+[![Tests, build and release](https://github.com/On33-3/PlaylistTransfer/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/On33-3/PlaylistTransfer/actions/workflows/build.yml)
+
 A Windows desktop app that **moves your playlists between Tidal, YouTube Music and Spotify** and **removes duplicate songs**. Free, open source and with no accounts of its own: everything happens on your computer.
+
+Also a QA portfolio project: see [how it's tested](#how-its-tested).
 
 ![Home](docs/img/en/inicio.png)
 
@@ -44,6 +48,15 @@ PlaylistTransfer isn't digitally signed yet, so Windows may stop it the first ti
 **History.** Every transfer and every cleanup is recorded, song by song. If you want, you can download it as a lightweight text file, easy to read or to hand to an AI.
 
 ![History](docs/img/en/historial.png)
+
+## How it's tested
+
+The testing starts from the risks: removing a song you wanted, adding the wrong one, leaking personal data, leaving a playlist half-changed, or an `.exe` that doesn't open on someone else's PC.
+
+- **500+ automated tests on every push**, in GitHub Actions: the matching rules, the engine, the connectors (Spotify against a fake Web API) and every screen end to end with Playwright.
+- **A check with real accounts before each release** (`tools/real_check.py`): on each service it removes duplicates for real in a throwaway playlist, and a guard blocks any write outside it.
+- **Design rules measured, not eyeballed:** sizes, centered icons and no cut-off text on every screen, also at the smallest window size.
+- **Every bug found gets a test that now guards it.** [TESTING.md](TESTING.md) lists them, with who or what found each one.
 
 ## Spotify
 
